@@ -121,7 +121,7 @@
       "data/sql/timeseries_cohort.js",
       "data/sql/domains.js",
       "data/sql/practice_extra.js",
-      "data/sql/interview_qa.js?v=20261118linkedinqa",
+      "data/sql/interview_qa.js?v=20261118sqldeep",
       "data/sql/cheatsheet.js?v=20261027useall"
     ],
     sqllearn: [

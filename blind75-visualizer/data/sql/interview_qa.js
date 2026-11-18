@@ -260,8 +260,14 @@ window.SQL_QA = {
         "<li><b>LEFT (OUTER) JOIN</b> — all left rows; unmatched right columns come back NULL.</li>" +
         "<li><b>RIGHT (OUTER) JOIN</b> — all right rows; unmatched left columns NULL. (A LEFT join with the tables swapped.)</li>" +
         "<li><b>FULL (OUTER) JOIN</b> — all rows from both sides; NULLs fill the side with no match.</li>" +
+        "</ul>" +
+        "<p><b>If they go deeper into \"how are joins executed?\"</b> name the three physical algorithms the optimizer chooses between (these are the <i>logical</i> join types; those are the <i>physical</i> strategies):</p>" +
+        "<ul>" +
+        "<li><b>Nested loop join</b> — for each row of the outer table, probe the inner (ideally via an index). Best when one side is small or the inner is well-indexed.</li>" +
+        "<li><b>Hash join</b> — build a hash table on the smaller side, probe it with the larger. Best for large, unsorted, equi-joins; no index needed.</li>" +
+        "<li><b>Merge (sort-merge) join</b> — sort both inputs on the key, then merge in one pass. Best when inputs are already sorted (e.g. on an index) or very large.</li>" +
         "</ul>",
-      tip: "Draw the mental Venn: INNER = intersection, LEFT = left circle, FULL = union. And remember the gotcha next: putting a right-table filter in WHERE silently turns a LEFT join into an INNER one."
+      tip: "Venn for the logical types: INNER = intersection, LEFT = left circle, FULL = union. Deep follow-up — the <b>physical</b> join algorithms: <b>nested loop</b> (small/indexed), <b>hash</b> (big equi-join), <b>merge</b> (pre-sorted). And the WHERE-vs-ON gotcha below."
     },
     {
       id: "left-join-where-trap",
@@ -437,8 +443,9 @@ window.SQL_QA = {
         "<ul>" +
         "<li><b>Non-correlated</b> — the inner query is independent; it runs once and its result feeds the outer query. <code>WHERE salary &gt; (SELECT AVG(salary) FROM employee)</code>.</li>" +
         "<li><b>Correlated</b> — the inner query references a column from the outer query, so it's (conceptually) re-evaluated per outer row. <code>WHERE salary &gt; (SELECT AVG(salary) FROM employee e2 WHERE e2.dept_id = e.dept_id)</code>.</li>" +
-        "</ul>",
-      tip: "Correlated = \"depends on the outer row, runs per row\"; non-correlated = \"stands alone, runs once.\" Note modern optimizers often rewrite correlated subqueries into joins, so \"per row\" is logical, not always physical."
+        "</ul>" +
+        "<p><b>The performance/optimizer angle to add:</b> a correlated subquery is the classic \"runs once per outer row\" trap, but modern optimizers often <b>decorrelate</b> it — rewriting an <code>EXISTS</code>/<code>IN</code> into a <b>semi-join</b>, a <code>NOT EXISTS</code> into an <b>anti-join</b>, or a scalar aggregate into a grouped join — so it executes as a set operation, not a per-row loop. Check the plan: if you still see the subquery running per row, rewrite it yourself as a join or a windowed aggregate.</p>",
+      tip: "Correlated = \"depends on the outer row, runs per row\"; non-correlated = \"stands alone, runs once.\" Deep bonus: optimizers <b>decorrelate</b> into semi-/anti-joins, so \"per row\" is logical, not always physical — confirm in the execution plan."
     },
     {
       id: "in-vs-exists",
@@ -616,8 +623,15 @@ window.SQL_QA = {
       tags: ["index", "b-tree", "performance"],
       a:
         "<p><b>An index is an auxiliary data structure (usually a B-tree) that lets the engine find rows without scanning the whole table</b> — like a book's index. It speeds up <code>WHERE</code>, <code>JOIN</code> and <code>ORDER BY</code> lookups on the indexed columns.</p>" +
-        "<p><b>The trade-off:</b> indexes cost storage and <b>slow down writes</b> (every INSERT/UPDATE/DELETE must maintain them). Index the columns you filter/join on; don't index everything.</p>",
-      tip: "Always state the write cost — candidates who only mention \"indexes make things faster\" miss half the picture."
+        "<p><b>The trade-off:</b> indexes cost storage and <b>slow down writes</b> (every INSERT/UPDATE/DELETE must maintain them). Index the columns you filter/join on; don't index everything.</p>" +
+        "<p><b>Index types to name</b> if they dig deeper:</p>" +
+        "<ul>" +
+        "<li><b>B-tree / B+tree</b> — the default; balanced, keeps data <b>sorted</b>, so it serves equality <i>and</i> range (<code>&gt;</code>, <code>BETWEEN</code>, <code>ORDER BY</code>, prefix <code>LIKE 'foo%'</code>). B+tree links leaf nodes for fast range scans.</li>" +
+        "<li><b>Hash</b> — O(1) <b>equality only</b>; useless for ranges or ordering — which is why B-tree is the default.</li>" +
+        "<li><b>Bitmap</b> — great for <b>low-cardinality</b> columns in read-heavy warehouses (gender, status); cheap AND/OR of bitmaps, but poor for high-concurrency writes.</li>" +
+        "<li><b>Specialized</b> — GIN/GiST (full-text, JSON, geospatial), partial/filtered, and function-based/expression indexes.</li>" +
+        "</ul>",
+      tip: "Always state the write cost — \"indexes make things faster\" alone misses half the picture. Deep follow-up: <b>B-tree is default because it does equality <i>and</i> ranges; hash is equality-only</b>."
     },
     {
       id: "clustered-vs-nonclustered",
@@ -630,8 +644,9 @@ window.SQL_QA = {
         "<li><b>Clustered</b> — defines the <b>physical order</b> of the table's rows; the table <i>is</i> the index's leaf level. One per table (SQL Server auto-creates it on the PK). Range scans on the clustering key are very fast.</li>" +
         "<li><b>Non-clustered</b> — a separate structure holding the key + a pointer (row locator / clustering key) back to the row. Many per table.</li>" +
         "</ul>" +
-        "<p>Terminology varies: MySQL/InnoDB calls the primary-key index the clustered index; PostgreSQL heap tables have no permanent clustered index (CLUSTER is a one-time reorder).</p>",
-      tip: "Clustered = the table sorted by that key; non-clustered = a lookup list pointing into it. There can be only one physical order, hence one clustered index."
+        "<p>Terminology varies: MySQL/InnoDB calls the primary-key index the clustered index; PostgreSQL heap tables have no permanent clustered index (CLUSTER is a one-time reorder).</p>" +
+        "<p><b>The mechanism interviewers chase next — the key lookup:</b> when a non-clustered index doesn't contain all the columns a query needs, the engine follows the pointer back to the clustered index / heap for each matching row (a <b>key/bookmark lookup</b>, or \"RID lookup\" on a heap). Many lookups are expensive, which is exactly why the optimizer may skip the index for a scan — and why a <b>covering index</b> (all needed columns in the index) eliminates them.</p>",
+      tip: "Clustered = the table sorted by that key; non-clustered = a lookup list pointing into it — one physical order, so one clustered index. Deep follow-up: a non-covering non-clustered index needs a <b>key lookup</b> per row; cover the query to avoid it."
     },
     {
       id: "composite-index-order",
@@ -782,7 +797,8 @@ window.SQL_QA = {
       difficulty: "Core",
       tags: ["transaction", "commit", "rollback"],
       a:
-        "<p><b>A transaction is a unit of work that executes all-or-nothing.</b> You group statements between a begin and a <code>COMMIT</code> (make permanent) or <code>ROLLBACK</code> (undo). The textbook example is a bank transfer: debit one account and credit another must both happen or neither.</p>",
+        "<p><b>A transaction is a unit of work that executes all-or-nothing.</b> You group statements between a begin and a <code>COMMIT</code> (make permanent) or <code>ROLLBACK</code> (undo). The textbook example is a bank transfer: debit one account and credit another must both happen or neither.</p>" +
+        "<p><b>The autocommit nuance interviewers probe:</b> by default most engines run in <b>autocommit</b> — every single statement is its own committed transaction. A multi-statement transaction needs an explicit <code>BEGIN</code>/<code>START TRANSACTION</code> (or turning autocommit off). This is why a stray <code>UPDATE</code> with no <code>BEGIN</code> is instantly permanent.</p>",
       code:
         "BEGIN;\n" +
         "UPDATE account SET bal = bal - 100 WHERE id = 1;\n" +
@@ -802,8 +818,15 @@ window.SQL_QA = {
         "<li><b>Consistency</b> — a transaction moves the DB from one valid state to another, respecting all constraints.</li>" +
         "<li><b>Isolation</b> — concurrent transactions don't see each other's partial work (degree set by the isolation level).</li>" +
         "<li><b>Durability</b> — once committed, changes survive crashes (via the write-ahead/transaction log).</li>" +
+        "</ul>" +
+        "<p><b>How they're actually enforced</b> (the deep follow-up):</p>" +
+        "<ul>" +
+        "<li><b>Atomicity</b> — an <b>undo log</b> (rollback segment): on failure or <code>ROLLBACK</code> the engine replays it to reverse partial changes.</li>" +
+        "<li><b>Durability</b> — a <b>write-ahead log (WAL/redo)</b> flushed to disk <i>before</i> <code>COMMIT</code> returns, so a crash can be recovered by replaying it. This is also why commit is the expensive, fsync-bound step.</li>" +
+        "<li><b>Isolation</b> — <b>locking</b> and/or <b>MVCC</b> (multiversion snapshots), tuned by the isolation level.</li>" +
+        "<li><b>Consistency</b> — enforced by constraints (PK/FK/CHECK), triggers, and the above three together.</li>" +
         "</ul>",
-      tip: "Give one crisp phrase each. Then be ready for the deep follow-up: Isolation is the property that varies by level."
+      tip: "Give one crisp phrase each. Deep follow-up — name the mechanisms: <b>undo log → atomicity, WAL/redo → durability, locks/MVCC → isolation</b>. Isolation is the property that varies by level."
     },
     {
       id: "isolation-levels",
@@ -818,8 +841,15 @@ window.SQL_QA = {
         "<li><b>READ COMMITTED</b> — no dirty reads; still allows <b>non-repeatable reads</b>. (Default in PostgreSQL/Oracle/SQL Server.)</li>" +
         "<li><b>REPEATABLE READ</b> — rows you read won't change; may still allow <b>phantom</b> rows. (Default in MySQL/InnoDB.)</li>" +
         "<li><b>SERIALIZABLE</b> — transactions behave as if run one at a time; prevents phantoms too.</li>" +
-        "</ul>",
-      tip: "Memorise the grid: dirty read → non-repeatable read → phantom are removed as you climb the levels. Stronger isolation = more locking/aborts = less concurrency."
+        "</ul>" +
+        "<p><b>Define the three anomalies crisply</b> if they probe:</p>" +
+        "<ul>" +
+        "<li><b>Dirty read</b> — reading another transaction's <i>uncommitted</i> change (which may be rolled back).</li>" +
+        "<li><b>Non-repeatable read</b> — re-reading the <i>same row</i> gives a different value because another txn committed an update in between.</li>" +
+        "<li><b>Phantom read</b> — re-running the <i>same range query</i> returns new/missing <i>rows</i> because another txn inserted/deleted.</li>" +
+        "</ul>" +
+        "<p><b>The MVCC nuance that scores:</b> PostgreSQL/Oracle implement these with <b>snapshot isolation</b> (each txn reads a consistent snapshot, readers never block writers) rather than pure locking. Snapshot isolation stops the classic anomalies but still allows <b>write skew</b> — which only true <code>SERIALIZABLE</code> (PostgreSQL's SSI) prevents. Oracle's \"serializable\" is actually snapshot isolation.</p>",
+      tip: "Memorise the grid: dirty read → non-repeatable read → phantom are removed as you climb. Stronger isolation = more locking/aborts = less concurrency. Deep bonus: <b>snapshot isolation still permits write skew</b>; only serializable kills it."
     },
     {
       id: "deadlock",
@@ -835,8 +865,9 @@ window.SQL_QA = {
         "<li>Keeping transactions <b>short</b>; never wait on user input mid-transaction.</li>" +
         "<li>Using appropriate indexes so locks are narrow (row, not range/table).</li>" +
         "<li>Retrying the victim transaction in application code.</li>" +
-        "</ul>",
-      tip: "\"Consistent lock ordering + short transactions + retry logic\" is the three-part answer interviewers want."
+        "</ul>" +
+        "<p><b>How the engine detects it</b> (deep follow-up): it maintains a <b>wait-for graph</b> of \"txn A waits on txn B\" edges and periodically looks for a <b>cycle</b>; a cycle = deadlock, and it rolls back the cheapest txn as the victim. (Some engines use a lock-timeout instead of true cycle detection.) Also mention <b>lock escalation</b> — many row locks getting promoted to a page/table lock — as a cause of <i>extra</i> contention and deadlocks under load.</p>",
+      tip: "\"Consistent lock ordering + short transactions + retry logic\" is the three-part answer. Deep bonus: detection is a <b>wait-for-graph cycle check</b>, and <b>lock escalation</b> (row→page→table) widens contention."
     },
     {
       id: "savepoint",
@@ -866,8 +897,8 @@ window.SQL_QA = {
         "<li><b>Pessimistic</b> — lock the data while you work so no one else can change it (<code>SELECT ... FOR UPDATE</code>). Prevents conflicts but reduces concurrency and risks deadlocks.</li>" +
         "<li><b>Optimistic</b> — don't lock; at commit, check a <b>version/timestamp</b> column to see if someone changed the row, and retry if so. Great when conflicts are rare.</li>" +
         "</ul>" +
-        "<p>Many engines also use <b>MVCC</b> (multi-version concurrency control) so readers never block writers and vice versa.</p>",
-      tip: "Mention MVCC — it's why PostgreSQL/Oracle/InnoDB readers don't block writers, a common follow-up."
+        "<p><b>MVCC (multi-version concurrency control)</b> is the modern middle path most engines use: instead of locking on read, a write creates a <b>new version</b> of the row and each transaction reads the version valid as of its <b>snapshot</b>. So <b>readers never block writers and writers never block readers</b> — only write-write conflicts contend. The cost is bookkeeping: old versions must be cleaned up (PostgreSQL's <code>VACUUM</code>, Oracle's undo/rollback segments, InnoDB's purge).</p>",
+      tip: "Mention MVCC — it's why PostgreSQL/Oracle/InnoDB readers don't block writers. Deep follow-up: it keeps <b>row versions per snapshot</b>, and old versions need cleanup (<code>VACUUM</code>/undo/purge)."
     },
 
     // ───────────────────── G10 · Views, Procedures, Functions & Triggers ─────────────────────
@@ -881,8 +912,10 @@ window.SQL_QA = {
         "<ul>" +
         "<li><b>View</b> — a named stored query; a <b>virtual table</b> that holds no data and runs its SELECT each time you query it. Simplifies complex queries and restricts column/row access.</li>" +
         "<li><b>Materialized view</b> — <b>stores the result</b> physically and must be refreshed (on demand or schedule). Faster reads, but can be stale and costs storage.</li>" +
-        "</ul>",
-      tip: "View = always fresh, computed on read; materialized view = precomputed, fast, possibly stale. The staleness/refresh trade-off is the key point."
+        "</ul>" +
+        "<p><b>The refresh detail that reads senior:</b> a materialized view refreshes either <b>completely</b> (recompute the whole query) or <b>incrementally / \"fast\"</b> (apply only the deltas since last refresh — Oracle fast refresh, PostgreSQL <code>REFRESH ... CONCURRENTLY</code>, SQL Server's auto-maintained <b>indexed views</b>). Incremental is cheaper but needs logs/constraints the engine can track.</p>" +
+        "<p>Two other follow-ups worth knowing: a plain view also provides a <b>security boundary</b> (expose only some columns/rows), and <code>WITH CHECK OPTION</code> stops writes through the view that would produce rows the view can't see.</p>",
+      tip: "View = always fresh, computed on read; materialized view = precomputed, fast, possibly stale. Deep bonus: refresh is <b>complete vs incremental/fast</b>, and views double as a <b>column/row security layer</b>."
     },
     {
       id: "updatable-view",
@@ -939,8 +972,15 @@ window.SQL_QA = {
       tags: ["null", "three-valued logic"],
       a:
         "<p><b>NULL means \"unknown / missing\" — it is not zero and not an empty string.</b> SQL uses <b>three-valued logic</b> (TRUE/FALSE/UNKNOWN), so any comparison with NULL (including <code>NULL = NULL</code>) yields <b>UNKNOWN</b>, which is not TRUE — so the row is filtered out.</p>" +
-        "<p>Test for NULL with <code>IS NULL</code> / <code>IS NOT NULL</code>, never <code>= NULL</code>.</p>",
-      tip: "\"NULL = NULL is UNKNOWN, not TRUE\" is the exact thing they're checking. Follow up with IS NULL as the correct test."
+        "<p>Test for NULL with <code>IS NULL</code> / <code>IS NOT NULL</code>, never <code>= NULL</code>.</p>" +
+        "<p><b>Where NULL behaves inconsistently</b> (the deep follow-up — NULLs are \"not equal\" for comparison but \"the same\" for grouping):</p>" +
+        "<ul>" +
+        "<li><b>GROUP BY / DISTINCT</b> — treat all NULLs as <b>one group</b> (they collapse together).</li>" +
+        "<li><b>UNIQUE constraint</b> — usually allows <b>multiple</b> NULLs (they're not \"equal,\" so not duplicates).</li>" +
+        "<li><b>ORDER BY</b> — NULLs sort together at one end; control it with <code>NULLS FIRST</code> / <code>NULLS LAST</code>.</li>" +
+        "<li><b>Aggregates</b> — ignore NULLs (except <code>COUNT(*)</code>); <code>NOT IN</code> with a NULL in the list returns no rows.</li>" +
+        "</ul>",
+      tip: "\"NULL = NULL is UNKNOWN, not TRUE\" is the core check. Deep bonus — NULLs are <b>distinct for comparison but grouped together</b> in GROUP BY/DISTINCT, and a UNIQUE column still allows several of them."
     },
     {
       id: "coalesce-isnull-nullif",
@@ -1143,8 +1183,14 @@ window.SQL_QA = {
       difficulty: "Deep",
       tags: ["partitioning", "range", "pruning"],
       a:
-        "<p><b>Partitioning splits one large logical table into smaller physical pieces</b> by a key — by <b>range</b> (dates), <b>list</b> (region), or <b>hash</b>. Queries that filter on the partition key read only the relevant partitions (<b>partition pruning</b>), and you can archive/drop a whole partition cheaply.</p>",
-      tip: "Key benefit phrase: \"partition pruning\" — the optimizer skips partitions that can't match. Great for time-series / rolling-window data."
+        "<p><b>Partitioning splits one large logical table into smaller physical pieces</b> by a key — by <b>range</b> (dates), <b>list</b> (region), or <b>hash</b>. Queries that filter on the partition key read only the relevant partitions (<b>partition pruning</b>), and you can archive/drop a whole partition cheaply.</p>" +
+        "<ul>" +
+        "<li><b>Benefits</b> — pruning (scan fewer partitions), <b>instant bulk delete</b> via <code>DROP/TRUNCATE PARTITION</code> instead of a slow <code>DELETE</code>, and parallelism per partition.</li>" +
+        "<li><b>The catch</b> — it only helps if queries filter on the <b>partition key</b>; choose the wrong key and you prune nothing. Too many partitions adds planning overhead.</li>" +
+        "<li><b>Local vs global indexes</b> — a <b>local</b> index is partitioned alongside the table (fast per-partition maintenance); a <b>global</b> index spans all partitions.</li>" +
+        "</ul>" +
+        "<p><b>Partitioning ≠ sharding:</b> partitioning splits a table <i>within one database/server</i>; <b>sharding</b> spreads data across <i>separate servers</i> to scale horizontally.</p>",
+      tip: "Key phrase: \"partition pruning\" — the optimizer skips partitions that can't match. Deep bonus: prune only works when you filter the <b>partition key</b>, and <b>partitioning (one server) ≠ sharding (many servers)</b>."
     },
     {
       id: "sql-vs-nosql",
