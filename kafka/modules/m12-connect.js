@@ -21,6 +21,7 @@ export function mount(container) {
     tabs: [
       { id: 'flow',    label: '🔌 Connect Flow' },
       { id: 'workers', label: '⚙️ Workers & Tasks' },
+      { id: 'smt',     label: '🧩 SMT Chain' },
       { id: 'types',   label: '📦 Connector Types' },
       { id: 'iq',      label: '🎯 Interview Q&A' },
     ]
@@ -29,6 +30,7 @@ export function mount(container) {
   const cleanups = [];
   cleanups.push(buildFlow(container));
   cleanups.push(buildWorkers(container));
+  cleanups.push(buildSMT(container));
   buildTypes(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -300,6 +302,169 @@ function buildWorkers(container) {
   });
 
   return () => { if (raf) cancelAnimationFrame(raf); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — The SMT Chain (step a single record through the transform pipeline)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildSMT(container) {
+  const tab = container.querySelector('#tab-smt');
+
+  // Each stage transforms an immutable record {topic, value}. Stages are pure
+  // and operate on ONE record — the whole point of SMTs.
+  const STAGES = [
+    {
+      name: 'Source Task', cfg: 'Debezium emits a change envelope',
+      topic: 'dbserver1.sales.orders',
+      value: { op: 'c', before: null,
+        after: { id: 7701, email: 'rao@shop.in', cc_number: '4539115300000001', total: 2490, currency: 'INR' },
+        source: { table: 'orders', lsn: 23897451, ts_ms: 1731951600000 } },
+      note: 'The raw record a Debezium source task produces: an envelope with op, before/after row images, and source metadata. SMTs run next, in order, before the converter.',
+    },
+    {
+      name: 'ExtractNewRecordState', cfg: 'io.debezium.transforms.ExtractNewRecordState',
+      apply: r => ({ topic: r.topic, value: { ...r.value.after } }),
+      note: 'Debezium\'s unwrap SMT: throw away the envelope and keep just the "after" row image, so downstream sinks see a plain flat row instead of a nested change event. Deletes become tombstones (null value).',
+    },
+    {
+      name: 'MaskField', cfg: 'transforms.mask.type=…MaskField$Value · fields=cc_number',
+      apply: r => ({ topic: r.topic, value: { ...r.value, cc_number: '****************' } }),
+      note: 'Replace a sensitive field\'s value with a mask, inline, before the record ever reaches Kafka. Cheap PII redaction with zero extra infrastructure — no stream job, no second topic.',
+      hot: 'cc_number',
+    },
+    {
+      name: 'InsertField', cfg: 'static.field=pipeline · timestamp.field=ingest_ts',
+      apply: r => ({ topic: r.topic, value: { ...r.value, ingest_ts: '2026-11-18T17:20:00Z', pipeline: 'connect-v2' } }),
+      note: 'Add fields the source didn\'t provide: a processing timestamp, a static tag, the Kafka topic/partition/offset, or the record key. Useful for lineage and for downstream partitioning.',
+      hot: 'ingest_ts',
+    },
+    {
+      name: 'ReplaceField', cfg: 'renames=total:amount · exclude=currency',
+      apply: r => { const v = { ...r.value }; v.amount = v.total; delete v.total; delete v.currency; return { topic: r.topic, value: v }; },
+      note: 'Rename and drop fields to match a downstream schema (total → amount, drop currency). Pure column-shaping — still one record at a time, no lookups.',
+      hot: 'amount',
+    },
+    {
+      name: 'RegexRouter', cfg: 'regex=dbserver1\\.sales\\.(.*) · replacement=$1',
+      apply: r => ({ topic: r.topic.replace(/^dbserver1\.sales\./, ''), value: r.value }),
+      note: 'The one SMT that changes the TARGET TOPIC rather than the value — here collapsing the CDC topic name down to "orders". Routing by field value (TimestampRouter, RegexRouter) is how one connector fans into many topics.',
+      routes: true,
+    },
+    {
+      name: 'AvroConverter', cfg: 'value.converter=io.confluent.…AvroConverter',
+      apply: r => ({ topic: r.topic, value: '«Avro bytes»  magic=0x00  schema-id=142  (12 fields → 38 bytes)', bytes: true }),
+      note: 'NOT an SMT — the converter runs last and turns the in-memory record into the bytes Kafka stores. With Schema Registry it writes a magic byte + schema id, then the compact Avro body. This is where the record stops being a mutable object and becomes wire bytes.',
+      converter: true,
+    },
+  ];
+
+  let step = 0;
+  let timer = null;
+
+  function recordAt(i) {
+    let r = { topic: STAGES[0].topic, value: STAGES[0].value };
+    for (let s = 1; s <= i; s++) if (STAGES[s].apply) r = STAGES[s].apply(r);
+    return r;
+  }
+
+  function jsonHTML(val, hot, routes) {
+    if (typeof val === 'string') return `<span style="color:#F59E0B">${val}</span>`;
+    const j = JSON.stringify(val, null, 2);
+    // highlight the "hot" key line
+    return j.split('\n').map(line => {
+      const m = line.match(/^(\s*)"([^"]+)":/);
+      let out = line
+        .replace(/"([^"]+)":/g, '<span style="color:#7DD3FC">"$1"</span>:')
+        .replace(/: (".*?"|\d+|null|true|false)(,?)$/,
+          (mm, v, c) => `: <span style="color:#86EFAC">${v}</span>${c}`);
+      if (hot && m && m[2] === hot) out = `<span style="background:#F59E0B22;display:inline-block;width:100%;border-radius:3px">${out}</span>`;
+      return out;
+    }).join('\n');
+  }
+
+  function render() {
+    const s = STAGES[step];
+    const r = recordAt(step);
+    const prev = step > 0 ? recordAt(step - 1) : null;
+    const topicChanged = prev && prev.topic !== r.topic;
+
+    tab.querySelector('#smt-stages').innerHTML = STAGES.map((st, i) => {
+      const active = i === step, done = i < step;
+      const isConv = st.converter, isRoute = st.routes;
+      const col = isConv ? '#F59E0B' : isRoute ? '#EC4899' : i === 0 ? '#8B5CF6' : '#06B6D4';
+      return `
+        <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
+          <div style="min-width:112px;max-width:112px;padding:8px 9px;border-radius:9px;text-align:center;
+            background:${active ? col + '1f' : '#111A2B'};
+            border:1px solid ${active ? col : done ? '#2A3A52' : '#1C2740'};
+            opacity:${done ? 0.55 : 1};transition:all .25s ease">
+            <div style="font-size:9px;font-weight:700;color:${active ? col : '#94A3B8'};line-height:1.25">${st.name}</div>
+            <div style="font-size:8px;color:#5B6B82;margin-top:3px">${i === 0 ? 'source' : isConv ? 'converter' : 'SMT ' + i}</div>
+          </div>
+          ${i < STAGES.length - 1 ? `<div style="width:14px;height:2px;background:${i < step ? '#3B82F6' : '#2A3A52'};flex-shrink:0"></div>` : ''}
+        </div>`;
+    }).join('');
+
+    tab.querySelector('#smt-topic').innerHTML =
+      `topic → <span style="color:${topicChanged ? '#EC4899' : '#7DD3FC'};font-weight:700">${r.topic}</span>` +
+      (topicChanged ? `  <span style="color:#EC4899;font-size:10px">◂ rewritten by RegexRouter</span>` : '');
+
+    tab.querySelector('#smt-json').innerHTML = jsonHTML(r.value, s.hot, s.routes);
+    tab.querySelector('#smt-stagename').innerHTML =
+      `<span style="color:#E2E8F0;font-weight:700">${s.name}</span>` +
+      `<span style="color:#5B6B82"> · ${step === 0 ? 'input' : step + ' of ' + (STAGES.length - 1)}</span>`;
+    tab.querySelector('#smt-cfg').textContent = s.cfg;
+    tab.querySelector('#smt-note').textContent = s.note;
+    tab.querySelector('#smt-step').textContent = step >= STAGES.length - 1 ? '✓ Done' : '▶ Next transform';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Single Message Transforms run <b>in order, one record at a time</b>, between the source task and the converter. Step one record through a real chain and watch each SMT <b>mutate exactly the fields it owns</b> — then the converter turns it into bytes. Nothing here is stateful; no SMT can see another record.</div>
+      <div id="smt-stages" style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:10px 4px 14px"></div>
+      <div style="display:grid;grid-template-columns:1fr;gap:12px">
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+            <div id="smt-stagename" style="font-size:12px"></div>
+            <div id="smt-topic" style="font-size:11px;font-family:ui-monospace,monospace;color:#7DD3FC"></div>
+          </div>
+          <div id="smt-cfg" style="font-size:10px;font-family:ui-monospace,monospace;color:#64748B;margin-bottom:8px;word-break:break-all"></div>
+          <pre id="smt-json" style="margin:0;font-size:11px;line-height:1.55;font-family:ui-monospace,monospace;color:#CBD5E1;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto"></pre>
+        </div>
+        <div id="smt-note" style="font-size:12px;line-height:1.6;color:#94A3B8;min-height:38px"></div>
+      </div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="smt-step">▶ Next transform</button>
+        <button class="ctrl-btn" id="smt-run">⏩ Run chain</button>
+        <button class="ctrl-btn" id="smt-reset">↻ Reset</button>
+        <span class="ctrl-label">Watch cc_number get masked, fields renamed, the topic rewritten, then Avro-serialized</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>A <strong>Single Message Transform</strong> is a tiny, stateless function with one signature: record in, record out. The Connect framework threads every record through the configured chain <strong>in declaration order</strong>, after the source task produces it and <em>before</em> the converter serializes it (on a sink, the order is reversed: converter first, then SMTs, then the sink task). Each SMT in this example touches only what it owns — <code>ExtractNewRecordState</code> unwraps the Debezium envelope to a flat row, <code>MaskField</code> redacts the card number, <code>InsertField</code> stamps lineage fields, <code>ReplaceField</code> renames <code>total→amount</code>, and <code>RegexRouter</code> rewrites the destination topic without touching the value at all.</p>
+      <p>The last box is deliberately <em>not</em> an SMT: the <strong>converter</strong>. SMTs operate on the record as a structured object with a schema; the converter is what turns that object into the raw bytes Kafka actually stores. With the Avro (or Protobuf/JSON-Schema) converter plus Schema Registry, the value becomes a <code>magic byte + 4-byte schema id + compact binary body</code> — which is also exactly what a consumer reverses on the read side. Keeping transforms (shape the record) separate from converters (serialize the record) is a core Connect design line worth stating out loud.</p>
+      <p><strong>Predicates &amp; the hard boundary.</strong> Any SMT can be gated with a <strong>predicate</strong> (e.g. <code>TopicNameMatches</code>, <code>HasHeaderKey</code>, <code>RecordIsTombstone</code>) and negated with <code>negate=true</code> — so you can mask a field only on certain topics, or skip a transform for tombstones. But every predicate and every transform still sees <strong>exactly one record with no memory of any other</strong>. The instant you need to join two streams, deduplicate, aggregate a count, enrich from a database, or window by time, you are out of SMT territory — that work belongs in <strong>Kafka Streams, ksqlDB, or Flink</strong>. "SMTs are stateless and single-record" is the sentence that draws the line between configuration-driven Connect and real stream processing.</p>
+      <p><strong>Interview angle:</strong> a great tell is knowing SMTs run <em>per connector</em>, are ordered, and are cheap enough to run on every record — but that overusing them (long chains, regex-heavy routing) pushes CPU onto the Connect worker and makes pipelines hard to debug, because a bad transform throws inside the task and (without error handling) stops it. That last point is exactly what the next tab — <em>Error Handling &amp; DLQ</em> — is about.</p>
+    </div>`;
+
+  render();
+
+  const stepFn = () => { if (step < STAGES.length - 1) { step++; render(); } };
+  tab.querySelector('#smt-step').addEventListener('click', stepFn);
+  tab.querySelector('#smt-reset').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; } step = 0; render();
+  });
+  tab.querySelector('#smt-run').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; }
+    step = 0; render();
+    timer = setInterval(() => {
+      if (step >= STAGES.length - 1) { clearInterval(timer); timer = null; return; }
+      step++; render();
+    }, 900);
+  });
+
+  return () => { if (timer) clearInterval(timer); };
 }
 
 function buildTypes(container) {
