@@ -7,6 +7,12 @@ export const IQ = [
   { q: 'What is a dead-letter queue (DLQ) in Kafka Connect and when does a record land there?', a: 'When a connector fails to process a record (deserialization error, schema mismatch, transformation exception), it can route the bad record to a DLQ topic (configured via errors.deadletterqueue.topic.name). The record is written with headers containing the error details (exception class, message, original topic/partition/offset). Without a DLQ, any single bad record halts the entire connector. DLQs enable poison-pill tolerance: the pipeline continues, bad records are investigated separately.', tip: 'DLQ is not enabled by default — you must set errors.tolerance=all and configure the DLQ topic. Without it, the connector pauses on the first bad record.' },
   { q: 'What is the difference between standalone and distributed Kafka Connect, and how do tasks rebalance?', a: 'Standalone Connect runs one worker with config on local disk — simple, but no fault tolerance and no scaling. Distributed Connect runs a cluster of workers that coordinate through internal Kafka topics. (1) Connector/task configs, offsets, and status live in compacted topics, so any worker can pick up any task. (2) The workers form a group like consumers; when one dies or you add a worker, Connect rebalances tasks across the survivors. (3) A connector is split into tasks (tasks.max), and tasks are the unit of parallelism and rebalancing. Use standalone only for dev; production is always distributed.', tip: 'Key line: "distributed Connect stores state in Kafka topics, so workers are stateless and tasks rebalance on failure." tasks.max is your parallelism knob.', difficulty: 'medium' },
   { q: 'What are Single Message Transforms (SMTs) in Kafka Connect, and what are their limits?', a: 'SMTs are lightweight, per-record transformations applied inline in the Connect pipeline — no separate stream-processing job. (1) Common ones: ExtractField, InsertField, MaskField, Cast, RegexRouter for retargeting the topic, TimestampConverter. (2) They run synchronously on each record between connector and converter, so they are cheap and stateless. (3) The limit: an SMT sees one record at a time, so it cannot join, aggregate, or window — anything stateful belongs in Kafka Streams or Flink. They also cannot call external services efficiently. Use SMTs to shape and route single records; use a stream processor when you need context across records.', tip: 'Say "SMTs are stateless and single-record." The instant a transform needs another record or a window, it is no longer an SMT job — it is Streams/Flink.', difficulty: 'medium' },
+  { q: 'What is the difference between a converter and a transform (SMT) in Connect, and in what order do they run?', a: 'They do different jobs at different points. A CONVERTER is serialization: it turns the structured record into bytes (and back). key.converter and value.converter are set per worker or per connector — StringConverter, JsonConverter, AvroConverter/ProtobufConverter/JsonSchemaConverter (the last three integrate with Schema Registry via a magic byte + schema id). A TRANSFORM (SMT) is record shaping: it mutates the structured record\'s fields/topic. Order matters and is mirrored by direction: on a SOURCE connector it is task → SMT chain → converter → Kafka; on a SINK connector it is Kafka → converter → SMT chain → task. So on reads the bytes are deserialized FIRST, then transformed. A common bug is a schema/compatibility error that is really a converter misconfiguration (e.g. JsonConverter with schemas.enable mismatch), not a transform problem.', tip: 'One line: "converters serialize, transforms reshape; converter is nearest the bytes, SMTs nearest the task — and the chain reverses between source and sink."', difficulty: 'medium' },
+  { q: 'tasks.max is set to 10 but your source connector only ever runs 1 task. Why — and how is a sink different?', a: 'tasks.max is a CEILING, not a target; the connector decides how many tasks it can actually split into. A source connector returns task configs from taskConfigs(), and many sources are inherently single-threaded: a Debezium connector reading one database\'s binlog/WAL is a single ordered log reader, so it returns exactly ONE task no matter what tasks.max says. Other sources (JDBC across many tables) can split by table. A SINK connector is different: it is a consumer group, so its real parallelism ceiling is the number of PARTITIONS on the topics it consumes — tasks beyond that sit idle, exactly like extra consumers in a group. So the effective parallelism is min(tasks.max, splittable units), where "splittable units" is connector-defined for sources and partition count for sinks.', tip: 'Say "tasks.max is a ceiling; a single-log source ignores it, and a sink can never beat its partition count." That distinction is a strong senior signal.', difficulty: 'hard' },
+  { q: 'Walk through exactly what happens when you POST a connector config to the distributed Connect REST API.', a: '(1) The worker that received the request writes the connector config as a record to the internal compacted connect-configs topic — it does NOT start anything locally. (2) All workers consume connect-configs, so they converge on the new config; this triggers a rebalance. (3) The leader runs the connector\'s Connector class, calls taskConfigs(tasks.max) to get the list of task configs, and writes those to connect-configs too. (4) The leader assigns connectors and tasks across the worker group (cooperative incremental rebalancing moves only what must move). (5) Each assigned worker instantiates its tasks, which begin reading source offsets from connect-offsets (sources) or committed consumer offsets (sinks) and start moving data. (6) Status (RUNNING/FAILED/PAUSED) is written to connect-status. The whole thing is state-in-Kafka: the REST call is just a write to a topic.', tip: 'The punchline: "POST doesn\'t run anything — it appends config to connect-configs; the cluster rebalances and the leader hands out tasks." Shows you understand Connect is coordination-over-Kafka.', difficulty: 'hard' },
+  { q: 'How do source and sink connectors differ in offset handling and delivery guarantees?', a: 'SOURCE: Connect stores a connector-defined position (sourcePartition → sourceOffset, e.g. a WAL LSN or file byte) in the internal connect-offsets topic, flushed on offset.flush.interval.ms. Default is at-least-once (records after the last flush are re-emitted on restart); exactly-once is possible via KIP-618 (exactly.once.support=required), which writes records and offsets in one Kafka transaction. SINK: the connector IS a consumer group and commits ordinary Kafka consumer offsets to __consumer_offsets, but only AFTER the connector reports (flush()/preCommit()) that records were durably written to the external system. That write-then-commit ordering makes the default at-least-once; "exactly once" for a sink means an idempotent (keyed upsert) or transactional sink write, since Connect cannot wrap an arbitrary external system in a Kafka transaction.', tip: 'Memorize: "source offsets = connector positions in connect-offsets; sink offsets = consumer offsets in __consumer_offsets; default at-least-once both ways; EOS is a Kafka txn for sources but an idempotent sink for sinks."', difficulty: 'hard' },
+  { q: 'How do you evolve a schema without breaking a running Connect pipeline?', a: 'Lean on Schema Registry compatibility. Connect\'s Avro/Protobuf/JsonSchema converters register each record\'s schema and embed a schema id in the bytes; the Registry enforces a compatibility mode on the subject. Use BACKWARD compatibility (the default) so new schemas can be read by consumers using the old schema — which means you may ADD optional fields (with defaults) and REMOVE fields, but not add required fields or change types. Because the id travels with every record, a sink reading a mix of old and new records resolves each one against its own writer schema and projects onto the reader schema — no coordinated redeploy. Breaking changes (rename, type change, new required field) need FORWARD/FULL planning or a new topic/subject. For CDC, Debezium emits schema changes as the table evolves, so picking the right compatibility mode up front is what keeps sinks from failing mid-stream.', tip: 'Say "schema id per record + BACKWARD compatibility = add-optional / remove freely, no redeploy." Naming the compatibility modes (BACKWARD/FORWARD/FULL) is the tell.', difficulty: 'medium' },
+  { q: 'A sink task keeps re-delivering the same records after every restart, creating duplicates. What is happening and how do you fix it?', a: 'The task is writing to the external system but the Kafka consumer offset is not being committed for those records before the restart — so on resume Connect re-consumes from the last committed offset and writes them again (at-least-once, working as designed). Causes: the sink throws during flush()/preCommit() so the offset is never advanced; max.poll.interval.ms is exceeded by slow writes, causing a rebalance that drops the uncommitted work; or the connector crashes between write and commit. Fixes: (1) make the sink write IDEMPOTENT — upsert by record key (key.ignore=false for the ES sink, a primary key for JDBC) so re-delivery overwrites instead of duplicating; (2) use a connector/mode with transactional exactly-once if available; (3) reduce batch size / raise the poll interval so flushes complete; (4) ensure preCommit returns only truly-flushed offsets. Idempotent upsert is the usual production answer.', tip: 'Root cause in one line: "at-least-once + a non-idempotent sink = duplicates on restart; make the write idempotent (upsert by key)." Don\'t call it a Connect bug — it is the delivery contract.', difficulty: 'hard' },
 ];
 
 export function mount(container) {
@@ -24,7 +30,8 @@ export function mount(container) {
       { id: 'smt',     label: '🧩 SMT Chain' },
       { id: 'dlq',     label: '💀 Errors & DLQ' },
       { id: 'offsets', label: '📍 Offsets & EOS' },
-      { id: 'types',   label: '📦 Connector Types' },
+      { id: 'walk',    label: '🎬 End-to-End' },
+      { id: 'types',   label: '📦 Connectors & Recipes' },
       { id: 'iq',      label: '🎯 Interview Q&A' },
     ]
   });
@@ -35,6 +42,7 @@ export function mount(container) {
   cleanups.push(buildSMT(container));
   cleanups.push(buildDLQ(container));
   buildOffsets(container);
+  buildWalk(container);
   buildTypes(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -791,18 +799,207 @@ function buildOffsets(container) {
   tab.querySelector('#off-crash').addEventListener('click', () => { crashed = !crashed; render(); });
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — End-to-End Walk (one RDS row change traced binlog → Elasticsearch)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildWalk(container) {
+  const tab = container.querySelector('#tab-walk');
+
+  const ZONES = { db: { c: '#F59E0B', n: 'Source DB' }, source: { c: '#8B5CF6', n: 'Source Connector' }, kafka: { c: '#FF6900', n: 'Kafka' }, sink: { c: '#3B82F6', n: 'Sink Connector' }, es: { c: '#10B981', n: 'Elasticsearch' } };
+  const STEPS = [
+    { zone: 'db', title: 'MySQL commits the UPDATE', sub: 'binlog @ LSN 23,897,451', rec: 'UPDATE orders SET total=3200 WHERE id=7701   → binlog row event',
+      text: 'A customer edits order 7701 (total 2490 → 3200). MySQL commits the transaction and appends a row-change event to its binary log. Nothing knows about Kafka yet — the database is doing exactly what it always does.' },
+    { zone: 'source', title: 'Debezium source task reads the binlog', sub: 'resumes from stored LSN', rec: '{ op:"u", before:{total:2490}, after:{id:7701,total:3200,cc_number:"4539…"}, source:{lsn:23897451} }',
+      text: 'The Debezium task is tailing the binlog from the LSN stored in connect-offsets. It decodes the event into a change envelope — before image, after image, and source metadata — and advances its in-memory position. No polling, no query load on the primary.' },
+    { zone: 'source', title: 'SMT chain shapes the record', sub: 'unwrap · mask · stamp', rec: '{ id:7701, total:3200, cc_number:"****************", ingest_ts:"2026-11-18T17:20Z" }',
+      text: 'ExtractNewRecordState flattens the envelope to just the after-row, MaskField redacts the card number, InsertField stamps a processing timestamp. Still one record, still in memory, between the task and the converter.' },
+    { zone: 'source', title: 'AvroConverter serializes', sub: 'schema-id 142', rec: '«Avro bytes»  magic=0x00  schema-id=142  (compact binary body)',
+      text: 'The converter registers (or looks up) the record\'s schema in Schema Registry and writes magic byte + 4-byte schema id + Avro body. The record stops being an object and becomes the exact bytes Kafka will store.' },
+    { zone: 'kafka', title: 'Produced to topic orders', sub: 'partition 3 · offset 104,271', rec: 'orders-3 @ 104271   (keyed by order id → partition 3)',
+      text: 'The key (order id) is hashed to choose partition 3; the record is appended at offset 104,271, replicated to the ISR, and acknowledged. The source side is now complete and durable — everything downstream is decoupled from the database.' },
+    { zone: 'sink', title: 'Elasticsearch sink task polls', sub: 'consumer group connect-es-sink', rec: 'poll(orders-3) → record @ 104271',
+      text: 'The ES sink connector is a Kafka consumer group. Its task polls partition 3 and receives the record at offset 104,271 — the same zero-copy fetch path any consumer uses.' },
+    { zone: 'sink', title: 'Converter deserializes', sub: 'schema-id 142 → object', rec: '{ id:7701, total:3200, cc_number:"****************", ingest_ts:"…" }',
+      text: 'The sink reads schema id 142 from the bytes, fetches that schema from the registry (cached after first use), and decodes back into a structured record ready to index.' },
+    { zone: 'es', title: 'Upsert into Elasticsearch, then commit', sub: 'idempotent PUT by id', rec: 'PUT /orders/_doc/7701   → then commit offset 104,272',
+      text: 'The sink upserts document id=7701 into the orders index — idempotent, so a redelivery just overwrites. Only AFTER the write succeeds does Connect commit offset 104,272. The edited order is now searchable. Total database-commit-to-searchable latency: tens of milliseconds, zero application code.' },
+  ];
+
+  const RECIPES = [
+    { icon: '🔎', color: '#10B981', title: 'CDC → Search', sub: 'Debezium source + Elasticsearch sink',
+      body: 'Stream every row change from an operational DB straight into a search index. SMTs mask PII and flatten the envelope; the ES sink upserts by primary key so updates and deletes stay in sync. Powers product search and fraud dashboards that are never more than milliseconds stale.' },
+    { icon: '🧊', color: '#29B5E8', title: 'CDC → Lakehouse', sub: 'Debezium source + S3/Iceberg sink',
+      body: 'Land the same change stream in object storage as Parquet/Iceberg for analytics. The S3 sink batches records into time-partitioned files; downstream Athena/Snowflake/Spark query full history. One source connector, many sinks — the warehouse never touches the production DB.' },
+    { icon: '📬', color: '#8B5CF6', title: 'Outbox Pattern', sub: 'Debezium + EventRouter SMT',
+      body: 'Services write domain events to an outbox table in the same local transaction as their business data. Debezium captures the outbox, and the EventRouter SMT fans each row to the right topic — reliable event publishing with no dual-write problem and no distributed transaction.' },
+  ];
+
+  let step = 0, timer = null;
+
+  function render() {
+    const s = STEPS[step];
+    // zone strip
+    const zoneOrder = ['db', 'source', 'kafka', 'sink', 'es'];
+    tab.querySelector('#walk-zones').innerHTML = zoneOrder.map((z, i) => {
+      const active = ZONES[s.zone] === ZONES[z] || s.zone === z;
+      const past = zoneOrder.indexOf(s.zone) > i;
+      const Z = ZONES[z];
+      return `<div style="display:flex;align-items:center;gap:0;flex:1;min-width:0">
+        <div style="flex:1;text-align:center;padding:7px 4px;border-radius:8px;
+          background:${active ? Z.c + '22' : '#111A2B'};border:1px solid ${active ? Z.c : past ? '#2A3A52' : '#1C2740'};
+          opacity:${past ? 0.5 : 1};transition:all .25s">
+          <div style="font-size:9.5px;font-weight:700;color:${active ? Z.c : '#8A98AE'}">${Z.n}</div>
+        </div>
+        ${i < zoneOrder.length - 1 ? `<div style="width:12px;height:2px;background:${past ? '#3B82F6' : '#2A3A52'};flex-shrink:0"></div>` : ''}
+      </div>`;
+    }).join('');
+
+    const Z = ZONES[s.zone];
+    tab.querySelector('#walk-step').innerHTML =
+      `<span style="font-size:9px;color:${Z.c};font-weight:700;text-transform:uppercase;letter-spacing:.06em">Step ${step + 1} / ${STEPS.length} · ${Z.n}</span>
+       <div style="font-size:13.5px;font-weight:700;color:#E2E8F0;margin-top:4px">${s.title}</div>
+       <div style="font-size:10px;color:#64748B;margin-top:2px">${s.sub}</div>`;
+    tab.querySelector('#walk-rec').innerHTML = `<span style="color:${Z.c}">▸</span> ${s.rec}`;
+    tab.querySelector('#walk-text').textContent = s.text;
+    tab.querySelector('#walk-next').textContent = step >= STEPS.length - 1 ? '✓ Delivered' : '▶ Next step';
+    tab.querySelector('#walk-bar').style.width = `${((step + 1) / STEPS.length) * 100}%`;
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Follow <b>one row change</b> the whole way: a customer edits order 7701 in MySQL, and it lands — searchable — in Elasticsearch, with no application code in the path. Step through to see every hop, and what the record looks like at each one.</div>
+      <div id="walk-zones" style="display:flex;align-items:center;gap:0;margin-bottom:6px"></div>
+      <div style="height:3px;background:#1C2740;border-radius:2px;overflow:hidden;margin-bottom:14px"><div id="walk-bar" style="height:100%;width:12%;background:linear-gradient(90deg,#8B5CF6,#10B981);transition:width .3s ease"></div></div>
+      <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:14px 16px;min-height:150px">
+        <div id="walk-step"></div>
+        <div id="walk-rec" style="margin:12px 0;padding:10px 12px;background:#070B14;border:1px solid #1C2740;border-radius:8px;font-size:10.5px;font-family:ui-monospace,monospace;color:#CBD5E1;line-height:1.5;white-space:pre-wrap;word-break:break-word"></div>
+        <div id="walk-text" style="font-size:12.5px;line-height:1.65;color:#94A3B8"></div>
+      </div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="walk-next">▶ Next step</button>
+        <button class="ctrl-btn" id="walk-run">⏩ Play</button>
+        <button class="ctrl-btn" id="walk-reset">↻ Reset</button>
+        <span class="ctrl-label">DB commit → searchable in tens of milliseconds, zero app code</span>
+      </div>
+      <div style="margin-top:22px">
+        <div class="section-header" style="margin-bottom:12px">
+          <div class="section-title">Real-world pipelines</div>
+          <div class="section-desc">The same Connect machinery, wired three common ways</div>
+        </div>
+        <div class="info-grid">
+          ${RECIPES.map(r => `
+            <div class="info-card" style="border-left:3px solid ${r.color}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:18px">${r.icon}</span>
+                <div><div class="info-card-title">${r.title}</div>
+                  <div class="info-card-tag" style="background:${r.color}22;color:${r.color}">${r.sub}</div></div>
+              </div>
+              <div class="info-card-body">${r.body}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>Why this matters</h3>
+      <p>This single trace is the whole value proposition of Kafka Connect. A customer edited a row in a relational database, and that change became a durable, replicated, schema-validated Kafka event and then a freshly indexed Elasticsearch document — <strong>without a single line of bespoke producer, consumer, or integration code</strong>. Every box on the strip is configuration: a connector class, a few properties, an SMT chain. The database owner changed nothing; the search team changed nothing; adding a third destination (a warehouse, a cache, a webhook) is one more connector reading the same topic.</p>
+      <p>Notice where the <strong>decoupling line</strong> falls: once the record is appended to <code>orders-3 @ 104271</code>, the source side is completely done and the sink side proceeds on its own clock. The database could go down, the ES cluster could be slow, a new sink could be added to replay from offset 0 — none of it ripples back. That buffer, plus Connect's offset bookkeeping on both sides, is what turns a fragile point-to-point ETL script into a fleet of independent, restartable, horizontally-scalable pipelines. The <em>mechanism</em> behind each hop is exactly what the other tabs break down: workers &amp; tasks, the SMT chain, error handling, and the two offset models.</p>
+    </div>`;
+
+  render();
+  const next = () => { if (step < STEPS.length - 1) { step++; render(); } };
+  tab.querySelector('#walk-next').addEventListener('click', next);
+  tab.querySelector('#walk-reset').addEventListener('click', () => { if (timer) { clearInterval(timer); timer = null; } step = 0; render(); });
+  tab.querySelector('#walk-run').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; }
+    step = 0; render();
+    timer = setInterval(() => { if (step >= STEPS.length - 1) { clearInterval(timer); timer = null; return; } step++; render(); }, 1400);
+  });
+
+  return () => { if (timer) clearInterval(timer); };
+}
+
 function buildTypes(container) {
   const tab = container.querySelector('#tab-types');
   const connectors = [
-    { name: 'Debezium MySQL/PG', type: 'Source', icon: '🗄️', color: '#F59E0B', desc: 'CDC via binlog/WAL. Captures INSERT/UPDATE/DELETE in real time. Zero-latency database sync.' },
-    { name: 'JDBC Source', type: 'Source', icon: '📊', color: '#3B82F6', desc: 'Poll-based table import. Incremental by timestamp or incrementing column. For batch-friendly sources.' },
-    { name: 'S3 Source', type: 'Source', icon: '☁️', color: '#FF9900', desc: 'Read files from S3 into Kafka. Supports CSV, JSON, Avro. Used for cold-start historical replay.' },
-    { name: 'S3 Sink', type: 'Sink', icon: '🪣', color: '#FF9900', desc: 'Write Kafka topic to S3 as Parquet/JSON. Enables Athena/Snowflake query on event history.' },
-    { name: 'Elasticsearch Sink', type: 'Sink', icon: '🔍', color: '#10B981', desc: 'Index Kafka records for full-text search. Powers Amazon product search and fraud dashboards.' },
-    { name: 'Snowflake Sink', type: 'Sink', icon: '❄️', color: '#29B5E8', desc: 'Stream Kafka events directly into Snowflake tables. Enables real-time analytics without ETL.' },
-    { name: 'DynamoDB Sink', type: 'Sink', icon: '⚡', color: '#8B5CF6', desc: 'Write aggregated Kafka events to DynamoDB. Drives Prime recommendation materialized views.' },
-    { name: 'HTTP Sink', type: 'Sink', icon: '🌐', color: '#6366F1', desc: 'Webhook delivery — POST each record to an HTTP endpoint. SNS/SQS-style fan-out via HTTP.' },
+    { name: 'Debezium MySQL/PG', type: 'Source', icon: '🗄️', color: '#F59E0B', desc: 'CDC via binlog/WAL. Captures INSERT/UPDATE/DELETE in real time. Zero-latency database sync.',
+      cfg: `{
+  "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+  "database.hostname": "orders-db.rds.amazonaws.com",
+  "database.include.list": "sales",
+  "table.include.list": "sales.orders",
+  "topic.prefix": "dbserver1",
+  "snapshot.mode": "initial",
+  "transforms": "unwrap",
+  "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState"
+}` },
+    { name: 'JDBC Source', type: 'Source', icon: '📊', color: '#3B82F6', desc: 'Poll-based table import. Incremental by timestamp or incrementing column. For batch-friendly sources.',
+      cfg: `{
+  "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+  "connection.url": "jdbc:postgresql://host/warehouse",
+  "mode": "timestamp+incrementing",
+  "timestamp.column.name": "updated_at",
+  "incrementing.column.name": "id",
+  "topic.prefix": "pg-",
+  "poll.interval.ms": "5000"
+}` },
+    { name: 'S3 Source', type: 'Source', icon: '☁️', color: '#FF9900', desc: 'Read files from S3 into Kafka. Supports CSV, JSON, Avro. Used for cold-start historical replay.',
+      cfg: `{
+  "connector.class": "io.confluent.connect.s3.source.S3SourceConnector",
+  "s3.bucket.name": "orders-archive",
+  "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+  "topics.dir": "replay",
+  "tasks.max": "2"
+}` },
+    { name: 'S3 Sink', type: 'Sink', icon: '🪣', color: '#FF9900', desc: 'Write Kafka topic to S3 as Parquet/JSON. Enables Athena/Snowflake query on event history.',
+      cfg: `{
+  "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+  "topics": "orders",
+  "s3.bucket.name": "lakehouse-raw",
+  "format.class": "io.confluent.connect.s3.format.parquet.ParquetFormat",
+  "partitioner.class": "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
+  "flush.size": "10000",
+  "tasks.max": "3"
+}` },
+    { name: 'Elasticsearch Sink', type: 'Sink', icon: '🔍', color: '#10B981', desc: 'Index Kafka records for full-text search. Powers product search and fraud dashboards.',
+      cfg: `{
+  "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+  "topics": "orders",
+  "connection.url": "https://es:9200",
+  "key.ignore": "false",
+  "write.method": "upsert",
+  "behavior.on.malformed.documents": "warn",
+  "errors.tolerance": "all",
+  "errors.deadletterqueue.topic.name": "orders.DLQ",
+  "errors.deadletterqueue.context.headers.enable": "true"
+}` },
+    { name: 'Snowflake Sink', type: 'Sink', icon: '❄️', color: '#29B5E8', desc: 'Stream Kafka events directly into Snowflake tables. Enables real-time analytics without ETL.',
+      cfg: `{
+  "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+  "topics": "orders",
+  "snowflake.url.name": "acct.snowflakecomputing.com",
+  "snowflake.database.name": "ANALYTICS",
+  "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
+  "tasks.max": "4"
+}` },
+    { name: 'DynamoDB Sink', type: 'Sink', icon: '⚡', color: '#8B5CF6', desc: 'Write aggregated Kafka events to DynamoDB. Drives recommendation materialized views.',
+      cfg: `{
+  "connector.class": "io.confluent.connect.aws.dynamodb.DynamoDbSinkConnector",
+  "topics": "order-rollups",
+  "aws.dynamodb.pk.hash": "value.customer_id",
+  "aws.dynamodb.pk.sort": "value.window_end",
+  "tasks.max": "2"
+}` },
+    { name: 'HTTP Sink', type: 'Sink', icon: '🌐', color: '#6366F1', desc: 'Webhook delivery — POST each record to an HTTP endpoint. SNS/SQS-style fan-out via HTTP.',
+      cfg: `{
+  "connector.class": "io.confluent.connect.http.HttpSinkConnector",
+  "topics": "orders",
+  "http.api.url": "https://hooks.internal/orders",
+  "request.method": "POST",
+  "batch.max.size": "50",
+  "retry.backoff.ms": "3000"
+}` },
   ];
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   tab.innerHTML = `
     <div class="info-grid">
       ${connectors.map(c => `
@@ -815,6 +1012,11 @@ function buildTypes(container) {
             </div>
           </div>
           <div class="info-card-body">${c.desc}</div>
+          <details style="margin-top:10px">
+            <summary style="cursor:pointer;font-size:10px;font-weight:600;color:${c.color};list-style:none;user-select:none">▸ config JSON</summary>
+            <pre style="margin:8px 0 0;padding:10px 12px;background:#070B14;border:1px solid #1C2740;border-radius:8px;font-size:10px;line-height:1.5;font-family:ui-monospace,monospace;color:#CBD5E1;white-space:pre;overflow-x:auto">${esc(c.cfg)}</pre>
+          </details>
         </div>`).join('')}
-    </div>`;
+    </div>
+    <p style="margin-top:16px;font-size:11.5px;color:#64748B;line-height:1.6">Every connector is just a JSON config POSTed to the Connect REST API (<code style="color:#94A3B8">POST /connectors</code>). The <code style="color:#94A3B8">connector.class</code> picks the plugin; the rest is properties. Converters, SMTs, and error handling (shown in the other tabs) are added with the same key/value properties — no code, no redeploy.</p>`;
 }
