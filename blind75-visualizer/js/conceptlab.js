@@ -37,6 +37,7 @@
 
   var cur = { stack: null, id: null };
   var query = "";
+  var qaHydrateHooked = false; // one-time listener so the sidebar Q&A count/due fills in once its bank lazy-loads
 
   function el(id) { return document.getElementById(id); }
   function h(tag, attrs, html) {
@@ -370,6 +371,54 @@
     if (!nav) return;
     nav.innerHTML = "";
     var q = query.trim().toLowerCase();
+
+    // Interview Q&A launcher — a dedicated sidebar section (moved here from the
+    // topbar). Only for stacks that ship a Q&A bank (PySpark, SQL). Not filtered
+    // by the topic search; the bank data is lazy-loaded on first click.
+    if (cur.stack === "spark" || cur.stack === "sql") {
+      var bankKey = cur.stack; // group key + bank key line up ("spark" / "sql")
+      var bankData = cur.stack === "sql" ? window.SQL_QA : window.PYSPARK_QA;
+      var cardN = (bankData && bankData.items) ? bankData.items.length : 0;
+      var dueN = (bankData && bankData.items && store.countDue)
+        ? store.countDue(bankData.items.map(function (p) { return bankKey + "qa:" + p.id; })) : 0;
+      var qaBlock = h("div", { class: "iqa-nav-block" });
+      var qaBtn = h("button", { class: "iqa-nav-launch", type: "button" });
+      qaBtn.setAttribute("title", "Interview Q&A — rapid-fire theory with interview-ready answers");
+      qaBtn.setAttribute("aria-label", "Open interview questions and answers");
+      qaBtn.innerHTML =
+        '<span class="iqa-nav-ic">🎤</span>' +
+        '<span class="iqa-nav-tx"><span class="iqa-nav-k">Interview Q&amp;A</span>' +
+        '<span class="iqa-nav-v">rapid-fire theory' +
+        (cardN ? ' · ' + cardN + ' cards' : '') +
+        (dueN ? ' · <b>' + dueN + ' due</b>' : '') + '</span></span>' +
+        '<span class="iqa-nav-go" aria-hidden="true">→</span>';
+      qaBtn.addEventListener("click", function () {
+        var go = function () { if (window.INTERVIEW_QA_UI) window.INTERVIEW_QA_UI.open(bankKey); };
+        if (window.DATALOADER && window.DATALOADER.has(bankKey) && !window.DATALOADER.loaded(bankKey)) {
+          window.DATALOADER.ensure(bankKey, function () { renderSidebar(activeId); go(); });
+        } else { go(); }
+      });
+      qaBlock.appendChild(qaBtn);
+      nav.appendChild(qaBlock);
+
+      // The bank is in the (lazy) practice group, which learn mode doesn't load
+      // up front. When background hydration brings it in, re-render the sidebar
+      // once so the card/due counts appear — but only while still in learn mode
+      // on a Q&A stack, so we never clobber the practice sidebar.
+      if (!qaHydrateHooked && window.DATALOADER && window.DATALOADER.has(bankKey) && !window.DATALOADER.loaded(bankKey)) {
+        qaHydrateHooked = true;
+        document.addEventListener("blind75:data-group", function (e) {
+          var g = e && e.detail && e.detail.group;
+          if ((g === "spark" || g === "sql") &&
+              document.body.getAttribute("data-mode") === "learn" &&
+              cur.stack === g) {
+            renderSidebar(cur.id);
+          }
+        });
+      }
+    }
+
+    var secCount = 0;
     LEARN.outline(cur.stack).forEach(function (sec) {
       var topics = LEARN.sectionTopics(cur.stack, sec.section);
       if (q) topics = topics.filter(function (t) { return (t.title + " " + (t.tagline || "") + " " + (t.matchTags || []).join(" ")).toLowerCase().indexOf(q) !== -1; });
@@ -406,8 +455,9 @@
         store.setCatCollapsed(key, !willOpen);
       });
       nav.appendChild(block);
+      secCount++;
     });
-    if (!nav.children.length) nav.appendChild(h("div", { class: "nav-empty" }, "No topics match your search."));
+    if (!secCount) nav.appendChild(h("div", { class: "nav-empty" }, "No topics match your search."));
   }
 
   function renderProgress() {
