@@ -92,7 +92,7 @@
 
   // Loading content modules that benefit from inline definitions.
   // Flashcards intentionally excluded — tooltips would give away answers.
-  const AUTO_IDS = { 'data-loading': 1, 'loading-workshop': 1, 'loading-incremental': 1, 'loading-recovery': 1, 'loading-cheatsheet': 1 };
+  const AUTO_IDS = { 'data-loading': 1, 'loading-workshop': 1, 'loading-incremental': 1, 'loading-recovery': 1, 'loading-cheatsheet': 1, 'loading-deepdive': 1 };
 
   document.addEventListener('cdwh:navigate', function (e) {
     const id = e && e.detail && e.detail.id;
