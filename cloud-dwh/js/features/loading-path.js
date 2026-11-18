@@ -20,6 +20,7 @@
     { id: 'loading-recovery',    label: 'Recovery',    icon: '🧯', kind: 'quiz' },
     { id: 'lab-loading',         label: 'Decision Lab',icon: '🎯', kind: 'scenario', area: 'loading-lab' },
     { id: 'loading-cheatsheet',  label: 'Cheat-Sheet', icon: '🗂️', kind: 'visit' },
+    { id: 'loading-deepdive',    label: 'Deep Dive',   icon: '🎓', kind: 'visit' },
     { id: 'loading-flashcards',  label: 'Flashcards',  icon: '🃏', kind: 'srs', deck: 'loading' },
   ];
   const IDS = {}; PATH.forEach((s, i) => { IDS[s.id] = i; });
