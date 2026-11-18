@@ -76,7 +76,7 @@
       "data/pyspark/cdc_versioning_recovery.js",
       "data/pyspark/schema_drift_dq.js",
       "data/pyspark/perf_oom_diagnosis.js",
-      "data/pyspark/interview_qa.js?v=20261118pysparktheory",
+      "data/pyspark/interview_qa.js?v=20261118qogroup",
       "data/spark/cheatsheet.js?v=20261027useall"
     ],
     sparklearn: [
