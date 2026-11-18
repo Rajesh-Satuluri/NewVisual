@@ -48,6 +48,7 @@ export function mount(container) {
       { id: 'medallion', label: '🥉🥈🥇 Bronze → Silver → Gold' },
       { id: 'iceberg', label: '🧊 Iceberg Internals' },
       { id: 'delta', label: '🔼 Delta Log' },
+      { id: 'eos', label: '⚛ Exactly-Once & Markers' },
       { id: 'iq', label: '🎯 Interview Q&A' },
     ],
   });
@@ -55,6 +56,7 @@ export function mount(container) {
   const cleanup = buildMedallion(container);
   buildIceberg(container);
   buildDelta(container);
+  buildEOS(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
 }
@@ -238,6 +240,96 @@ function buildDelta(container) {
     const el = e.target.closest('[data-v]'); if (!el) return;
     ptr = +el.dataset.v; render();
   });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Exactly-Once & Progress Markers (4 markers + atomic commit + crash)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildEOS(container) {
+  const tab = container.querySelector('#tab-eos');
+
+  const M0 = { lsn: 23897451, kOff: 104270, chk: 104270, tver: 41 };
+  let m, phase, inflightK, note;
+  function reset() { m = { ...M0 }; phase = 0; inflightK = null; note = ''; }
+  reset();
+
+  const PHASES = [
+    { n: 'Postgres commit', d: 'WAL LSN advances', who: 'source DB', col: '#F59E0B' },
+    { n: 'Debezium → Kafka', d: 'Kafka offset advances', who: 'connector', col: '#FF6900' },
+    { n: 'Sink reads & writes file', d: 'data file staged — nothing committed yet', who: 'sink job', col: '#8B5CF6' },
+    { n: 'Atomic commit', d: 'table version + sink checkpoint advance together', who: 'sink txn', col: '#10B981' },
+  ];
+
+  function render() {
+    tab.querySelector('#eos-markers').innerHTML = [
+      { k: 'Postgres LSN', v: m.lsn, c: '#F59E0B', sub: 'WAL position · replication slot' },
+      { k: 'Kafka offset', v: m.kOff, c: '#FF6900', sub: 'per-partition, consumer-independent' },
+      { k: 'Sink checkpoint', v: m.chk, c: '#8B5CF6', sub: 'offsets the sink has committed' },
+      { k: 'Table version', v: m.tver, c: '#10B981', sub: 'Iceberg snapshot / Delta _delta_log' },
+    ].map(x => `<div style="flex:1;min-width:140px;background:#0E1626;border:1px solid ${x.c}44;border-radius:9px;padding:10px 12px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:${x.c};font-weight:700">${x.k}</div>
+        <div style="font-size:18px;font-weight:700;color:#E2E8F0;font-family:ui-monospace,monospace;margin:3px 0">${x.v}</div>
+        <div style="font-size:8.5px;color:#64748B">${x.sub}</div>
+      </div>`).join('');
+
+    tab.querySelector('#eos-phases').innerHTML = PHASES.map((ph, i) => {
+      const active = phase === i + 1;
+      const done = phase > i + 1 || (phase === 0 && false);
+      return `<div style="flex:1;min-width:120px;text-align:center;padding:8px 6px;border-radius:8px;
+        background:${active ? ph.col + '22' : '#0E1626'};border:1px solid ${active ? ph.col : '#1C2740'}">
+        <div style="font-size:9px;color:${active ? ph.col : '#64748B'};font-weight:700">${i + 1}. ${ph.n}</div>
+        <div style="font-size:8px;color:#5B6B82;margin-top:2px">${ph.d}</div></div>`;
+    }).join('');
+
+    tab.querySelector('#eos-note').innerHTML = note || (phase === 0
+      ? `<span style="color:#64748B">One record edited in Postgres. Step it through the pipeline and watch each of the four markers advance on its own clock — then crash mid-write to see exactly-once hold.</span>`
+      : `<span style="color:#CBD5E1">In phase ${phase}: ${PHASES[phase - 1].who} — ${PHASES[phase - 1].d}.</span>`);
+    tab.querySelector('#eos-next').textContent = phase === 0 ? '▶ Start a record' : phase >= 4 ? '▶ Next record' : '▶ Next phase';
+  }
+
+  function next() {
+    if (phase === 0) { phase = 1; m.lsn += 17; note = `<span style="color:#F59E0B">Phase 1 — Postgres committed the UPDATE; the WAL <b>LSN</b> advanced to ${m.lsn}. Nothing downstream knows yet.</span>`; }
+    else if (phase === 1) { phase = 2; m.kOff += 1; inflightK = m.kOff; note = `<span style="color:#FF6900">Phase 2 — Debezium read the WAL and produced to Kafka; the <b>Kafka offset</b> is now ${m.kOff}. The sink checkpoint (${m.chk}) and table version (${m.tver}) have NOT moved — "produced to Kafka" ≠ "in the table".</span>`; }
+    else if (phase === 2) { phase = 3; note = `<span style="color:#8B5CF6">Phase 3 — the sink read offset ${inflightK} and wrote a data file to object storage. It is <b>staged but not committed</b>: the checkpoint and table version are unchanged, so a reader still sees version ${m.tver}. This is the dangerous window.</span>`; }
+    else if (phase === 3) { phase = 4; m.tver += 1; m.chk = inflightK; note = `<span style="color:#10B981">Phase 4 — the sink committed <b>atomically</b>: the new table version (${m.tver}) AND the sink checkpoint (${m.chk}) advanced together in one transaction. Only now is the row queryable. All four markers have moved — each a different number for the same record.</span>`; }
+    else { phase = 0; note = `<span style="color:#64748B">Record done. Start another to watch the markers diverge again.</span>`; }
+    render();
+  }
+
+  function crash() {
+    if (phase !== 3) { note = `<span style="color:#64748B">Crash is most instructive in <b>phase 3</b> (data file staged, not committed). Step to phase 3, then crash.</span>`; render(); return; }
+    // discard the staged, uncommitted write; checkpoint + table version unchanged.
+    note = `<span style="color:#F87171">💥 Crashed after writing the data file but <b>before</b> the commit. The staged file is now orphaned (no snapshot/version references it → it's garbage, cleaned later).</span> ` +
+      `<span style="color:#86EFAC">On restart the sink resumes from its last <b>checkpoint ${m.chk}</b>, re-reads Kafka offset ${inflightK}, rewrites the file, and commits atomically — so the table version advances <b>exactly once</b> (to ${m.tver + 1}). No duplicate row, no lost row: that's exactly-once, built from an idempotent/atomic table commit tied to the offset.</span>`;
+    m.tver += 1; m.chk = inflightK; phase = 0;
+    render();
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">The same record has <b>four different progress markers</b>, each advancing on its own clock: the Postgres <b>LSN</b>, the <b>Kafka offset</b>, the <b>sink checkpoint</b>, and the committed <b>table version</b>. Conflating them is a top source of pipeline bugs. Step one record through and watch them diverge — then crash mid-write to see how exactly-once ties the last two together.</div>
+      <div id="eos-markers" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+      <div id="eos-phases" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+      <div id="eos-note" style="font-size:11.5px;line-height:1.6;min-height:46px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="eos-next">▶ Start a record</button>
+        <button class="ctrl-btn" id="eos-crash">💥 Crash mid-write</button>
+        <button class="ctrl-btn" id="eos-reset">↻ Reset</button>
+        <span class="ctrl-label">"connector committed" ≠ "queryable in the table" — the sink commits on its own clock</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>A Postgres → Debezium → Kafka → lakehouse pipeline has <strong>four distinct progress markers</strong>, and they are <em>different numbers for the same record</em>. (1) The <strong>LSN</strong> is PostgreSQL's write-ahead-log position, tracked in the replication slot and the connector's offset — it's the source-of-truth clock for "how far has CDC read the database." (2) The <strong>Kafka offset</strong> is a per-partition position that each consumer tracks independently; it has no arithmetic relationship to the LSN. (3) The <strong>sink checkpoint</strong> is what the sink has durably committed — Spark's <code>checkpointLocation</code> storing processed Kafka offsets, or the Iceberg sink's committed offsets in its control topic. (4) The <strong>table version</strong> is the committed Iceberg snapshot or Delta <code>_delta_log</code> version — the only marker that means "a reader can see this row."</p>
+      <p>The reason to keep them straight is that <strong>each advances on its own clock</strong>, and assuming otherwise produces real bugs. Treating a Kafka offset as if it were an LSN breaks lag math. Assuming "the connector committed its offset" means "the data is queryable" ignores that the sink commits on an <em>interval</em> (the Iceberg coordinator's ~5-minute control-topic commit, or Spark's micro-batch) — so there is always a window where Kafka is ahead of the table. And deleting a Spark streaming checkpoint while reusing the same <code>txnAppId</code> makes Delta's idempotent-write guard silently skip the re-read batches, dropping data.</p>
+      <p><strong>Exactly-once is built at the last hop.</strong> Watch phase 3→4: the sink writes the data file first (staged, invisible) and only then commits — and the commit advances the <strong>table version and the checkpoint together, atomically</strong>. That coupling is the whole trick. If the job crashes in the staged window (press Crash), the uncommitted file is orphaned and ignored; on restart the sink resumes from its last checkpoint, re-reads the same Kafka offset, and commits once — so the row lands <em>exactly</em> once. Iceberg ties this to Kafka transactions (KIP-447); Delta ties it to the checkpoint plus idempotent commits (<code>txnAppId</code>/<code>txnVersion</code> in <code>foreachBatch</code>). Either way: the table commit is idempotent with respect to the offset, so replay after a crash can't duplicate.</p>
+      <p><strong>Interview angle:</strong> list the four markers — "LSN, Kafka offset, sink checkpoint, table version" — and the trap: "connector committed ≠ queryable, because the sink commits on its own interval." Then the EOS mechanism: "the sink writes files first, then atomically commits the table version and the processed offset together; a crash in between orphans the staged files and replays cleanly." That's the answer that shows you've actually operated one of these pipelines.</p>
+    </div>`;
+
+  render();
+  tab.querySelector('#eos-next').addEventListener('click', next);
+  tab.querySelector('#eos-crash').addEventListener('click', crash);
+  tab.querySelector('#eos-reset').addEventListener('click', () => { reset(); render(); });
 }
 
 function buildPaths(container) {
