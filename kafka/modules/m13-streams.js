@@ -22,6 +22,7 @@ export function mount(container) {
       { id: 'dsl',      label: '🌊 Stream DSL' },
       { id: 'duality',  label: '🔀 KStream ⇄ KTable' },
       { id: 'state',    label: '🗄️ State & Changelog' },
+      { id: 'windows',  label: '⏱️ Windows & Time' },
       { id: 'topology', label: '🗺️ Topology View' },
       { id: 'iq',       label: '🎯 Interview Q&A' },
     ]
@@ -31,6 +32,7 @@ export function mount(container) {
   buildDSL(container);
   cleanups.push(buildDuality(container));
   buildState(container);
+  cleanups.push(buildWindows(container));
   buildTopology(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
@@ -306,6 +308,178 @@ function buildState(container) {
   tab.querySelector('#st-restore').addEventListener('click', restore);
   tab.querySelector('#st-standby').addEventListener('click', () => { standby = !standby; note = standby ? `<span style="color:#86EFAC">Standby replica enabled — instance B now keeps a warm copy of the store, updated live from the changelog. A crash will fail over to it instantly.</span>` : ''; render(); });
   tab.querySelector('#st-reset').addEventListener('click', () => { idx = 0; counts = {}; changelog = []; storeAlive = true; standby = false; note = ''; render(); });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Windows & Event Time (tumbling windows, grace, late events)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildWindows(container) {
+  const tab = container.querySelector('#tab-windows');
+
+  const WIN = 10, GRACE = 5, TMAX = 45;
+  // Arrival order includes in-order, out-of-order, and a too-late event.
+  const EVENTS = [
+    { id: 'e1', t: 3 }, { id: 'e2', t: 12 }, { id: 'e3', t: 7 },
+    { id: 'e4', t: 23 }, { id: 'e5', t: 9 }, { id: 'e6', t: 18 }, { id: 'e7', t: 31 },
+  ];
+  let step = 0, timer = null;
+
+  // classify events up to `step` arrivals; returns {processed:[{...,cls}], streamTime, counts}
+  function compute() {
+    let streamTime = -1;
+    const processed = [];
+    const counts = {};   // windowStart → count
+    for (let i = 0; i < step; i++) {
+      const e = EVENTS[i];
+      const prevStream = streamTime;
+      const w = Math.floor(e.t / WIN) * WIN;
+      const closeAt = w + WIN + GRACE;
+      let cls;
+      if (e.t > prevStream) { cls = 'ontime'; streamTime = e.t; }
+      else if (prevStream > closeAt) { cls = 'dropped'; }
+      else { cls = 'late'; }
+      if (cls !== 'dropped') counts[w] = (counts[w] || 0) + 1;
+      processed.push({ ...e, w, closeAt, cls });
+    }
+    return { processed, streamTime, counts };
+  }
+
+  function draw() {
+    const canvas = tab.querySelector('#win-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const L = 20, R = 20, baseY = 150;
+    const x = t => L + (t / TMAX) * (W - L - R);
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, H);
+
+    const { processed, streamTime } = compute();
+
+    // tumbling window bands + grace
+    for (let w = 0; w < TMAX; w += WIN) {
+      const x0 = x(w), x1 = x(Math.min(w + WIN, TMAX));
+      const closed = streamTime > w + WIN + GRACE;
+      ctx.fillStyle = (w / WIN) % 2 === 0 ? '#101827' : '#0C1322';
+      ctx.fillRect(x0, 40, x1 - x0, 80);
+      // grace zone
+      const gx1 = x(Math.min(w + WIN + GRACE, TMAX));
+      ctx.fillStyle = '#F59E0B14';
+      ctx.fillRect(x1, 40, gx1 - x1, 80);
+      // border
+      ctx.strokeStyle = closed ? '#EF444455' : '#243149'; ctx.lineWidth = 1;
+      ctx.strokeRect(x0, 40, x1 - x0, 80);
+      ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+      ctx.fillStyle = closed ? '#EF4444' : '#64748B';
+      ctx.fillText(`[${w}–${w + WIN})${closed ? ' CLOSED' : ''}`, (x0 + x1) / 2, 34);
+    }
+    // grace legend tick
+    ctx.font = '8px system-ui'; ctx.fillStyle = '#B4791F'; ctx.textAlign = 'left';
+    ctx.fillText('░ grace +5s', x(0) + 2, 132);
+
+    // stream time marker
+    if (streamTime >= 0) {
+      const sx = x(streamTime);
+      ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(sx, 36); ctx.lineTo(sx, 124); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#06B6D4'; ctx.font = 'bold 9px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(`stream time = ${streamTime}`, sx, 144);
+    }
+
+    // events
+    const COL = { ontime: '#10B981', late: '#F59E0B', dropped: '#EF4444' };
+    processed.forEach((e, i) => {
+      const ex = x(e.t), ey = 80 + ((i % 3) - 1) * 16;
+      ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+      ctx.fillStyle = COL[e.cls]; ctx.fill();
+      ctx.strokeStyle = '#0A0E1A'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.font = 'bold 8px system-ui'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+      ctx.fillText(e.id, ex, ey + 3);
+      if (e.cls === 'dropped') { ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ex - 8, ey - 8); ctx.lineTo(ex + 8, ey + 8); ctx.stroke(); }
+    });
+
+    // axis
+    ctx.strokeStyle = '#243149'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, baseY); ctx.lineTo(W - R, baseY); ctx.stroke();
+    ctx.fillStyle = '#64748B'; ctx.font = '8px system-ui'; ctx.textAlign = 'center';
+    for (let t = 0; t <= TMAX; t += 5) { ctx.fillText(String(t), x(t), baseY + 12); }
+    ctx.textAlign = 'right'; ctx.fillText('event time →', W - R, baseY + 26);
+  }
+
+  function render() {
+    draw();
+    const { processed, counts } = compute();
+    const last = processed[processed.length - 1];
+    const COLT = { ontime: '#10B981', late: '#F59E0B', dropped: '#EF4444' };
+    const MSG = {
+      ontime: (e) => `<b style="color:#10B981">${e.id} @ t=${e.t}</b> is in order — it advances <b>stream time</b> and lands in window [${e.w}–${e.w + WIN}).`,
+      late: (e) => `<b style="color:#F59E0B">${e.id} @ t=${e.t}</b> arrived out of order but window [${e.w}–${e.w + WIN}) is still open (closes at stream time ${e.closeAt}) — folded in, result updated.`,
+      dropped: (e) => `<b style="color:#EF4444">${e.id} @ t=${e.t}</b> is too late — window [${e.w}–${e.w + WIN}) already closed at ${e.closeAt}. Dropped (counted in a dropped-records metric).`,
+    };
+    tab.querySelector('#win-msg').innerHTML = last
+      ? MSG[last.cls](last)
+      : `<span style="color:#64748B">Press <b>Next event</b> to feed records in arrival order. Watch out-of-order events fold into open windows, and a truly late one get dropped once its window closes past the grace period.</span>`;
+    const winStarts = [0, 10, 20, 30, 40];
+    tab.querySelector('#win-counts').innerHTML = winStarts.map(w =>
+      `<div style="flex:1;text-align:center;padding:6px 4px;border-radius:7px;background:#0E1626;border:1px solid #1C2740">
+        <div style="font-size:8px;color:#64748B">[${w}–${w + WIN})</div>
+        <div style="font-size:13px;font-weight:700;color:${counts[w] ? '#E2E8F0' : '#334155'}">${counts[w] || 0}</div>
+      </div>`).join('');
+    tab.querySelector('#win-next').textContent = step >= EVENTS.length ? '✓ Done' : '▶ Next event';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Windowed aggregations run on <b>event time</b> (when a thing happened), not processing time (when it arrived). Each record lands in its window by its own timestamp, so out-of-order events still count correctly — up to a point. A window closes at <b>size + grace</b> measured in <b>stream time</b>; events later than that are dropped. Step through to see it.</div>
+      <canvas id="win-canvas" width="820" height="185" style="width:100%;max-width:820px"></canvas>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <div style="font-size:9px;color:#64748B;align-self:center;min-width:92px">window counts →</div>
+        <div id="win-counts" style="display:flex;gap:6px;flex:1"></div>
+      </div>
+      <div id="win-msg" style="font-size:11.5px;line-height:1.6;margin-top:12px;min-height:34px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="win-next">▶ Next event</button>
+        <button class="ctrl-btn" id="win-run">⏩ Play</button>
+        <button class="ctrl-btn" id="win-reset">↻ Reset</button>
+        <span class="ctrl-label">green = in-order · amber = out-of-order (within grace) · red = dropped (too late)</span>
+      </div>
+      <div style="margin-top:20px">
+        <div class="section-header" style="margin-bottom:10px"><div class="section-title">Three window types</div><div class="section-desc">How Kafka Streams carves the event-time axis</div></div>
+        <div class="info-grid">
+          <div class="info-card" style="border-left:3px solid #3B82F6">
+            <div class="info-card-title">⬛ Tumbling</div>
+            <div style="display:flex;gap:2px;margin:8px 0">${[0, 1, 2, 3].map(i => `<div style="flex:1;height:14px;border-radius:3px;background:${i % 2 ? '#3B82F655' : '#3B82F6aa'}"></div>`).join('')}</div>
+            <div class="info-card-body">Fixed-size, non-overlapping, gap-free. Every record belongs to exactly one window. <code>TimeWindows.ofSizeAndGrace(5min, 1min)</code>. Use for "revenue per 5 minutes".</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #8B5CF6">
+            <div class="info-card-title">▨ Hopping</div>
+            <div style="position:relative;height:22px;margin:8px 0">${[0, 1, 2, 3, 4].map(i => `<div style="position:absolute;left:${i * 15}%;width:28%;height:12px;top:${(i % 2) * 8}px;border-radius:3px;background:#8B5CF688"></div>`).join('')}</div>
+            <div class="info-card-body">Fixed-size but <b>overlapping</b> — advance &lt; size, so a record can fall in several windows. <code>.advanceBy(1min)</code>. Use for a smooth "5-min revenue, updated every minute".</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #F59E0B">
+            <div class="info-card-title">◧ Session</div>
+            <div style="display:flex;gap:10px;margin:8px 0;align-items:center">${[26, 14, 40].map(w => `<div style="width:${w}%;height:12px;border-radius:3px;background:#F59E0B99"></div>`).join('')}</div>
+            <div class="info-card-body">Activity-driven, variable size. A window grows to include records within an <b>inactivity gap</b>, then closes. <code>SessionWindows.ofInactivityGapAndGrace(5min, 1min)</code>. Use for user sessions.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>The single most important distinction in stream windowing is <strong>event time vs processing time</strong>. A record carries a timestamp of when the event actually happened (set by the producer, a field in the payload, or the broker append time). Kafka Streams assigns each record to its window using <em>that</em> timestamp, not the wall-clock moment it was processed. This is what lets a mobile app that was offline for an hour upload its events and still have them counted in the correct historical windows — the aggregation is a function of when things happened, not of network weather.</p>
+      <p>But a window can't stay open forever waiting for stragglers, so Streams tracks <strong>stream time</strong>: the maximum event timestamp seen so far on that task (it only moves forward). A window of size S closes once stream time passes <code>window-end + grace</code>. The <strong>grace period</strong> is the explicit "how long will I wait for out-of-order data" knob (<code>ofSizeAndGrace</code>). Watch the demo: <code>e3 @ t=7</code> arrives after <code>e2 @ t=12</code> — out of order — but its window [0–10) is still within grace, so it's folded in and the result is re-emitted. <code>e5 @ t=9</code> arrives even later, after stream time has reached 23; window [0–10) closed at 15, so e5 is simply <strong>dropped</strong> (and shows up in the <code>dropped-records</code> metric, never in the output).</p>
+      <p>Two consequences worth stating. First, stream time is <em>per task</em> and advances only when records arrive, so a <strong>sparse or idle partition</strong> can hold a window open long after you expected it to close — a classic "why isn't my window firing?" bug, addressed with <code>max.task.idle.ms</code> and careful partitioning. Second, grace is a direct <strong>latency-vs-completeness trade-off</strong>: a longer grace catches more late data but holds state longer and delays the final, closed-window result. Windowed stores also need retention ≥ size + grace or late-but-valid updates have nowhere to land.</p>
+      <p><strong>Interview angle:</strong> nail the vocabulary — "windows are assigned by event time, closed by stream time at size + grace; later-than-grace records are dropped." Then the senior layer: suppress() to emit only final results (<code>Suppressed.untilWindowCloses</code>), the idle-partition caveat, and choosing tumbling vs hopping vs session by the question you're answering (fixed buckets, smoothed rolling, or activity sessions).</p>
+    </div>`;
+
+  render();
+  const next = () => { if (step < EVENTS.length) { step++; render(); } };
+  tab.querySelector('#win-next').addEventListener('click', next);
+  tab.querySelector('#win-reset').addEventListener('click', () => { if (timer) { clearInterval(timer); timer = null; } step = 0; render(); });
+  tab.querySelector('#win-run').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; }
+    step = 0; render();
+    timer = setInterval(() => { if (step >= EVENTS.length) { clearInterval(timer); timer = null; return; } step++; render(); }, 1100);
+  });
+  return () => { if (timer) clearInterval(timer); };
 }
 
 function buildTopology(container) {
