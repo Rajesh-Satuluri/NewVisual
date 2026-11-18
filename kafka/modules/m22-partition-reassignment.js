@@ -17,6 +17,18 @@ export const IQ = [
     a: 'Adding a broker does NOT automatically move partitions to it — Kafka does not auto-rebalance. Steps: (1) Start new broker with unique broker.id, pointing to same ZooKeeper/KRaft cluster. (2) New topics created after broker join will include it. Old topics stay on old brokers. (3) Generate reassignment: kafka-reassign-partitions.sh --generate --topics-to-move-json topics.json --broker-list "1,2,3,4" (include new broker 4 in list). (4) Execute with throttle (--throttle 100000000 = 100MB/s). (5) Monitor with --verify and watch UnderReplicatedPartitions in JMX/Grafana — it will spike during reassignment, then drop back to 0. (6) After completion, remove throttle config. (7) Run preferred leader election to distribute leadership. Total time: 1TB ÷ 100MB/s = ~3 hours for data copy at 100MB/s throttle.',
     tip: 'Monitor UnderReplicatedPartitions (URP) during reassignment. URP > 0 is expected and normal during reassignment. A URP that stays high AFTER reassignment completes means a follower is not catching up — investigate disk I/O or network saturation. Reassignment completion ≠ ISR fully rebuilt.'
   },
+  {
+    q: 'Why must you throttle a partition reassignment, and how?',
+    a: 'Reassignment copies partition data between brokers, and at full speed that traffic can starve live produce and fetch requests. (1) Without a throttle the new follower fetches as fast as it can, saturating network and disk and spiking client latency. (2) Cap it with a replication throttle — kafka-reassign-partitions.sh --throttle 100000000 sets 100MB/s on the moving replicas via leader/follower.replication.throttled.rate. (3) Watch UnderReplicatedPartitions rise during the move and fall to 0 when caught up, then remove the throttle config. The tradeoff: a lower throttle protects production latency but stretches the copy out — 1TB at 100MB/s is roughly 3 hours — so size it to your latency headroom.',
+    tip: 'Always throttle in production: the knob is --throttle (bytes/sec). Start conservative, watch produce/fetch latency, raise it only if there is headroom. Remove the throttle when --verify shows done.',
+    difficulty: 'medium'
+  },
+  {
+    q: 'What is Cruise Control and what problem does it solve?',
+    a: 'Cruise Control is a LinkedIn-built tool that automates cluster balancing and reassignment, which are painful to do by hand. (1) It continuously collects per-broker and per-partition load metrics (CPU, disk, network, request rate) and models the cluster. (2) From that model it generates optimized reassignment plans to even out load and executes them with built-in throttling and goals (rack-awareness, disk and leader balance). (3) It also handles anomaly response — fixing under-replicated partitions or draining a dead broker. The tradeoff: another service to run and trust with live reassignments, but on large clusters it replaces fragile manual kafka-reassign-partitions.sh work. Think of it as autopilot for partition placement.',
+    tip: 'One line: "Cruise Control is autopilot for partition placement — metrics in, balanced reassignment plans out, with goals and throttling." Great to name when asked how you operate large clusters.',
+    difficulty: 'easy'
+  },
 ];
 
 export function mount(container) {

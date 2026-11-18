@@ -17,6 +17,18 @@ export const IQ = [
     a: 'MM2 uses a dot-prefixed replication naming convention: when replicating from cluster A to cluster B, topics are renamed A.topic-name. When B replicates back to A, MM2 checks the topic name — if it starts with the target cluster name (A.), it skips replication. The ReplicationPolicy (DefaultReplicationPolicy) implements this: it strips the source prefix and checks for cycles. Configuration: replication.policy.class=org.apache.kafka.connect.mirror.DefaultReplicationPolicy. Each cluster has a unique cluster.alias (e.g., us-east, us-west). The alias becomes the prefix. Example: us-east.orders is a replica — us-west will not re-replicate it back to us-east because it checks "does this topic start with the target alias + dot?" and skips it. This prevents A→B→A→B... infinite replication.',
     tip: 'The naming convention is the key insight: topic prefix = source cluster alias. Any topic matching [target_alias].* is skipped. This is a configuration-time guarantee, not a runtime check — get the aliases right and cycles are impossible.'
   },
+  {
+    q: 'How does MirrorMaker 2 let a consumer fail over to the DR cluster at the right offset?',
+    a: 'Offsets are not identical across clusters — the same record has different offsets on source and target — so MM2 translates them. (1) MM2 runs a MirrorCheckpointConnector that reads the source group\'s committed offsets and, via the offset-sync topic, maps each to the target offset, writing checkpoints to the target. (2) On failover the consumer uses RemoteClusterUtils (or automatic sync) to look up its translated offset and resume near where it left off. (3) Translation is approximate, landing at-or-before the true position, so you may reprocess a few records — which is why idempotent consumers matter. The tradeoff: exact offset parity is impossible across independent logs, so DR trades small reprocessing for no data loss.',
+    tip: 'Name the pieces: MirrorCheckpointConnector + offset-sync topic + RemoteClusterUtils. Offsets differ per cluster, so failover is "at-or-before" — pair it with idempotent consumers.',
+    difficulty: 'hard'
+  },
+  {
+    q: 'Compare active-active and active-passive Kafka DR in terms of RPO and RTO.',
+    a: 'Both replicate with MirrorMaker 2; the difference is whether the second cluster takes live traffic. (1) Active-passive: clients run in one region and MM2 mirrors to a standby. RTO is higher because failover means repointing clients and translating offsets, but it is simpler and conflict-free. (2) Active-active: both regions serve traffic and mirror to each other (MM2 blocks loops via topic-prefix aliases). RTO is near-zero since the other region is already live, but you must handle independent keyspaces and conflicts. (3) RPO in both is bounded by replication lag — async mirroring can lose a small window of in-flight records on sudden region loss. The tradeoff: active-active buys low RTO at the cost of complexity.',
+    tip: 'Define both: RPO = data you can lose (here the MM2 replication-lag window); RTO = time to recover (near-zero active-active, minutes active-passive). Async mirroring means RPO is never zero.',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {

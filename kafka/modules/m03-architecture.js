@@ -17,6 +17,18 @@ export const IQ = [
     a: 'The controller detects the dead broker via Raft heartbeat timeout (KRaft) or ZooKeeper session expiry. For each partition where the dead broker was leader, the controller picks the first replica in the ISR list as the new leader and broadcasts updated metadata. Clients reconnect and resume. Real Amazon scenario: Broker 1 is the leader for orders-P0. It crashes mid-Prime Day. The controller elects Broker 2 as leader for P0 in ~1 second. The Fulfillment Service consumer group briefly pauses, fetches new metadata, and resumes reading from exactly where it left off — no orders are lost, no offsets are reset, no engineer is paged.',
     tip: 'Know the difference between clean shutdown (preferred leader election, very fast) vs hard kill (ISR-based election, slightly slower). unclean.leader.election.enable=false prevents data loss at the cost of availability.'
   },
+  {
+    q: 'What exactly does the Kafka controller do?',
+    a: 'The controller is the brain of the cluster — one broker elected to manage metadata, not client data. Its jobs: (1) watch broker liveness via heartbeats and detect failures; (2) on a leader\'s death, elect the new partition leader from the ISR and broadcast updated metadata; (3) handle topic and partition creation, deletion, and reassignment; (4) maintain the ISR list as replicas lag or catch up. In KRaft the controller is the Raft leader of a 3-node quorum, with metadata stored in the __cluster_metadata topic. Only one is active at a time; if it dies, Raft elects a replacement in under a second while brokers serve cached metadata.',
+    tip: 'Stress that the controller manages metadata, not record reads and writes — those always go to partition leaders. Conflating the two is a common mistake.',
+    difficulty: 'medium'
+  },
+  {
+    q: 'How does a producer find the right broker to send a record to?',
+    a: 'Through a bootstrap-then-metadata handshake. (1) The producer connects to any broker in bootstrap.servers — an entry point, not necessarily a leader. (2) It sends a metadata request and gets back the partition map: which broker leads each partition. (3) It hashes the record\'s key to pick a partition, finds that partition\'s leader, and sends straight to that broker — no proxying through others. (4) It caches the map and refreshes every metadata.max.age.ms (default 5 minutes), or immediately on a NOT_LEADER error after a failover. So bootstrap.servers only needs two or three brokers for resilience; the client discovers the rest from there.',
+    tip: 'Make clear bootstrap.servers is a discovery seed, not the data path. After the first metadata fetch, producers talk straight to partition leaders.',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {

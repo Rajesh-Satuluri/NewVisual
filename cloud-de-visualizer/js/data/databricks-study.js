@@ -14,6 +14,7 @@
       callouts: {
         what: [{ kind: 'insight', body: 'Delta = Parquet files + a transaction log (_delta_log). That JSON/checkpoint log is what adds ACID, time travel, and schema enforcement on top of plain object storage.' }],
         how: [{ kind: 'gotcha', body: 'The log also creates the small-files and stale-metadata problems: run OPTIMIZE (and Z-ORDER) to compact, and VACUUM to retire old files — but VACUUM too aggressively and you break time travel.' }],
+        architecture: [{ kind: 'interview', body: 'Modern layout answer: Liquid Clustering (CLUSTER BY) replaces both hive partitioning and Z-ORDER. You pick clustering keys once; Databricks keeps data skipping efficient as the table grows and lets you change keys without rewriting the whole table — avoiding over-partitioning (too many tiny folders) and the rigid partition columns you could never alter. Say "I’d use Liquid Clustering over partition-by-date + ZORDER for a high-cardinality, evolving table."' }],
       },
     },
     'unity-catalog': {
@@ -21,6 +22,8 @@
       callouts: {
         what: [{ kind: 'insight', body: 'Unity Catalog is the account-level governance layer — a three-level namespace (catalog.schema.table), one place for grants, lineage, and audit across every workspace.' }],
         how: [{ kind: 'interview', body: 'Know the three-level namespace and that governance is centralized above the workspace. Contrast with the legacy Hive metastore, which was per-workspace with no unified lineage.' }],
+        operations: [{ kind: 'tip', body: 'System Tables (the read-only system catalog, e.g. system.billing.usage, system.access.audit, system.query.history, system.access.table_lineage) are how you observe the platform with SQL: attribute DBU cost to jobs/users, audit who accessed what, and answer "what feeds this table" for lineage — no separate monitoring tool. A common senior answer for cost/governance questions.' }],
+        why: [{ kind: 'interview', body: 'Lakehouse Federation lets UC query external databases (PostgreSQL, MySQL, Snowflake, Redshift, SQL Server, BigQuery…) in place via a connection + foreign catalog — no copy. Federate for occasional/exploratory access on modest volume; ingest (Auto Loader / Lakeflow Connect / CDC) when data is queried at scale or you must keep analytical load off the operational database. Federation has no Delta skipping or time travel and runs on the live source.' }],
       },
     },
     'delta-live-tables': {
@@ -68,6 +71,7 @@
       level: 'core',
       callouts: {
         how: [{ kind: 'interview', body: 'Know the three shapes: all-purpose (interactive, shared, pricey) for dev; job clusters (spun up per run, cheaper) for production; serverless for instant start with no infra to size. Picking the right one is a cost-and-latency tradeoff.' }],
+        cost: [{ kind: 'tip', body: 'Serverless removes the VM-sizing decision and starts in seconds (no cold-start wait), but you pay a managed per-DBU rate with compute running in Databricks’ account — less low-level control than classic. Reach for serverless for spiky/interactive SQL and short jobs; reach for classic when you need specific instance types, long-running tuned workloads, or tighter cost control. Idle all-purpose clusters are the classic cost leak — use job/serverless for scheduled work and set auto-termination.' }],
       },
     },
     'databricks-sql': {
@@ -86,6 +90,15 @@
       level: 'advanced',
       callouts: {
         what: [{ kind: 'analogy', body: 'An open protocol for sharing live Delta data across orgs and platforms without copying — the recipient reads your tables directly, even from non-Databricks tools.' }],
+      },
+    },
+    'databricks-cicd': {
+      level: 'core',
+      callouts: {
+        what: [{ kind: 'insight', body: 'Databricks Asset Bundles (DABs) are infrastructure-as-code for the lakehouse: one databricks.yml declares jobs, DLT pipelines and config plus dev/staging/prod targets, and the Databricks CLI deploys the identical bundle to each — the opposite of hand-editing jobs in every workspace’s UI.' }],
+        security: [{ kind: 'interview', body: 'Two identities, don’t conflate them: the CI deploy identity (authenticate as a service principal via OAuth M2M / OIDC — never a personal PAT) only needs rights to create the job; the job’s run_as service principal needs explicit Unity Catalog grants on everything it reads/writes. A clean deploy can still fail at run time if run_as lacks grants.' }],
+        how: [{ kind: 'gotcha', body: 'The development target mode prefixes resources per user and pauses schedules so engineers test private copies; production mode does not prefix. Same databricks.yml, different targets — that’s how one definition serves every environment.' }],
+        architecture: [{ kind: 'tip', body: 'This is the Databricks end of the Azure DevOps CI/CD story: notebooks + databricks.yml in Azure Repos/GitHub, PRs run bundle validate as build validation, Azure Pipelines/GitHub Actions deploy per environment behind approvals — mirrors ADF’s adf_publish promotion.' }],
       },
     },
   };
