@@ -1194,6 +1194,105 @@ window.SQL_QA = {
         "<p><b>Dynamic SQL is SQL text built and executed at runtime</b> (e.g. to vary columns/filters). It's flexible but the big risk is <b>SQL injection</b> if you concatenate user input into the string.</p>" +
         "<p>Always use <b>parameterized queries / bind variables</b> (<code>sp_executesql</code>, prepared statements) rather than string concatenation — it both prevents injection and lets the plan cache work.</p>",
       tip: "\"Parameterize, never concatenate user input\" is the security answer every interviewer wants to hear."
+    },
+
+    // ═══════════════ Added from LinkedIn interview-question sweep (2026-11) ═══════════════
+    {
+      id: "optimizer-ignores-index",
+      group: "Indexes & Performance",
+      q: "Why does a query sometimes ignore an index even when one exists?",
+      difficulty: "Deep",
+      tags: ["index", "optimizer", "sargable", "statistics"],
+      a:
+        "<p>The optimizer is <b>cost-based</b> — it uses an index only when it estimates that's cheaper. Common reasons it skips one:</p>" +
+        "<ul>" +
+        "<li><b>Low selectivity</b> — the filter returns a large fraction of rows, so a full <b>table scan</b> is actually cheaper than many random index lookups + key lookups.</li>" +
+        "<li><b>Non-sargable predicate</b> — wrapping the column in a function or doing math/implicit conversion (<code>WHERE YEAR(order_date)=2026</code>, or comparing a string column to a number) hides the column from the index.</li>" +
+        "<li><b>Stale statistics</b> — the optimizer mis-estimates row counts and picks a bad plan.</li>" +
+        "<li><b>Leading-column mismatch</b> — a composite index can't be seeked if you don't filter on its leading column.</li>" +
+        "<li><b>Expensive key lookups</b> — a non-covering index would need many lookups back to the table, so a scan wins.</li>" +
+        "</ul>",
+      tip: "Lead with <b>selectivity</b> and <b>sargability</b>: \"An index helps when it's selective and the predicate is sargable; a function on the column or a low-selectivity filter makes a scan cheaper.\""
+    },
+    {
+      id: "group-by-vs-order-by",
+      group: "Aggregation, GROUP BY & Filtering",
+      q: "What is the difference between GROUP BY and ORDER BY?",
+      difficulty: "Core",
+      tags: ["group by", "order by", "aggregation"],
+      a:
+        "<ul>" +
+        "<li><b>GROUP BY</b> <b>collapses</b> rows into one row per group so you can aggregate (<code>SUM</code>, <code>COUNT</code>, <code>AVG</code> …). It changes the number of rows.</li>" +
+        "<li><b>ORDER BY</b> <b>sorts</b> the final result; it never changes which or how many rows come back.</li>" +
+        "</ul>" +
+        "<p>They also run at different times in the logical order: <code>GROUP BY</code> is evaluated early (before <code>SELECT</code>), <code>ORDER BY</code> last — which is why <code>ORDER BY</code> can reference a <code>SELECT</code> alias but <code>GROUP BY</code> generally cannot.</p>",
+      code:
+        "SELECT department, COUNT(*) AS headcount\n" +
+        "FROM Employee\n" +
+        "GROUP BY department      -- collapse to one row per department\n" +
+        "ORDER BY headcount DESC; -- then sort those rows",
+      tip: "One line: \"GROUP BY <b>aggregates</b> (fewer rows); ORDER BY <b>sorts</b> (same rows). One reshapes, the other arranges.\""
+    },
+    {
+      id: "detect-outliers-sql",
+      group: "Classic Query Patterns",
+      q: "How would you detect anomalies or outliers in a dataset using SQL?",
+      difficulty: "Deep",
+      tags: ["outliers", "anomaly", "stddev", "iqr"],
+      a:
+        "<p>Two standard statistical approaches, both expressible with window functions:</p>" +
+        "<ul>" +
+        "<li><b>3σ (z-score) rule</b> — flag rows more than 3 standard deviations from the mean. Compute <code>AVG()</code> and <code>STDEV()</code> (window or subquery), then keep rows where <code>ABS(x - avg) > 3 * stddev</code>.</li>" +
+        "<li><b>IQR / Tukey fences</b> — compute Q1 and Q3 (via <code>PERCENTILE_CONT</code>), then flag values below <code>Q1 - 1.5*IQR</code> or above <code>Q3 + 1.5*IQR</code>. More robust to extreme values than z-score.</li>" +
+        "</ul>",
+      code:
+        "WITH s AS (\n" +
+        "  SELECT amount,\n" +
+        "         AVG(amount)  OVER () AS mu,\n" +
+        "         STDEV(amount) OVER () AS sd\n" +
+        "  FROM Sales\n" +
+        ")\n" +
+        "SELECT amount\n" +
+        "FROM s\n" +
+        "WHERE ABS(amount - mu) > 3 * sd;   -- 3-sigma outliers",
+      tip: "Mention both: \"<b>z-score (3σ)</b> for roughly-normal data, <b>IQR</b> when it's skewed.\" Naming the robustness trade-off reads as statistical maturity."
+    },
+    {
+      id: "minmax-scaling-sql",
+      group: "Classic Query Patterns",
+      q: "How do you standardize / scale a numeric column between 0 and 1 in SQL?",
+      difficulty: "Common",
+      tags: ["min-max", "scaling", "normalization", "window"],
+      a:
+        "<p><b>Min-max scaling</b> maps each value to <code>(x - min) / (max - min)</code>, putting everything in [0, 1]. Use window aggregates so the min/max are computed over the set in one pass:</p>" +
+        "<ul>" +
+        "<li>Guard against <b>divide-by-zero</b> when all values are equal (<code>max = min</code>) with <code>NULLIF</code>.</li>" +
+        "<li>For <b>z-score standardization</b> instead, use <code>(x - AVG) / STDEV</code>.</li>" +
+        "</ul>",
+      code:
+        "SELECT value,\n" +
+        "       (value - MIN(value) OVER ())\n" +
+        "         * 1.0 / NULLIF(MAX(value) OVER () - MIN(value) OVER (), 0)\n" +
+        "         AS scaled_0_1\n" +
+        "FROM Measurements;",
+      tip: "Two gotchas to say out loud: cast to decimal (<code>* 1.0</code>) to avoid integer division, and <code>NULLIF(range, 0)</code> for the all-equal case."
+    },
+    {
+      id: "joins-vs-subqueries-perf",
+      group: "Subqueries & CTEs",
+      q: "What performs better — joins or subqueries?",
+      difficulty: "Deep",
+      tags: ["joins", "subqueries", "performance", "optimizer"],
+      a:
+        "<p>\"It depends\" — and the honest answer is that a good optimizer often <b>rewrites one into the other</b>, so the <i>shape</i> matters more than the keyword:</p>" +
+        "<ul>" +
+        "<li><b>JOINs</b> are usually best when you need columns from both tables and the optimizer can pick a hash/merge strategy over sets.</li>" +
+        "<li><b>Correlated subqueries</b> that run once per outer row are the classic performance trap — rewrite them as a join or a windowed aggregate.</li>" +
+        "<li><b>EXISTS</b> vs <b>IN</b> vs a join for \"does a match exist\": <code>EXISTS</code> can short-circuit and is <code>NULL</code>-safe, often matching or beating a join + <code>DISTINCT</code>.</li>" +
+        "<li>A <b>non-correlated</b> subquery that computes a scalar once is usually fine.</li>" +
+        "</ul>" +
+        "<p>Verify with the <b>execution plan</b> rather than assuming.</p>",
+      tip: "The senior answer: \"The optimizer often transforms between them, so I compare <b>execution plans</b>. The real killer is a <b>correlated</b> subquery running per row — that I rewrite as a join or window function.\""
     }
   ]
 };

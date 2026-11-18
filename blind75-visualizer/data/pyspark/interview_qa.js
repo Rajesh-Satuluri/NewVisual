@@ -25,7 +25,8 @@ window.PYSPARK_QA = {
     "Partitions, Shuffle & Performance",
     "Skew & Broadcast",
     "I/O, Formats & Data Quality",
-    "Streaming, MLlib & Graph"
+    "Streaming, MLlib & Graph",
+    "Delta Lake, Lakehouse & Data Engineering"
   ],
 
   items: [
@@ -1228,6 +1229,479 @@ window.PYSPARK_QA = {
         "<li><b>GraphX</b> — Spark's API for graphs and graph-parallel computation (vertices + edges), with built-in algorithms. In PySpark, the DataFrame-based <b>GraphFrames</b> package is the usual choice.</li>" +
         "<li><b>PageRank</b> — a classic graph algorithm that ranks nodes by the number and importance of links pointing to them (originally Google's page ranking). It's the standard example of an <b>iterative</b> graph computation Spark runs well because it keeps data in memory across iterations.</li>" +
         "</ul>"
+    },
+
+    // ═══════════════ Added from LinkedIn interview-question sweep (2026-11) ═══════════════
+    // ───────────── Technical cards into existing groups ─────────────
+    {
+      id: "tungsten-engine",
+      group: "Lazy Eval, DAG, Lineage & Catalyst",
+      q: "How does the Tungsten engine speed up execution in Spark?",
+      difficulty: "Deep",
+      tags: ["tungsten", "codegen", "performance"],
+      a:
+        "<p><b>Tungsten is Spark's execution-layer optimizer</b> — it kicks in <i>after</i> Catalyst has planned the query and rewrites <i>how</i> the work physically runs on the CPU and in memory.</p>" +
+        "<ul>" +
+        "<li><b>Off-heap, cache-aware memory</b> — stores rows in a compact binary format outside the JVM heap, so there's far less garbage-collection pressure and better CPU-cache locality.</li>" +
+        "<li><b>Whole-Stage Code Generation (WSCG)</b> — collapses a whole chain of operators (filter → project → aggregate) into a single generated Java function, eliminating virtual function calls and intermediate row objects.</li>" +
+        "<li><b>Vectorized readers</b> — Parquet/ORC are read a batch of columns at a time rather than row-by-row.</li>" +
+        "</ul>" +
+        "<p>Catalyst answers <i>\"what plan?\"</i>; Tungsten answers <i>\"run that plan as fast as the hardware allows.\"</i></p>",
+      tip: "If asked \"Catalyst vs Tungsten\": Catalyst = logical/physical <b>plan optimization</b>; Tungsten = <b>memory + code-generation</b> on the chosen plan. They are two different stages, not competitors."
+    },
+    {
+      id: "spark-memory-management",
+      group: "Architecture & Execution",
+      q: "Explain memory management in Spark.",
+      difficulty: "Deep",
+      tags: ["memory", "executor", "oom"],
+      a:
+        "<p>Each executor's JVM memory is split into regions controlled by the <b>Unified Memory Manager</b>:</p>" +
+        "<ul>" +
+        "<li><b>Execution memory</b> — scratch space for shuffles, joins, sorts and aggregations.</li>" +
+        "<li><b>Storage memory</b> — cached/persisted DataFrames and broadcast data.</li>" +
+        "<li><b>Unified pool</b> — execution and storage share one region and <i>borrow</i> from each other; execution can evict cached blocks under pressure, but cached blocks can't starve execution.</li>" +
+        "<li><b>User memory</b> — your data structures, UDF state.</li>" +
+        "<li><b>Reserved memory</b> — a fixed slice Spark keeps for itself.</li>" +
+        "</ul>" +
+        "<p>On top sits <b>off-heap</b> memory (Tungsten) plus <code>spark.executor.memoryOverhead</code> for non-JVM needs (Python workers, network buffers) — the overhead is the usual culprit in container-kill OOMs.</p>",
+      tip: "Name the two that move: <b>execution</b> and <b>storage</b> share a unified pool. Then mention <b>memoryOverhead</b> — it's what gets your container killed by YARN/K8s even when heap looks fine."
+    },
+    {
+      id: "bucketing-vs-partitioning",
+      group: "Partitions, Shuffle & Performance",
+      q: "How does bucketing differ from partitioning, and when would you use each?",
+      difficulty: "Deep",
+      tags: ["bucketing", "partitioning", "joins"],
+      a:
+        "<ul>" +
+        "<li><b>Partitioning</b> (<code>partitionBy</code>) splits data into <b>separate directories/files by a column's value</b> (e.g. <code>year=2026/month=11/</code>). Great for <b>partition pruning</b> on low-cardinality filter columns — Spark reads only the folders it needs.</li>" +
+        "<li><b>Bucketing</b> (<code>bucketBy</code>) hashes a column into a <b>fixed number of buckets</b> within each file set. Rows with the same key land in the same bucket number across tables.</li>" +
+        "</ul>" +
+        "<p><b>Why bucketing matters:</b> if two tables are bucketed on the same column into the same number of buckets, Spark can <b>join them without a shuffle</b> (a sort-merge join on co-located buckets). Bucketing also tames high-cardinality columns that would blow up as partitions.</p>",
+      code:
+        "orders.write.bucketBy(64, \"customer_id\").sortBy(\"customer_id\") \\\n" +
+        "      .mode(\"overwrite\").saveAsTable(\"orders_bucketed\")\n" +
+        "# A later join of two tables bucketed the same way on customer_id\n" +
+        "# needs no shuffle exchange.",
+      lang: "python",
+      tip: "Rule of thumb: <b>partition</b> by a low-cardinality column you filter on (date, region); <b>bucket</b> by a high-cardinality column you repeatedly <b>join or aggregate</b> on (customer_id)."
+    },
+    {
+      id: "tune-shuffle-partitions-aqe",
+      group: "Partitions, Shuffle & Performance",
+      q: "How do you tune shuffle partitions, and what does AQE do for you?",
+      difficulty: "Deep",
+      tags: ["shuffle", "aqe", "spark.sql.shuffle.partitions"],
+      a:
+        "<p><code>spark.sql.shuffle.partitions</code> (default <b>200</b>) sets how many partitions a shuffle produces. The default is rarely right:</p>" +
+        "<ul>" +
+        "<li><b>Too few</b> → huge partitions, spills to disk, OOM.</li>" +
+        "<li><b>Too many</b> → tiny tasks, scheduler overhead, small-file output.</li>" +
+        "<li>Manual rule of thumb: aim for partitions of <b>~128–200 MB</b> each; set the count ≈ total shuffle size ÷ target size.</li>" +
+        "</ul>" +
+        "<p><b>Adaptive Query Execution (AQE)</b> (on by default in Spark 3.2+) does this at runtime: it <b>coalesces</b> small post-shuffle partitions, <b>switches join strategies</b> (e.g. to broadcast) once it sees real sizes, and <b>splits skewed partitions</b> automatically — so you often don't hand-tune the number anymore.</p>",
+      tip: "Modern answer: \"Turn on AQE and let it coalesce/skew-split; only hand-set <code>shuffle.partitions</code> for predictable, fixed-size batch jobs.\""
+    },
+    {
+      id: "checkpoint-vs-cache",
+      group: "Partitions, Shuffle & Performance",
+      q: "How does checkpointing differ from caching?",
+      difficulty: "Common",
+      tags: ["checkpoint", "cache", "lineage"],
+      a:
+        "<ul>" +
+        "<li><b>Caching / persist</b> keeps a DataFrame in <b>memory (or memory+disk)</b> for reuse, but <b>keeps the lineage</b>. If an executor dies, Spark recomputes the lost partitions from lineage. It's a performance hint and can be evicted.</li>" +
+        "<li><b>Checkpointing</b> writes the data to <b>reliable storage (HDFS/DBFS/S3)</b> and <b>truncates the lineage</b> — Spark forgets how it was computed. It survives failures and breaks long/iterative DAGs that would otherwise be expensive to recompute or cause stack-overflow planning.</li>" +
+        "</ul>" +
+        "<p>In <b>Structured Streaming</b>, checkpointing is mandatory, not optional — it stores offsets and state so a restarted query resumes exactly where it left off.</p>",
+      tip: "One line: \"Cache = fast reuse, lineage kept, can vanish. Checkpoint = durable, lineage cut, survives restarts.\" Streaming checkpoints are required for exactly-once recovery."
+    },
+    {
+      id: "spark-join-strategies",
+      group: "Skew & Broadcast",
+      q: "What are the join strategies in Spark and when is each chosen?",
+      difficulty: "Deep",
+      tags: ["joins", "broadcast", "sort-merge", "shuffle-hash"],
+      a:
+        "<ul>" +
+        "<li><b>Broadcast Hash Join (BHJ)</b> — ships the <b>small</b> side to every executor; no shuffle of the big side. Chosen when one side is under <code>spark.sql.autoBroadcastJoinThreshold</code> (default 10 MB). Fastest when it applies.</li>" +
+        "<li><b>Sort-Merge Join (SMJ)</b> — the default for two <b>large</b> tables: shuffle both by the key, sort, then merge. Scales but costs a full shuffle + sort.</li>" +
+        "<li><b>Shuffle Hash Join (SHJ)</b> — shuffles both sides, builds a hash map on one; used when one side fits in memory but isn't small enough to broadcast and sorting isn't worth it.</li>" +
+        "<li><b>Broadcast Nested Loop / Cartesian</b> — fallbacks for non-equi or cross joins; avoid on big data.</li>" +
+        "</ul>" +
+        "<p>Nudge the optimizer with hints: <code>broadcast(df)</code>, or <code>/*+ MERGE */</code>, <code>/*+ SHUFFLE_HASH */</code>.</p>",
+      code:
+        "from pyspark.sql.functions import broadcast\n" +
+        "big.join(broadcast(small_dim), \"dim_id\")   # force a broadcast hash join",
+      lang: "python",
+      tip: "Lead with the decision rule: \"small side → broadcast; two big tables → sort-merge.\" Then mention AQE can flip to broadcast at runtime once it measures the real size."
+    },
+    {
+      id: "watermarking-late-data",
+      group: "Streaming, MLlib & Graph",
+      q: "How does watermarking work in Structured Streaming (late / out-of-order data)?",
+      difficulty: "Deep",
+      tags: ["watermark", "streaming", "event-time", "late-data"],
+      a:
+        "<p>A <b>watermark</b> tells Spark how long to wait for late events before finalizing a window. It's defined on the <b>event-time</b> column as a threshold:</p>" +
+        "<ul>" +
+        "<li>Spark tracks the <b>max event time seen</b>; the watermark = max seen − threshold.</li>" +
+        "<li>A window's state is kept until the watermark passes its end, then emitted and <b>dropped from state</b> — this is what bounds state so it doesn't grow forever.</li>" +
+        "<li>Events arriving <b>older than the watermark are dropped</b> (too late to count).</li>" +
+        "</ul>" +
+        "<p>So the watermark is a trade-off: a longer threshold catches more late data but holds more state and adds latency.</p>",
+      code:
+        "from pyspark.sql.functions import window\n" +
+        "( events\n" +
+        "  .withWatermark(\"event_time\", \"10 minutes\")\n" +
+        "  .groupBy(window(\"event_time\", \"5 minutes\"), \"user_id\")\n" +
+        "  .count() )",
+      lang: "python",
+      tip: "Say it in one breath: \"Watermark = how late I'll still accept an event; it bounds streaming state and lets Spark finalize + evict old windows.\""
+    },
+    {
+      id: "more-executors-slower",
+      group: "Partitions, Shuffle & Performance",
+      q: "Why can increasing executors make a PySpark job slower, not faster?",
+      difficulty: "Deep",
+      tags: ["executors", "parallelism", "shuffle", "skew"],
+      a:
+        "<p>More executors only help if there's <b>parallelizable work and balanced data</b>. Common reasons adding them backfires:</p>" +
+        "<ul>" +
+        "<li><b>Not enough partitions</b> — if the job has 50 partitions, executors beyond 50 sit idle while you still pay for them.</li>" +
+        "<li><b>Data skew</b> — one hot key means one task runs for an hour while the rest finish in seconds; more executors can't split that single task.</li>" +
+        "<li><b>More shuffle fan-out</b> — more executors = more network connections and shuffle blocks to exchange, which can dominate.</li>" +
+        "<li><b>Small-file / tiny-task overhead</b> — scheduling and JVM startup cost swamps the actual compute.</li>" +
+        "</ul>",
+      tip: "The senior answer: \"Throughput is bounded by partitions and the <i>slowest</i> task, not by executor count. Fix skew and partitioning first; scaling out a skewed job just adds idle, billed executors.\""
+    },
+    {
+      id: "small-file-problem-why",
+      group: "I/O, Formats & Data Quality",
+      q: "Why is the \"small file problem\" a problem, and why is it NOT really about file size?",
+      difficulty: "Deep",
+      tags: ["small-files", "metadata", "io"],
+      a:
+        "<p>The pain isn't bytes on disk — it's <b>per-file overhead</b>:</p>" +
+        "<ul>" +
+        "<li><b>Metadata & listing</b> — the driver must list and open thousands of files; on object stores (S3/ADLS) each open is a separate, latency-heavy request.</li>" +
+        "<li><b>One task per file (roughly)</b> — millions of tiny tasks mean scheduling overhead dwarfs the real work.</li>" +
+        "<li><b>Lost columnar efficiency</b> — Parquet's compression, encoding and predicate push-down work on row groups; tiny files never fill one, so you lose the format's advantages.</li>" +
+        "</ul>" +
+        "<p><b>Fixes:</b> <code>coalesce</code>/<code>repartition</code> before write, Delta <code>OPTIMIZE</code> (compaction), or Auto Loader + auto-compaction. Target ~128 MB–1 GB files.</p>",
+      tip: "Nail the framing: \"It's a <b>metadata and task-count</b> problem, not a storage-size problem.\" That one sentence is the whole answer."
+    },
+
+    // ───────────── Delta Lake, Lakehouse & Data Engineering (new group) ─────────────
+    {
+      id: "what-is-delta-lake",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What is Delta Lake and what problems does it solve?",
+      difficulty: "Core",
+      tags: ["delta", "lakehouse", "acid"],
+      a:
+        "<p><b>Delta Lake is an open storage layer that adds reliability to a data lake</b> — it sits on top of Parquet files and makes them behave like a transactional table.</p>" +
+        "<ul>" +
+        "<li><b>ACID transactions</b> on files in cloud storage — no more half-written tables from a failed job.</li>" +
+        "<li><b>Schema enforcement & evolution</b> — rejects bad writes, or evolves the schema on purpose.</li>" +
+        "<li><b>Time travel</b> — query or roll back to an earlier version.</li>" +
+        "<li><b>Unified batch + streaming</b> — the same table is a streaming source and sink.</li>" +
+        "<li><b>Upserts/deletes</b> via <code>MERGE</code>, <code>UPDATE</code>, <code>DELETE</code> — impossible on plain Parquet.</li>" +
+        "</ul>" +
+        "<p>It's what turns a raw \"data lake\" into a <b>lakehouse</b>.</p>",
+      tip: "One line: \"Delta = Parquet + a transaction log that gives ACID, time travel, and MERGE on a data lake.\""
+    },
+    {
+      id: "delta-acid-log",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How does Delta Lake give ACID guarantees (the transaction log)?",
+      difficulty: "Deep",
+      tags: ["delta", "transaction-log", "concurrency"],
+      a:
+        "<p>Every Delta table has a <b><code>_delta_log</code></b> directory — an ordered set of JSON commit files (periodically checkpointed to Parquet) that is the <b>single source of truth</b> for which data files make up the table.</p>" +
+        "<ul>" +
+        "<li>A write doesn't mutate existing files; it adds new Parquet files and then <b>atomically commits</b> a log entry listing adds/removes.</li>" +
+        "<li>Readers read the log first, so they only ever see files from <b>committed</b> versions — never a partial write.</li>" +
+        "<li><b>Optimistic concurrency control</b> — concurrent writers check the latest log version at commit; if another commit landed first, the loser retries. This is how isolation is enforced.</li>" +
+        "</ul>",
+      tip: "The magic word is the <b>transaction log</b> (<code>_delta_log</code>). \"Atomic commit of a log entry + optimistic concurrency\" is the mechanism interviewers are listening for."
+    },
+    {
+      id: "delta-time-travel",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How do you use Delta time travel and versioning?",
+      difficulty: "Common",
+      tags: ["delta", "time-travel", "versioning"],
+      a:
+        "<p>Because the log records every version, you can read the table <b>as of</b> a past version or timestamp:</p>" +
+        "<ul>" +
+        "<li><b>Audit / reproducibility</b> — rerun yesterday's report on yesterday's data.</li>" +
+        "<li><b>Rollback</b> — <code>RESTORE</code> a table to a good version after a bad load.</li>" +
+        "<li><b>Debugging / diffs</b> — compare two versions to see what a job changed.</li>" +
+        "</ul>" +
+        "<p><code>VACUUM</code> eventually removes old files past the retention window, which limits how far back you can travel.</p>",
+      code:
+        "df = spark.read.format(\"delta\").option(\"versionAsOf\", 12).load(path)\n" +
+        "# or: .option(\"timestampAsOf\", \"2026-11-01\")\n" +
+        "spark.sql(\"RESTORE TABLE sales TO VERSION AS OF 12\")",
+      lang: "python",
+      tip: "Mention the catch: <b>VACUUM</b> deletes tombstoned files, so time travel only reaches back as far as your retention (default 7 days)."
+    },
+    {
+      id: "delta-optimize-zorder-vacuum",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What do OPTIMIZE, ZORDER and VACUUM do on a Delta table?",
+      difficulty: "Common",
+      tags: ["delta", "optimize", "zorder", "vacuum"],
+      a:
+        "<ul>" +
+        "<li><b>OPTIMIZE</b> — <b>compacts</b> many small files into fewer right-sized ones (fixes the small-file problem on Delta).</li>" +
+        "<li><b>ZORDER BY</b> — co-locates related data within files by one or more columns, so <b>data skipping</b> reads far fewer files for queries filtering on those columns.</li>" +
+        "<li><b>VACUUM</b> — permanently deletes files no longer referenced by the log (past the retention period), reclaiming storage.</li>" +
+        "</ul>",
+      code:
+        "spark.sql(\"OPTIMIZE events ZORDER BY (user_id, event_date)\")\n" +
+        "spark.sql(\"VACUUM events RETAIN 168 HOURS\")  -- 7 days",
+      lang: "python",
+      tip: "Pairing to remember: <b>OPTIMIZE</b> fixes file count, <b>ZORDER</b> fixes read skipping, <b>VACUUM</b> reclaims space (and caps time travel)."
+    },
+    {
+      id: "cdc-change-data-feed",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How do you implement CDC (Change Data Capture) with PySpark / Delta?",
+      difficulty: "Deep",
+      tags: ["cdc", "merge", "change-data-feed"],
+      a:
+        "<p><b>CDC</b> captures inserts/updates/deletes from a source and applies them incrementally to a target — you never reload the whole table.</p>" +
+        "<ul>" +
+        "<li><b>Ingest changes</b> (from Debezium/Kafka, or a source's change feed) as a stream/batch of change rows with an operation flag.</li>" +
+        "<li><b>Dedupe to the latest</b> change per key (window by key, newest timestamp).</li>" +
+        "<li><b>Apply with <code>MERGE INTO</code></b> — matched+delete flag → delete, matched → update, not-matched → insert.</li>" +
+        "<li>Delta's <b>Change Data Feed</b> (<code>enableChangeDataFeed</code>) lets <i>downstream</i> jobs read exactly what changed in <i>this</i> table too.</li>" +
+        "</ul>" +
+        "<p>Make it <b>idempotent</b> so re-running the same batch is safe.</p>",
+      code:
+        "(target.alias(\"t\").merge(latest.alias(\"s\"), \"t.id = s.id\")\n" +
+        "   .whenMatchedDelete(condition=\"s.op = 'D'\")\n" +
+        "   .whenMatchedUpdateAll()\n" +
+        "   .whenNotMatchedInsertAll()\n" +
+        "   .execute())",
+      lang: "python",
+      tip: "Two layers: <b>MERGE</b> applies CDC <i>into</i> a table; <b>Change Data Feed</b> exposes changes <i>out of</i> a Delta table to downstream consumers."
+    },
+    {
+      id: "lake-warehouse-lakehouse",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "Data Lake vs Data Warehouse vs Lakehouse — when do you use each?",
+      difficulty: "Core",
+      tags: ["data-lake", "warehouse", "lakehouse"],
+      a:
+        "<ul>" +
+        "<li><b>Data Warehouse</b> — structured, schema-on-write, optimized for BI/SQL analytics (Snowflake, Synapse, BigQuery). Great governance & performance; costly and rigid for raw/semi-structured data and ML.</li>" +
+        "<li><b>Data Lake</b> — cheap object storage holding <b>any</b> format, schema-on-read (S3/ADLS). Flexible and ML-friendly; but without structure it drifts into a \"data swamp\" with no ACID or governance.</li>" +
+        "<li><b>Lakehouse</b> — a warehouse-like layer (Delta/Iceberg/Hudi) <b>on top of</b> a lake: ACID, schema enforcement, BI performance <i>and</i> cheap open storage for ML. One copy of the data serves both.</li>" +
+        "</ul>",
+      tip: "The arc: \"Warehouse = structured but rigid; Lake = flexible but unmanaged; Lakehouse = the best of both via a transactional layer like Delta.\""
+    },
+    {
+      id: "etl-vs-elt",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What's the difference between ETL and ELT — when would you choose each?",
+      difficulty: "Core",
+      tags: ["etl", "elt", "pipeline"],
+      a:
+        "<ul>" +
+        "<li><b>ETL</b> — Extract → <b>Transform</b> → Load. Clean/shape data <i>before</i> loading. Classic for on-prem warehouses with limited compute and strict pre-load governance.</li>" +
+        "<li><b>ELT</b> — Extract → Load → <b>Transform</b>. Land raw data first (in a lake/warehouse), transform <i>in</i> the powerful target engine. The modern cloud default — elastic compute makes in-warehouse transforms cheap and you keep the raw data for reprocessing.</li>" +
+        "</ul>" +
+        "<p><b>Choose ELT</b> when the target (Spark/Snowflake/BigQuery) is powerful and you want raw data retained; <b>ETL</b> when you must not land sensitive/raw data, or the target can't transform at scale.</p>",
+      tip: "Modern one-liner: \"Cloud pushed us from ETL to ELT — land raw, transform in-place with the lake/warehouse's own compute, keep raw for replay.\""
+    },
+    {
+      id: "unity-catalog",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What is Unity Catalog?",
+      difficulty: "Common",
+      tags: ["unity-catalog", "governance", "databricks"],
+      a:
+        "<p><b>Unity Catalog is Databricks' centralized governance layer</b> for data and AI assets across workspaces.</p>" +
+        "<ul>" +
+        "<li><b>Three-level namespace</b> — <code>catalog.schema.table</code> — one place to organize all tables, views, volumes and models.</li>" +
+        "<li><b>Fine-grained access control</b> — grant/revoke at catalog/schema/table/column/row level with standard SQL <code>GRANT</code>.</li>" +
+        "<li><b>Lineage & auditing</b> — automatic column-level lineage and audit logs across notebooks, jobs and dashboards.</li>" +
+        "<li><b>Cross-workspace</b> — one metastore shared by many workspaces, plus data sharing (Delta Sharing).</li>" +
+        "</ul>",
+      tip: "Frame it as \"centralized governance + lineage + a three-level namespace for the lakehouse\" — that distinguishes it from the old per-workspace Hive metastore."
+    },
+    {
+      id: "autoloader",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What is Auto Loader in Databricks?",
+      difficulty: "Common",
+      tags: ["autoloader", "ingestion", "streaming"],
+      a:
+        "<p><b>Auto Loader incrementally ingests new files</b> from cloud storage as they arrive, without you tracking what's already processed.</p>" +
+        "<ul>" +
+        "<li>Uses the <code>cloudFiles</code> Structured Streaming source — <b>exactly-once</b>, checkpointed file tracking.</li>" +
+        "<li>Scales to <b>millions of files</b> via file notifications (queue) instead of re-listing a directory.</li>" +
+        "<li><b>Schema inference & evolution</b> built in — handles new columns in incoming files.</li>" +
+        "</ul>" +
+        "<p>It's the standard answer to \"how do I continuously load a landing folder into a Delta bronze table?\"</p>",
+      code:
+        "(spark.readStream.format(\"cloudFiles\")\n" +
+        "   .option(\"cloudFiles.format\", \"json\")\n" +
+        "   .option(\"cloudFiles.schemaLocation\", chk)\n" +
+        "   .load(landing)\n" +
+        "   .writeStream.option(\"checkpointLocation\", chk).table(\"bronze\"))",
+      lang: "python",
+      tip: "Key phrase: \"incremental, exactly-once file ingestion with schema evolution\" — and it beats re-listing because it can use cloud file-notification queues."
+    },
+    {
+      id: "kafka-kinesis-pubsub",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How do you decide between Kafka, Kinesis, or Pub/Sub for streaming ingestion?",
+      difficulty: "Common",
+      tags: ["kafka", "kinesis", "pubsub", "streaming"],
+      a:
+        "<ul>" +
+        "<li><b>Apache Kafka</b> — open-source, cloud-agnostic, highest throughput and control, rich ecosystem (Connect, Streams). Cost: you run/operate it (or pay for Confluent/MSK). Pick it for multi-cloud, very high volume, or when you need log retention/replay semantics.</li>" +
+        "<li><b>AWS Kinesis</b> — fully managed on AWS, tight IAM/Lambda/Firehose integration. Pick it when you're all-in on AWS and want minimal ops.</li>" +
+        "<li><b>GCP Pub/Sub</b> — fully managed, global, auto-scaling, no partitions to size. Pick it on GCP for simple elastic pub/sub without capacity planning.</li>" +
+        "</ul>" +
+        "<p>Decision axes: <b>managed vs self-run</b>, <b>cloud lock-in</b>, <b>throughput/replay needs</b>, and <b>ops budget</b>.</p>",
+      tip: "Answer with the trade-off, not a winner: \"Kafka for control/portability/replay; Kinesis or Pub/Sub when I want the cloud to run it for me.\""
+    },
+    {
+      id: "hive-managed-vs-external",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What is the difference between Hive external and managed tables?",
+      difficulty: "Common",
+      tags: ["hive", "managed", "external"],
+      a:
+        "<ul>" +
+        "<li><b>Managed (internal) table</b> — the metastore owns both <b>metadata and data</b>. <code>DROP TABLE</code> deletes the underlying files too.</li>" +
+        "<li><b>External table</b> — the metastore owns only the <b>metadata</b>; data lives at a path you point to (<code>LOCATION</code>). <code>DROP TABLE</code> removes the definition but <b>leaves the files</b>.</li>" +
+        "</ul>" +
+        "<p>Use <b>external</b> when data is shared with other tools/jobs or must survive table drops (most lake tables); <b>managed</b> for scratch/derived tables whose lifecycle you want tied to the table.</p>",
+      tip: "The one-liner that always lands: \"Drop a <b>managed</b> table and the data is gone; drop an <b>external</b> table and only the metadata is gone.\""
+    },
+    {
+      id: "data-quality-checks",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What data-quality checks do you implement in pipelines?",
+      difficulty: "Common",
+      tags: ["data-quality", "validation", "expectations"],
+      a:
+        "<p>Validate on the way in, and fail loudly or quarantine:</p>" +
+        "<ul>" +
+        "<li><b>Completeness</b> — required columns not null; expected row counts / freshness (did today's data arrive?).</li>" +
+        "<li><b>Uniqueness</b> — primary keys / no unexpected duplicates.</li>" +
+        "<li><b>Validity</b> — types, ranges, enums, regex (emails, codes); referential integrity against dimensions.</li>" +
+        "<li><b>Consistency</b> — totals reconcile, no negative amounts, schema matches contract.</li>" +
+        "<li><b>Anomaly</b> — volume/stat drift vs history.</li>" +
+        "</ul>" +
+        "<p>Enforce with Delta <b>constraints</b>, DLT <b>expectations</b>, or Great Expectations — and route bad rows to a <b>quarantine</b> table rather than dropping them silently.</p>",
+      tip: "Group them into buckets (completeness, uniqueness, validity, consistency, timeliness) — reciting categories reads far more senior than listing ad-hoc checks."
+    },
+    {
+      id: "pipeline-reliability-monitoring",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How do you ensure pipeline reliability and monitoring in production?",
+      difficulty: "Common",
+      tags: ["reliability", "monitoring", "idempotency", "sla"],
+      a:
+        "<ul>" +
+        "<li><b>Idempotency & retries</b> — re-running a job produces the same result (MERGE/upsert, not blind append); use checkpoints for streaming.</li>" +
+        "<li><b>Orchestration</b> — Airflow/ADF/DLT with dependencies, retries with backoff, and alerting on failure/SLA miss.</li>" +
+        "<li><b>Observability</b> — structured logs, job metrics (duration, rows, shuffle), the Spark UI, and lineage.</li>" +
+        "<li><b>Data-quality gates</b> — fail or quarantine on bad data before it reaches consumers.</li>" +
+        "<li><b>Backfill & recovery</b> — a documented way to reprocess a date range; dead-letter/quarantine for bad records.</li>" +
+        "<li><b>SLAs/SLOs</b> — freshness and completeness targets with paging when breached.</li>" +
+        "</ul>",
+      tip: "Lead with <b>idempotency</b> — it's the single word that signals you've run pipelines in production, because it's what makes retries and backfills safe."
+    },
+    {
+      id: "batch-vs-streaming",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "Batch vs streaming pipelines — and what are Lambda and Kappa architectures?",
+      difficulty: "Common",
+      tags: ["batch", "streaming", "lambda", "kappa"],
+      a:
+        "<ul>" +
+        "<li><b>Batch</b> — process bounded chunks on a schedule (nightly sales roll-up). Simple, cheap, high-throughput; latency is minutes-to-hours.</li>" +
+        "<li><b>Streaming</b> — process unbounded events continuously (fraud alerts, live dashboards). Low latency; more complex (state, watermarks, exactly-once).</li>" +
+        "</ul>" +
+        "<p><b>Lambda architecture</b> runs <i>both</i> a batch layer (accurate, reprocessable) and a speed layer (fast, approximate), then merges them — powerful but you maintain two codebases. <b>Kappa architecture</b> drops the batch layer: <b>everything is a stream</b>, and you reprocess by replaying the log — simpler, enabled by tools like Kafka + Delta.</p>",
+      tip: "Give an example for each (nightly report = batch; fraud detection = streaming), then name Lambda vs Kappa to show you know the reprocessing trade-off."
+    },
+    {
+      id: "cloud-migration",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How would you migrate large data (e.g. 10TB on-prem SQL → cloud) with minimal downtime?",
+      difficulty: "Deep",
+      tags: ["migration", "cdc", "downtime"],
+      a:
+        "<p>The pattern is <b>bulk load once, then catch up with CDC</b>:</p>" +
+        "<ul>" +
+        "<li><b>Bulk/initial load</b> — move the historical snapshot (export to Parquet; ship via a transfer service / direct connect for 10TB rather than the public internet).</li>" +
+        "<li><b>Change Data Capture</b> — while the bulk load runs, capture ongoing changes (Debezium / native CDC) so nothing is missed.</li>" +
+        "<li><b>Apply the delta</b> — replay captured changes onto the target until it's caught up and lag is near zero.</li>" +
+        "<li><b>Validate</b> — row counts, checksums, reconciliation queries between source and target.</li>" +
+        "<li><b>Cutover</b> — a short freeze, apply the final changes, switch applications over; keep the old system as fallback.</li>" +
+        "</ul>",
+      tip: "The phrase that wins this: \"<b>initial bulk load + CDC to catch up, then a short cutover</b>.\" That's how you get near-zero downtime on a big migration."
+    },
+    {
+      id: "databricks-cost-optimization",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How do you reduce Databricks / cloud data-platform cost?",
+      difficulty: "Common",
+      tags: ["cost", "databricks", "tuning"],
+      a:
+        "<ul>" +
+        "<li><b>Right-size & autoscale clusters</b>; enable <b>auto-termination</b> so idle clusters don't bill.</li>" +
+        "<li><b>Job clusters over all-purpose</b> for scheduled jobs; <b>spot/preemptible</b> instances for fault-tolerant work.</li>" +
+        "<li><b>Photon</b> and newer instance types for better price/performance.</li>" +
+        "<li><b>Fix the data layout</b> — OPTIMIZE/ZORDER + partition pruning so jobs scan less (less compute = less cost).</li>" +
+        "<li><b>Avoid waste</b> — kill skew/spills, cache deliberately, don't over-provision shuffle partitions, prune columns early.</li>" +
+        "<li><b>Tier storage</b> and VACUUM stale files; separate dev/prod budgets with tags & monitoring.</li>" +
+        "</ul>",
+      tip: "Best single lever to mention: <b>auto-termination + job clusters + spot</b> for compute, and <b>scan less data</b> (pruning/ZORDER) for the work itself."
+    },
+    {
+      id: "data-lineage",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "How do you enable data lineage and impact analysis across many pipelines?",
+      difficulty: "Deep",
+      tags: ["lineage", "governance", "metadata"],
+      a:
+        "<p><b>Lineage</b> is the map of where data came from and where it flows — essential for debugging, audits, and \"if I change this column, what breaks?\" impact analysis.</p>" +
+        "<ul>" +
+        "<li><b>Automatic capture</b> — Unity Catalog (column-level), OpenLineage/Marquez, or Spark listeners emit lineage as jobs run, rather than hand-maintained diagrams.</li>" +
+        "<li><b>A metadata/catalog store</b> (Unity Catalog, DataHub, Atlas, Amundsen) holds the graph and powers search + impact queries.</li>" +
+        "<li><b>Consistent identifiers</b> — tables/columns keyed the same way across jobs so edges connect.</li>" +
+        "<li><b>Impact analysis</b> — traverse downstream from a column to find every dependent table, dashboard and job before you change it.</li>" +
+        "</ul>",
+      tip: "Stress <b>automatic</b> lineage (captured at runtime) over manual docs — at 200+ pipelines, hand-drawn lineage is always stale."
+    },
+    {
+      id: "role-of-data-engineer",
+      group: "Delta Lake, Lakehouse & Data Engineering",
+      q: "What is the role of a Data Engineer?",
+      difficulty: "Core",
+      tags: ["role", "fundamentals"],
+      a:
+        "<p><b>A Data Engineer builds and operates the systems that move data from source to a reliable, query-ready state</b> for analysts, data scientists and applications.</p>" +
+        "<ul>" +
+        "<li><b>Ingestion</b> — pull from databases, APIs, files, streams.</li>" +
+        "<li><b>Transformation/modeling</b> — clean, join, and shape into warehouse/lakehouse models (star schema, SCDs).</li>" +
+        "<li><b>Pipelines & orchestration</b> — scheduled, idempotent, monitored ETL/ELT.</li>" +
+        "<li><b>Reliability & quality</b> — SLAs, data-quality checks, lineage, cost.</li>" +
+        "<li><b>Enablement</b> — serve trustworthy data to BI, ML and stakeholders.</li>" +
+        "</ul>" +
+        "<p>Contrast: analysts <i>consume</i> data; data engineers <i>build the plumbing</i> that makes it available and trustworthy.</p>",
+      tip: "One line: \"I make data <b>available, reliable and query-ready</b> — owning the pipeline from source to serving layer.\""
     }
   ]
 };
