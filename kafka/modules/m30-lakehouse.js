@@ -46,13 +46,117 @@ export function mount(container) {
     tabs: [
       { id: 'paths', label: '🧭 Two Paths' },
       { id: 'medallion', label: '🥉🥈🥇 Bronze → Silver → Gold' },
+      { id: 'iceberg', label: '🧊 Iceberg Internals' },
       { id: 'iq', label: '🎯 Interview Q&A' },
     ],
   });
   buildPaths(container);
   const cleanup = buildMedallion(container);
+  buildIceberg(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Iceberg Internals (metadata tree + snapshot commits + time travel)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildIceberg(container) {
+  const tab = container.querySelector('#tab-iceberg');
+  // snapshots: {id, op, label, addData, addDel, rows (cumulative current rows)}
+  let snaps = [];
+  let ptr = -1;   // index into snaps the catalog points at (time travel moves it)
+  let nextSnap = 0;
+
+  function commit(op, label, addData, addDel, deltaRows) {
+    // truncate any "future" snapshots if we committed while time-traveled (like git)
+    snaps = snaps.slice(0, ptr + 1);
+    const prevRows = ptr >= 0 ? snaps[ptr].rows : 0;
+    snaps.push({ id: nextSnap++, op, label, addData, addDel, rows: Math.max(0, prevRows + deltaRows) });
+    ptr = snaps.length - 1;
+    render();
+  }
+
+  function render() {
+    const cur = ptr >= 0 ? snaps[ptr] : null;
+    // metadata tree (for current snapshot)
+    tab.querySelector('#ice-tree').innerHTML = !cur
+      ? `<div style="color:#5B6B82;font-size:11px;padding:12px">Empty table — commit a batch to create the first snapshot.</div>`
+      : `
+      <div style="font-family:ui-monospace,monospace;font-size:10.5px;line-height:1.75">
+        <div style="color:#06B6D4">catalog</div>
+        <div style="color:#64748B">└─ points to → <span style="color:#F59E0B">metadata.json (v${cur.id})</span></div>
+        <div style="color:#64748B">&nbsp;&nbsp;&nbsp;└─ current-snapshot-id = <span style="color:#10B981">snapshot-${cur.id}</span></div>
+        <div style="color:#8B5CF6;margin-left:38px">└─ manifest-list-${cur.id}.avro</div>
+        <div style="color:#64748B;margin-left:54px">└─ manifest-${cur.id}.avro  <span style="color:#5B6B82">(stats, partitions)</span></div>
+        <div style="color:#3B82F6;margin-left:70px">├─ ${cur.addData} data file${cur.addData === 1 ? '' : 's'} (.parquet) ${cur.op === 'append' ? 'added' : 'this commit'}</div>
+        ${cur.addDel ? `<div style="color:#EF4444;margin-left:70px">└─ ${cur.addDel} equality-delete file${cur.addDel === 1 ? '' : 's'} (removes matching keys)</div>` : `<div style="color:#5B6B82;margin-left:70px">└─ (no delete files)</div>`}
+      </div>`;
+
+    // snapshot timeline
+    tab.querySelector('#ice-snaps').innerHTML = snaps.length === 0
+      ? `<div style="color:#5B6B82;font-size:11px">no snapshots</div>`
+      : snaps.map((s, i) => {
+        const isCur = i === ptr;
+        const opcol = s.op === 'append' ? '#10B981' : s.op === 'upsert' ? '#F59E0B' : '#EF4444';
+        return `<div data-snap="${i}" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;margin-bottom:4px;
+          background:${isCur ? opcol + '22' : '#0E1626'};border:1px solid ${isCur ? opcol : '#1C2740'}">
+          <span style="font-family:ui-monospace,monospace;font-size:10px;color:${opcol};font-weight:700">snapshot-${s.id}</span>
+          <span style="font-size:10.5px;color:#CBD5E1;flex:1">${s.label}</span>
+          <span style="font-size:10px;color:#94A3B8">${s.rows} rows</span>
+          ${isCur ? `<span style="font-size:9px;color:${opcol}">◂ catalog</span>` : ''}
+        </div>`;
+      }).join('');
+
+    tab.querySelector('#ice-state').innerHTML = cur
+      ? `Reading the table now returns <b style="color:#E2E8F0">${cur.rows} rows</b> — the view defined by <b style="color:#10B981">snapshot-${cur.id}</b>. ${ptr < snaps.length - 1 ? '<span style="color:#F59E0B">You are time-traveled to an older snapshot; newer ones still exist.</span>' : 'This is the latest snapshot.'}`
+      : 'No data yet.';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Iceberg is a <b>table format</b>: the data is just Parquet files on object storage, but a tree of <b>metadata</b> turns them into a transactional table. Every write creates a new immutable <b>snapshot</b> and the commit is a single atomic swap of the <b>catalog pointer</b>. That's what gives you serializable commits, time-travel, and CDC via <b>equality deletes</b> — all without a database.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:700;color:#F59E0B;margin-bottom:10px">Metadata tree (current snapshot)</div>
+          <div id="ice-tree" style="min-height:150px"></div>
+        </div>
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:700;color:#10B981;margin-bottom:10px">Snapshots <span style="font-weight:400;color:#64748B">— click to time-travel</span></div>
+          <div id="ice-snaps" style="max-height:220px;overflow:auto"></div>
+        </div>
+      </div>
+      <div id="ice-state" style="font-size:11.5px;line-height:1.6;margin-top:12px;min-height:30px;color:#94A3B8"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="ice-append">➕ Append batch (+1000)</button>
+        <button class="ctrl-btn" id="ice-upsert">🔀 CDC upsert (equality delete)</button>
+        <button class="ctrl-btn" id="ice-expire">🧹 expire_snapshots</button>
+        <button class="ctrl-btn" id="ice-reset">↻ Reset</button>
+        <span class="ctrl-label">append grows the table · upsert rewrites keys via delete files · old snapshots enable time-travel</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Apache Iceberg stores your data as ordinary <strong>Parquet files</strong>, but what makes it a <em>table</em> (not just a folder of files) is a layered metadata tree. Bottom to top: <strong>data files</strong> hold rows; a <strong>manifest file</strong> lists data files with per-column stats and partition values (for pruning); a <strong>manifest list</strong> groups the manifests that make up one snapshot; a <strong>snapshot</strong> is a complete, immutable view of the table at a point in time; the <strong>metadata.json</strong> records the schema, all snapshots, and the current one; and the <strong>catalog</strong> (REST, Glue, Hive, Nessie…) holds the single pointer to the current metadata. A query reads top-down, using manifest stats to skip files it doesn't need.</p>
+      <p>A <strong>commit</strong> never mutates anything in place. It writes new data files, a new manifest, a new manifest list, and a new metadata.json, then performs <strong>one atomic compare-and-swap of the catalog pointer</strong> from the old metadata to the new. That single swap is the transaction boundary — it's why Iceberg gives serializable isolation and why two writers use optimistic concurrency (if the pointer moved under you, you retry against the new snapshot). Because every old snapshot's files still exist, <strong>time travel</strong> is free: point a read at <code>snapshot-2</code> and you see exactly the table as of that commit (click an older snapshot above to do exactly this).</p>
+      <p>CDC is the interesting case. Iceberg can't edit a Parquet file in place, so an update/delete to an existing key is expressed with a <strong>delete file</strong> — for CDC upserts, an <strong>equality delete</strong> that says "logically remove rows where <code>id = 42</code>," written alongside a new data file with the updated row. Readers merge data files and delete files at query time (<em>merge-on-read</em>). This is fast to write but piles up delete files that slow reads — which is exactly why compaction (next-but-one tab) matters. The alternative, <em>copy-on-write</em>, rewrites whole data files on each change: slower writes, faster reads.</p>
+      <p><strong>Interview angle:</strong> "data files → manifest → manifest list → snapshot → metadata.json → catalog pointer; a commit is an atomic pointer swap, which gives serializable isolation, time-travel, and optimistic-concurrency retries." Then the CDC detail: "equality deletes make upserts merge-on-read — cheap writes, delete-file buildup, fixed by compaction." Mentioning the catalog is what provides the atomic swap (and why you need one) is the senior tell.</p>
+    </div>`;
+
+  render();
+  tab.querySelector('#ice-append').addEventListener('click', () => commit('append', 'Append 1000 new rows', 2, 0, 1000));
+  tab.querySelector('#ice-upsert').addEventListener('click', () => commit('upsert', 'CDC upsert: 300 keys changed (delete + re-add)', 1, 1, 0));
+  tab.querySelector('#ice-expire').addEventListener('click', () => {
+    if (ptr <= 0) return;
+    const keep = snaps[ptr];
+    snaps = [keep]; ptr = 0;
+    render();
+    tab.querySelector('#ice-state').innerHTML += ` <span style="color:#EF4444">· expire_snapshots removed older snapshots — time-travel to them is gone, and their orphaned files can be garbage-collected.</span>`;
+  });
+  tab.querySelector('#ice-reset').addEventListener('click', () => { snaps = []; ptr = -1; nextSnap = 0; render(); });
+  tab.querySelector('#ice-snaps').addEventListener('click', e => {
+    const el = e.target.closest('[data-snap]'); if (!el) return;
+    ptr = +el.dataset.snap; render();
+  });
 }
 
 function buildPaths(container) {
