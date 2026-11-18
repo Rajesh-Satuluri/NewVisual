@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Rajesh Satuluri — Interactive Learning Labs</title>
   <meta name="description" content="One home for every interactive learning lab — data engineering, databases, streaming, coding interviews, supply-chain planning and career tools. Each tool is its own site." />
   <style>
@@ -65,6 +65,25 @@
     .dl-all:focus-visible{outline:2px solid var(--brand2);outline-offset:3px}
     .dl-all svg{display:block}
     .dl-all .sz{font-weight:600;opacity:.85;font-size:12px}
+  </style>
+  <style id="ipad-polish">
+  /* iPad / touch polish — additive, non-destructive. Safe on all devices. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html,body{overscroll-behavior:none}
+  body{-webkit-tap-highlight-color:transparent}
+  button,a,label,summary,select,[role="button"],[role="tab"],[role="link"],.tab,.btn{touch-action:manipulation}
+  img,svg,canvas{-webkit-user-drag:none}
+  @media (hover:none) and (pointer:coarse){
+    button,summary,select,[role="button"],[role="tab"],.tab,.btn{
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none
+    }
+    input,select,textarea{font-size:max(16px,1em)!important}
+  }
+  @supports (padding:env(safe-area-inset-left)){
+    @media (display-mode:standalone){
+      body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+    }
+  }
   </style>
 </head>
 <body>
