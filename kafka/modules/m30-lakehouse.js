@@ -32,6 +32,30 @@ export const IQ = [
     tip: 'Say "append gives a log; MERGE on the key gives current state." Dedupe by ts_ms/LSN so stale events never win, and batch the MERGE because it is expensive.',
     difficulty: 'hard'
   },
+  {
+    q: 'Walk through how an Iceberg commit works, and what makes it atomic.',
+    a: 'Iceberg is a table format over plain Parquet files, with a layered metadata tree: <strong>data files → manifest file (lists data files + per-column stats) → manifest list (the manifests in one snapshot) → snapshot (an immutable view) → metadata.json (schema + all snapshots + current) → catalog (the single pointer to the current metadata)</strong>. A write never mutates in place: it writes new data files, a new manifest, a new manifest list, and a new metadata.json, then does <strong>one atomic compare-and-swap of the catalog pointer</strong> from old metadata to new. That swap is the transaction boundary — it gives serializable isolation (two writers use optimistic concurrency: if the pointer moved, retry against the new snapshot) and makes <strong>time travel</strong> free because old snapshots still reference their files. CDC updates/deletes are expressed as <strong>delete files</strong> (equality deletes keyed on id-columns) merged with data files at read time (merge-on-read).',
+    tip: 'Memorize the chain: data file → manifest → manifest list → snapshot → metadata.json → catalog pointer. "A commit is an atomic pointer swap" is the sentence that explains isolation, time-travel, and optimistic-concurrency retries at once.',
+    difficulty: 'hard'
+  },
+  {
+    q: 'How does Delta Lake\'s _delta_log work, and how is a commit made atomic?',
+    a: 'Delta represents the table as a single <strong>ordered transaction log</strong>: the <code>_delta_log/</code> directory holds numbered JSON commits (<code>00000.json</code>, <code>00001.json</code>, …), each a list of <strong>actions</strong> — <code>add</code> (new data file + stats), <code>remove</code> (tombstone a file), <code>metaData</code>, <code>commitInfo</code>. The table state at version N is the <em>replay</em> of all actions 0..N (adds minus removes). A commit is atomic because it is the creation of the next-numbered file: only one writer can successfully create <code>…N+1.json</code>; a racing writer sees the new version, re-reads, and retries (<strong>optimistic concurrency</strong>). To avoid replaying thousands of JSONs, every <strong>10 commits</strong> Delta writes a Parquet <strong>checkpoint</strong> (consolidated state) + a <code>_last_checkpoint</code> hint, so readers load the latest checkpoint and replay only the few commits after it. MERGE/upserts appear as remove+add actions (copy-on-write); time travel reads an earlier version until VACUUM deletes its files.',
+    tip: 'One line: "ordered JSON log of add/remove actions, atomic via next-version-file optimistic concurrency, Parquet checkpoints every 10 commits for bounded reads." And flag the trap: the _delta_log checkpoint is NOT the Spark streaming checkpointLocation.',
+    difficulty: 'hard'
+  },
+  {
+    q: 'How is exactly-once achieved end-to-end in a Kafka → lakehouse sink, and where can it break?',
+    a: 'The key is that the <strong>table commit is idempotent with respect to the Kafka offset</strong>. A sink writes data files first (staged, invisible), then commits <strong>atomically</strong> — advancing the committed table version AND the processed-offset marker together. If it crashes in the staged window, the uncommitted files are orphaned (ignored, later GC\'d); on restart the sink resumes from its last committed offset, re-reads the same records, rewrites, and commits once — no duplicate, no loss. <strong>Iceberg sink:</strong> relies on Kafka transactions (KIP-447) and commits offsets in its control topic as part of the snapshot. <strong>Spark→Delta:</strong> the <code>checkpointLocation</code> records processed offsets and Delta commits are idempotent, with <code>txnAppId</code>/<code>txnVersion</code> in <code>foreachBatch</code> deduping re-processed batches. It breaks when you sever that coupling: deleting the Spark checkpoint while reusing the same <code>txnAppId</code> makes Delta silently skip re-read batches (data loss); assuming at-least-once Kafka delivery is fine without an idempotent sink gives duplicates.',
+    tip: 'Say "write files, then atomically commit table-version + offset together; replay after a crash is idempotent." The failure mode to name: mismatched checkpoint and txnAppId causing silent skips.',
+    difficulty: 'hard'
+  },
+  {
+    q: 'A streaming lakehouse table reads slower every day though row count is stable. Diagnose and fix.',
+    a: 'This is the <strong>small-files problem</strong>. A streaming sink commits every micro-batch / few minutes, and each commit writes only the rows it has then — so the table accumulates thousands of tiny data files even if total rows are flat. CDC merge-on-read makes it worse by adding a <strong>delete file</strong> per upsert. Query latency scales with the number of files a scan must open and reconcile, so reads degrade over time. Fix: run <strong>compaction</strong> — Iceberg <code>rewrite_data_files</code> (bin-pack to a target size, optionally sort/ZORDER for pruning) and <code>rewrite_position_deletes</code>; Delta <code>OPTIMIZE</code> (optionally <code>ZORDER BY</code>) or auto-compaction. Then reclaim space and remove the now-unreferenced small files with <code>expire_snapshots</code>/orphan cleanup (Iceberg) or <code>VACUUM</code> (Delta) — accepting that this ends time travel past the retention window. Schedule compaction continuously and VACUUM on a retention-aware cadence, ideally on an isolated cluster so it doesn\'t steal resources from writers.',
+    tip: 'Name it ("small files"), name the extra CDC cost (delete files), and name both fixes: compaction (rewrite_data_files / OPTIMIZE + ZORDER) then VACUUM/expire for space — with the time-travel retention trade-off.',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {
@@ -49,6 +73,7 @@ export function mount(container) {
       { id: 'iceberg', label: '🧊 Iceberg Internals' },
       { id: 'delta', label: '🔼 Delta Log' },
       { id: 'eos', label: '⚛ Exactly-Once & Markers' },
+      { id: 'compaction', label: '🗜️ Small Files & Compaction' },
       { id: 'iq', label: '🎯 Interview Q&A' },
     ],
   });
@@ -57,6 +82,7 @@ export function mount(container) {
   buildIceberg(container);
   buildDelta(container);
   buildEOS(container);
+  buildCompaction(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
 }
@@ -330,6 +356,99 @@ function buildEOS(container) {
   tab.querySelector('#eos-next').addEventListener('click', next);
   tab.querySelector('#eos-crash').addEventListener('click', crash);
   tab.querySelector('#eos-reset').addEventListener('click', () => { reset(); render(); });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Small Files & Compaction (streaming small files → OPTIMIZE/rewrite)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildCompaction(container) {
+  const tab = container.querySelector('#tab-compaction');
+  let data = [];      // {size:'small'|'big', rows}
+  let deletes = 0;    // delete files (merge-on-read)
+  let orphaned = 0;   // logically removed, not yet physically deleted
+  let note = '';
+
+  function readCost() { return data.length + deletes; }
+
+  function render() {
+    const small = data.filter(f => f.size === 'small').length;
+    const big = data.filter(f => f.size === 'big').length;
+    const totalRows = data.reduce((s, f) => s + f.rows, 0);
+
+    tab.querySelector('#cp-files').innerHTML = data.length === 0 && deletes === 0
+      ? `<div style="color:#5B6B82;font-size:11px;padding:10px">empty table — run a streaming commit</div>`
+      : `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:flex-end">
+          ${data.map(f => f.size === 'small'
+            ? `<div title="small data file (~${f.rows} rows)" style="width:16px;height:16px;border-radius:3px;background:#3B82F6aa;border:1px solid #3B82F6"></div>`
+            : `<div title="compacted data file (~${f.rows} rows)" style="width:72px;height:22px;border-radius:4px;background:#10B981aa;border:1px solid #10B981"></div>`).join('')}
+          ${Array.from({ length: deletes }).map(() => `<div title="delete file (equality delete)" style="width:16px;height:16px;border-radius:3px;background:#EF4444aa;border:1px solid #EF4444"></div>`).join('')}
+        </div>
+        ${orphaned ? `<div style="margin-top:8px;font-size:9px;color:#5B6B82">+ ${orphaned} orphaned file${orphaned === 1 ? '' : 's'} on disk (logically removed, awaiting VACUUM/expire)</div>` : ''}`;
+
+    tab.querySelector('#cp-metrics').innerHTML = [
+      { k: 'Data files', v: data.length, c: small > big ? '#F59E0B' : '#10B981' },
+      { k: 'Delete files', v: deletes, c: deletes ? '#EF4444' : '#64748B' },
+      { k: 'Files / scan', v: readCost(), c: readCost() > 8 ? '#EF4444' : readCost() > 4 ? '#F59E0B' : '#10B981' },
+      { k: 'Rows', v: totalRows, c: '#94A3B8' },
+    ].map(x => `<div style="flex:1;min-width:92px;text-align:center;background:#0E1626;border:1px solid ${x.c}44;border-radius:8px;padding:8px 4px">
+        <div style="font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:#64748B">${x.k}</div>
+        <div style="font-size:17px;font-weight:700;color:${x.c};font-family:ui-monospace,monospace">${x.v}</div></div>`).join('');
+
+    const cost = readCost();
+    const health = cost > 8 ? { t: '🔴 Small-files problem — every query opens many tiny files + delete files; read latency is bad.', c: '#F87171' }
+      : cost > 4 ? { t: '🟡 Fragmentation building up — more files than ideal per scan.', c: '#FBBF24' }
+      : { t: '🟢 Healthy — few, large files per scan; reads are fast.', c: '#86EFAC' };
+    tab.querySelector('#cp-health').innerHTML = note
+      ? `<span style="color:#CBD5E1">${note}</span>`
+      : `<span style="color:${health.c}">${health.t}</span>`;
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Streaming into a lakehouse commits <b>every few minutes</b>, so each commit drops a handful of <b>small files</b>; CDC upserts add <b>delete files</b> on top. Queries must open every one — so read performance rots. <b>Compaction</b> (Iceberg <code>rewrite_data_files</code>, Delta <code>OPTIMIZE</code>) rewrites them into a few big files and applies the deletes. Build up fragmentation, then compact.</div>
+      <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:14px;min-height:90px">
+        <div style="font-size:10px;color:#64748B;margin-bottom:8px">📁 Files in the table <span style="color:#3B82F6">▪ small data</span> · <span style="color:#10B981">▬ compacted</span> · <span style="color:#EF4444">▪ delete</span></div>
+        <div id="cp-files"></div>
+      </div>
+      <div id="cp-metrics" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"></div>
+      <div id="cp-health" style="font-size:11.5px;line-height:1.6;margin-top:12px;min-height:28px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="cp-stream">▶ Streaming commit (+3 small)</button>
+        <button class="ctrl-btn" id="cp-cdc">🔀 CDC upsert (+delete file)</button>
+        <button class="ctrl-btn" id="cp-opt">🗜️ Compact (OPTIMIZE)</button>
+        <button class="ctrl-btn" id="cp-vacuum">🧹 VACUUM / expire</button>
+        <button class="ctrl-btn" id="cp-reset">↻ Reset</button>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>The small-files problem is the tax you pay for streaming freshness. A batch job writes a few big, well-sized files; a <em>streaming</em> sink commits every micro-batch or every few minutes, and each commit can only write the rows it has <em>right now</em> — so you accumulate lots of little files. CDC makes it worse: merge-on-read upserts write a new data file <em>and</em> a <strong>delete file</strong> per commit. Query cost scales with the number of files a scan must open and reconcile, so a table that's "fresh" but fragmented reads slowly — the metrics above turn red as files/scan climbs.</p>
+      <p><strong>Compaction</strong> is the fix, and it's a first-class table operation. In <strong>Iceberg</strong> it's the <code>rewrite_data_files</code> action (bin-pack to a target size, optionally sort/z-order by a column for better pruning), plus <code>rewrite_position_deletes</code> to fold delete files into the data. In <strong>Delta</strong> it's <code>OPTIMIZE</code> (with optional <code>ZORDER BY</code>) and auto-compaction / optimized writes. Either way the engine rewrites many small files into a few right-sized ones and produces a <em>new</em> snapshot/version — the old files are now unreferenced but still on disk, which is why compaction alone doesn't free space.</p>
+      <p>That's what <strong>VACUUM</strong> (Delta) and <strong>expire_snapshots</strong> + orphan-file cleanup (Iceberg) do: physically delete files no longer referenced by any retained snapshot/version. The catch is they also end <strong>time travel</strong> to those versions, so retention is a deliberate trade-off (Delta's default VACUUM retention is 7 days). Run compaction too rarely and reads suffer; run VACUUM too aggressively and you lose rollback/time-travel and can even corrupt in-flight readers. A healthy streaming lakehouse schedules compaction continuously and VACUUM on a retention-aware cadence.</p>
+      <p><strong>Interview angle:</strong> "streaming commits create small files; CDC adds delete files; both inflate files-per-scan and kill read latency. Fix with compaction — Iceberg <code>rewrite_data_files</code> (+sort/zorder), Delta <code>OPTIMIZE</code> (+ZORDER) — then reclaim space with VACUUM / expire_snapshots, trading away time-travel past the retention window." Bonus: name the <em>two</em> Delta checkpoints trap again (log checkpoint every 10 commits ≠ streaming checkpoint) and that compaction competes for the same cluster as your writers, so you isolate or schedule it.</p>
+    </div>`;
+
+  render();
+  tab.querySelector('#cp-stream').addEventListener('click', () => { for (let i = 0; i < 3; i++) data.push({ size: 'small', rows: 90 + i * 10 }); note = ''; render(); });
+  tab.querySelector('#cp-cdc').addEventListener('click', () => { data.push({ size: 'small', rows: 60 }); deletes += 1; note = `A CDC upsert wrote one small data file <b>and</b> one equality-delete file (merge-on-read). Delete files pile up fastest and hurt reads the most.`; render(); });
+  tab.querySelector('#cp-opt').addEventListener('click', () => {
+    const totalRows = data.reduce((s, f) => s + f.rows, 0);
+    const removed = data.length;
+    if (removed === 0 && deletes === 0) return;
+    orphaned += removed + deletes;
+    const bigCount = Math.max(1, Math.ceil(totalRows / 500));
+    data = Array.from({ length: bigCount }, (_, i) => ({ size: 'big', rows: Math.round(totalRows / bigCount) }));
+    deletes = 0;
+    note = `🗜️ Compaction rewrote ${removed} small file${removed === 1 ? '' : 's'}${removed && orphaned ? '' : ''} and applied the deletes into <b>${bigCount} right-sized file${bigCount === 1 ? '' : 's'}</b>. Files/scan collapsed and reads are fast again — but the old files are still on disk (a new snapshot), awaiting VACUUM.`;
+    render();
+  });
+  tab.querySelector('#cp-vacuum').addEventListener('click', () => {
+    if (orphaned === 0) { note = `Nothing to reclaim — no orphaned files. VACUUM/expire only removes files unreferenced by retained snapshots.`; render(); return; }
+    const freed = orphaned; orphaned = 0;
+    note = `🧹 VACUUM / expire_snapshots physically deleted ${freed} unreferenced file${freed === 1 ? '' : 's'}, reclaiming storage — but time-travel to those older versions is now gone (retention trade-off).`;
+    render();
+  });
+  tab.querySelector('#cp-reset').addEventListener('click', () => { data = []; deletes = 0; orphaned = 0; note = ''; render(); });
 }
 
 function buildPaths(container) {
