@@ -24,6 +24,7 @@ window.PYSPARK_QA = {
     "Lazy Eval, DAG, Lineage & Fault Tolerance",
     "Query Optimization",
     "Partitions, Shuffle & Performance",
+    "Spark UI & Debugging",
     "Skew & Broadcast",
     "I/O, Formats & Data Quality",
     "Streaming, MLlib & Graph",
@@ -1982,6 +1983,210 @@ window.PYSPARK_QA = {
         "</ul>" +
         "<p><b>AQE vs CBO:</b> CBO uses <i>pre-computed</i> stats at planning time; <b>AQE</b> re-optimizes at <i>runtime</i> using the actual sizes it observes — so AQE helps even when stats are stale or missing.</p>",
       tip: "The clean distinction to state: <b>RBO = always-true rewrites; CBO = stats-driven choices (join order, broadcast); AQE = runtime re-optimization from real sizes.</b> Mention <code>ANALYZE TABLE</code> to show you know how stats get there."
+    },
+
+    // ─────────────────────────── Spark UI & Debugging ───────────────────────────
+    {
+      id: "spark-ui-overview",
+      group: "Spark UI & Debugging",
+      q: "What is the Spark UI and what are its main tabs?",
+      difficulty: "Core",
+      tags: ["spark-ui", "monitoring", "debugging"],
+      a:
+        "<p>The <b>Spark UI is the web dashboard every Spark application exposes</b> (by default on the driver at <code>http://&lt;driver&gt;:4040</code>). It's your primary tool for understanding <i>what Spark actually did</i> — how your code was split into jobs/stages/tasks, where time and memory went, and why something is slow.</p>" +
+        "<ul>" +
+        "<li><b>Jobs</b> — one row per action (<code>count</code>, <code>write</code>, <code>collect</code>); shows duration and the stages it triggered.</li>" +
+        "<li><b>Stages</b> — the real workhorse tab: per-stage task metrics, shuffle read/write, spill, and the task-time distribution that exposes skew.</li>" +
+        "<li><b>SQL / DataFrame</b> — the query plan as a visual graph with row counts and per-operator metrics; where you read exchanges, scans and joins.</li>" +
+        "<li><b>Executors</b> — one row per executor: cores, memory used, GC time, shuffle, and failed/dead executors.</li>" +
+        "<li><b>Storage</b> — cached/persisted datasets, how much is in memory vs spilled to disk.</li>" +
+        "<li><b>Environment</b> — all effective Spark configs (great for confirming a setting actually took).</li>" +
+        "</ul>",
+      tip: "Interviewers love \"which tab first?\" — answer <b>Stages for a slow job, SQL for a slow query, Executors for OOM/GC</b>. Naming the right starting tab signals real hands-on experience."
+    },
+    {
+      id: "spark-ui-access-history-server",
+      group: "Spark UI & Debugging",
+      q: "How do you access the Spark UI while a job runs vs after it finishes?",
+      difficulty: "Common",
+      tags: ["spark-ui", "history-server", "4040", "event-log"],
+      a:
+        "<p><b>While the app is running</b> the live UI is served by the driver at <code>:4040</code> (4041, 4042… if multiple apps share a host). The catch: <b>it disappears the moment the application ends</b> — the driver JVM exits and takes the UI with it.</p>" +
+        "<ul>" +
+        "<li><b>Spark History Server</b> — to inspect a finished job you need event logs. Enable <code>spark.eventLog.enabled=true</code> and point <code>spark.eventLog.dir</code> at durable storage (HDFS/S3). The History Server replays those logs into the same UI after the fact.</li>" +
+        "<li><b>On managed platforms</b> (Databricks, EMR, Glue) the UI / History Server is wired up for you and linked from the job or cluster page.</li>" +
+        "<li><b>Common gotcha</b> — \"the UI is gone\" almost always means event logging wasn't enabled; you can't retro-fit it after the run has ended.</li>" +
+        "</ul>",
+      code:
+        "spark.eventLog.enabled           true\n" +
+        "spark.eventLog.dir               s3a://my-bucket/spark-logs\n" +
+        "spark.history.fs.logDirectory    s3a://my-bucket/spark-logs",
+      lang: "text",
+      tip: "Say it crisply: <b>\":4040 is live and dies with the driver; the History Server replays event logs for post-mortem debugging.\"</b> Mentioning <code>spark.eventLog.enabled</code> shows you've actually set this up."
+    },
+    {
+      id: "spark-ui-jobs-tab",
+      group: "Spark UI & Debugging",
+      q: "How do you read the Jobs tab, and what are the event timeline and DAG?",
+      difficulty: "Core",
+      tags: ["spark-ui", "jobs", "dag", "timeline"],
+      a:
+        "<p>The <b>Jobs tab lists one job per action</b> you triggered, each with its duration, the number of stages, and a progress bar of completed/total tasks. It's your first zoom level: which action is slow?</p>" +
+        "<ul>" +
+        "<li><b>Event timeline</b> — a horizontal timeline of when executors were added/removed and when each job ran. Big idle gaps or a single long job stand out immediately.</li>" +
+        "<li><b>DAG visualization</b> — click a job to see its stages as a graph; the <b>boundaries between stages are shuffles</b>. More stages = more shuffles = more expensive.</li>" +
+        "<li><b>Skipped stages</b> — a stage shown as \"skipped\" means its output was already available (from cache or a prior shuffle) and got reused — that's good, not an error.</li>" +
+        "</ul>" +
+        "<p>Use it to pick the costly job, then drill into its stages.</p>",
+      tip: "A sharp observation: <b>\"each stage boundary in the DAG is a shuffle\"</b> — so counting stages is a quick proxy for how shuffle-heavy a job is. \"Skipped\" = reused output, not a failure."
+    },
+    {
+      id: "spark-ui-stages-tab",
+      group: "Spark UI & Debugging",
+      q: "What does the Stages tab tell you, and how do you read the summary-metrics table?",
+      difficulty: "Deep",
+      tags: ["spark-ui", "stages", "tasks", "metrics", "percentiles"],
+      a:
+        "<p>The Stages tab is where most real debugging happens. Open a stage and you get a <b>summary-metrics table showing the Min, 25th, Median, 75th and Max</b> across all its tasks for each metric — the distribution, not just an average.</p>" +
+        "<ul>" +
+        "<li><b>Duration</b> — if Max ≫ Median, a few tasks are doing far more work: that's <b>skew</b>.</li>" +
+        "<li><b>Shuffle Read / Shuffle Write</b> — bytes moved across the network; large values point to wide transformations you may be able to reduce or broadcast away.</li>" +
+        "<li><b>Spill (Memory) / Spill (Disk)</b> — any non-zero spill means tasks ran out of execution memory and wrote to disk; a top cause of slowness.</li>" +
+        "<li><b>GC Time</b> — time spent in garbage collection; high GC means memory pressure.</li>" +
+        "<li><b>Scheduler Delay</b> — time a task waited to be scheduled; high values hint at too many tiny tasks or an overloaded driver.</li>" +
+        "<li><b>Input Size / Records</b> — how much each task read; uneven input is skew at the source.</li>" +
+        "</ul>",
+      tip: "The percentile table is the whole game: <b>compare Max to Median</b>. A healthy stage has them close; a Max far above the Median is the single clearest skew signal in the UI."
+    },
+    {
+      id: "spark-ui-detect-skew",
+      group: "Spark UI & Debugging",
+      q: "How do you detect data skew using the Spark UI?",
+      difficulty: "Deep",
+      tags: ["spark-ui", "skew", "stages", "stragglers"],
+      a:
+        "<p>Skew shows up as a <b>stage stuck on one or two straggler tasks</b> while everything else has finished. The UI makes it obvious in three places:</p>" +
+        "<ul>" +
+        "<li><b>Summary metrics</b> — in the stage's percentile table, <b>Max Duration and Max Shuffle Read are many times the Median</b>. That gap <i>is</i> the skew.</li>" +
+        "<li><b>Task table / event timeline</b> — sort tasks by duration; a handful run for minutes while the rest took seconds. On the timeline you literally see most tasks finish and one long bar remain.</li>" +
+        "<li><b>Records per task</b> — the straggler read far more input/shuffle records, usually because one join or group key dominates (a hot key, or a flood of null keys).</li>" +
+        "</ul>" +
+        "<p><b>Fixes once confirmed:</b> enable AQE skew join (<code>spark.sql.adaptive.skewJoin.enabled</code>), salt the hot key, or filter/handle null keys separately.</p>",
+      tip: "Describe the picture: <b>\"the stage sits at 199/200 tasks done for minutes.\"</b> That one sentence tells the interviewer you've watched a real skewed job and know exactly what it looks like."
+    },
+    {
+      id: "spark-ui-detect-spill",
+      group: "Spark UI & Debugging",
+      q: "How do you spot spill in the Spark UI, and what does it mean?",
+      difficulty: "Deep",
+      tags: ["spark-ui", "spill", "memory", "shuffle-partitions"],
+      a:
+        "<p><b>Spill</b> is Spark writing data out of execution memory onto local disk because a task's working set (a sort, aggregation, or shuffle) didn't fit in RAM. It's correctness-safe but slow — extra disk I/O and serialization.</p>" +
+        "<ul>" +
+        "<li><b>Where to see it</b> — the stage's summary-metrics table has <b>Spill (Memory)</b> and <b>Spill (Disk)</b> rows. Anything above zero means spilling; the disk number is the real on-disk volume written.</li>" +
+        "<li><b>What causes it</b> — too much data per task (too few shuffle partitions), skew concentrating data on one task, or wide aggregations with little executor memory.</li>" +
+        "<li><b>How to fix</b> — raise <code>spark.sql.shuffle.partitions</code> (or let AQE coalesce), reduce data per task, give executors more memory, or fix the underlying skew.</li>" +
+        "</ul>",
+      tip: "Make the cost concrete: <b>\"spill means we blew past execution memory and fell back to disk — so I raise shuffle partitions or cut data-per-task before just throwing more memory at it.\"</b>"
+    },
+    {
+      id: "spark-ui-sql-tab",
+      group: "Spark UI & Debugging",
+      q: "How do you read the SQL / DataFrame tab and its query graph?",
+      difficulty: "Deep",
+      tags: ["spark-ui", "sql-tab", "query-plan", "exchange", "joins"],
+      a:
+        "<p>The SQL/DataFrame tab shows each query as a <b>visual plan graph of physical operators</b>, each annotated with live metrics — rows output, bytes read, time spent. It's how you connect your DataFrame code to what actually ran.</p>" +
+        "<ul>" +
+        "<li><b>Exchange nodes = shuffles</b> — each <code>Exchange</code> is a network shuffle; they're the expensive boundaries. Fewer/smaller exchanges is the optimization goal.</li>" +
+        "<li><b>Scan nodes</b> — show <i>number of files read</i> and <i>rows</i>; here you confirm <b>partition pruning</b> and <b>predicate pushdown</b> happened (far fewer files/rows than the whole table).</li>" +
+        "<li><b>Join nodes</b> — tell you the chosen strategy: <code>BroadcastHashJoin</code> (small side broadcast — good) vs <code>SortMergeJoin</code> (both sides shuffled — costly).</li>" +
+        "<li><b>\"number of output rows\"</b> per node — a node emitting billions of rows mid-plan flags an exploding join or a missing filter.</li>" +
+        "<li><b>AQE</b> — with AQE on, the final graph shows the <i>runtime-adjusted</i> plan (coalesced partitions, a join switched to broadcast).</li>" +
+        "</ul>",
+      tip: "Golden checks here: <b>look for a <code>SortMergeJoin</code> that should have been a <code>BroadcastHashJoin</code>, and confirm the scan pruned files.</b> Both are high-value wins you can read straight off the graph."
+    },
+    {
+      id: "spark-ui-executors-tab",
+      group: "Spark UI & Debugging",
+      q: "What do you look for in the Executors tab?",
+      difficulty: "Deep",
+      tags: ["spark-ui", "executors", "gc", "memory", "oom"],
+      a:
+        "<p>The Executors tab has <b>one row per executor (plus the driver)</b>, giving the cluster's resource and health picture at a glance. It's the first stop for memory and GC problems.</p>" +
+        "<ul>" +
+        "<li><b>Task Time vs GC Time</b> — the key ratio. If GC Time is a large fraction of Task Time (say &gt;10–15%), executors are under memory pressure and thrashing.</li>" +
+        "<li><b>Storage Memory</b> — how much of the memory fraction is used by cached data; near-full means cache eviction or spill.</li>" +
+        "<li><b>Failed / dead executors</b> — a red flag for OOM kills (\"Container killed by YARN for exceeding memory limits\") or lost nodes; correlate with task failures.</li>" +
+        "<li><b>Cores &amp; active tasks</b> — uneven active-task counts across executors can signal poor parallelism or locality waiting.</li>" +
+        "<li><b>Shuffle Read/Write per executor</b> — one executor moving far more than the others is another skew tell.</li>" +
+        "</ul>",
+      tip: "Lead with the GC ratio: <b>\"high GC time relative to task time means memory pressure\"</b> — then mention dead executors as the fingerprint of OOM kills. That's the Executors-tab story in two lines."
+    },
+    {
+      id: "spark-ui-storage-tab",
+      group: "Spark UI & Debugging",
+      q: "What does the Storage tab show, and when is it useful?",
+      difficulty: "Core",
+      tags: ["spark-ui", "storage", "cache", "persist"],
+      a:
+        "<p>The Storage tab lists every <b>RDD/DataFrame you've cached or persisted</b>, showing for each: the storage level, how many partitions are cached, the <b>fraction cached</b>, and size in memory vs on disk.</p>" +
+        "<ul>" +
+        "<li><b>Fraction cached &lt; 100%</b> — your dataset didn't fully fit; the uncached part is recomputed on every access, often erasing the benefit of caching.</li>" +
+        "<li><b>Size in memory vs disk</b> — with <code>MEMORY_AND_DISK</code>, a large on-disk portion means memory was insufficient.</li>" +
+        "<li><b>Nothing listed</b> — if you expected a cache but the tab is empty, your <code>cache()</code> never got an action to materialize it (cache is lazy).</li>" +
+        "</ul>",
+      tip: "The gotcha worth naming: <b>\"cache is lazy — it only appears in the Storage tab after an action materializes it, and a fraction below 100% means it's being partly recomputed.\"</b>"
+    },
+    {
+      id: "spark-ui-debug-slow-job",
+      group: "Spark UI & Debugging",
+      q: "Walk me through debugging a slow Spark job using the UI.",
+      difficulty: "Deep",
+      tags: ["spark-ui", "debugging", "methodology", "performance"],
+      a:
+        "<p>A systematic top-down pass — this is the answer that wins the \"it's slow, what do you do?\" question:</p>" +
+        "<ul>" +
+        "<li><b>1. Jobs tab</b> — find which job/action actually dominates wall-clock time. Don't optimize blind.</li>" +
+        "<li><b>2. Its stages</b> — open the slow job and find the longest stage; stage boundaries are shuffles, so a long stage right after an <code>Exchange</code> is often shuffle-bound.</li>" +
+        "<li><b>3. Summary metrics</b> — read the percentile table: Max ≫ Median duration ⇒ <b>skew</b>; non-zero Spill ⇒ <b>memory pressure</b>; huge Shuffle Read ⇒ <b>too much data moved</b>.</li>" +
+        "<li><b>4. SQL tab</b> — map the stage back to operators: a <code>SortMergeJoin</code> that should broadcast, a scan that didn't prune, an exploding-row join.</li>" +
+        "<li><b>5. Executors tab</b> — rule out high GC / dead executors (memory) as the real bottleneck.</li>" +
+        "<li><b>6. One hypothesis, one change</b> — broadcast the small side, raise/coalesce shuffle partitions, enable AQE skew join, or add a filter — then re-read the same metrics to confirm it helped.</li>" +
+        "</ul>",
+      tip: "Structure beats trivia here. Say <b>\"Jobs → Stages → summary metrics → SQL → Executors, then change one thing and re-measure.\"</b> A repeatable method is what senior interviewers are listening for."
+    },
+    {
+      id: "spark-ui-diagnose-shuffle",
+      group: "Spark UI & Debugging",
+      q: "How do you diagnose shuffle problems in the Spark UI?",
+      difficulty: "Deep",
+      tags: ["spark-ui", "shuffle", "exchange", "partitions"],
+      a:
+        "<p>Shuffle is usually the most expensive thing a job does, and the UI exposes it from two angles:</p>" +
+        "<ul>" +
+        "<li><b>SQL tab</b> — count and size the <code>Exchange</code> nodes. Many large exchanges mean many wide transformations; the goal is to remove or shrink them (broadcast a join, pre-aggregate, repartition once instead of repeatedly).</li>" +
+        "<li><b>Stages tab</b> — <b>Shuffle Write</b> on the producing stage and <b>Shuffle Read</b> on the consuming stage show the bytes crossing the network. Large shuffle read with spill means the receiving tasks can't hold their share.</li>" +
+        "<li><b>Partition count</b> — if shuffle read is big and tasks spill, there are too few shuffle partitions (default 200); raise <code>spark.sql.shuffle.partitions</code> or rely on AQE coalesce. Thousands of millisecond tasks is the opposite problem.</li>" +
+        "<li><b>Skewed shuffle</b> — one task's Shuffle Read dwarfing the rest is a skewed key sitting on the shuffle boundary.</li>" +
+        "</ul>",
+      tip: "Tie read↔write together: <b>\"Shuffle Write on the upstream stage equals Shuffle Read on the downstream one — that's the data crossing the network, and it's what I try to shrink first.\"</b>"
+    },
+    {
+      id: "spark-ui-partitions-task-count",
+      group: "Spark UI & Debugging",
+      q: "How can the Spark UI reveal a bad partition count (too many tiny tasks or too few huge ones)?",
+      difficulty: "Core",
+      tags: ["spark-ui", "partitions", "tasks", "parallelism"],
+      a:
+        "<p>Partitioning problems are visible straight from the <b>task count and task durations</b> in the Stages tab:</p>" +
+        "<ul>" +
+        "<li><b>Too few partitions</b> — a stage has only a handful of long tasks that each process a lot of data and often <b>spill</b>; cluster cores sit idle. You're under-parallelized.</li>" +
+        "<li><b>Too many partitions</b> — thousands of tasks each finishing in milliseconds, with <b>Scheduler Delay and task-launch overhead dominating</b> the useful work. The driver spends more time coordinating than the tasks spend computing.</li>" +
+        "<li><b>The sweet spot</b> — tasks that run for a few hundred ms to a few seconds, roughly 2–3× the total cluster cores in count, with little spill and low scheduler delay.</li>" +
+        "<li><b>On write</b> — a stage emitting far more output tasks than needed is the <b>small-file problem</b> in the making; coalesce/repartition before writing.</li>" +
+        "</ul>",
+      tip: "Give the heuristic: <b>\"tasks in the hundreds-of-ms-to-seconds range, ~2–3× core count.\"</b> Milliseconds everywhere = too many partitions; multi-minute tasks with spill = too few."
     }
   ]
 };
