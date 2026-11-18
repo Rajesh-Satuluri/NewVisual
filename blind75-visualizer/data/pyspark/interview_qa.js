@@ -11,7 +11,7 @@
  * Answers render via innerHTML (allow <b>,<code>,<i>,<ul>,<li>,<p>); code
  * renders via textContent through Prism.
  *
- * Q0 pilot = 2 groups: "Spark Fundamentals" + "Lazy Eval, DAG, Lineage & Fault Tolerance".
+ * Q0 pilot = 2 groups: "Spark Fundamentals" + "Lazy Evaluation, DAG & Fault Tolerance".
  */
 window.PYSPARK_QA = {
   // Full 10-group order (only groups with items render as chips).
@@ -19,13 +19,13 @@ window.PYSPARK_QA = {
     "Spark Fundamentals",
     "Architecture & Execution",
     "RDD Deep-Dive",
-    "Transformations, Actions & RDD API",
+    "Transformations & Actions",
     "DataFrames, Datasets & Spark SQL",
-    "Lazy Eval, DAG, Lineage & Fault Tolerance",
+    "Lazy Evaluation, DAG & Fault Tolerance",
     "Query Optimization",
     "Partitions, Shuffle & Performance",
     "Spark UI & Debugging",
-    "Skew & Broadcast",
+    "Data Skew & Broadcast Joins",
     "I/O, Formats & Data Quality",
     "Streaming, MLlib & Graph",
     "Delta Lake, Lakehouse & Data Engineering"
@@ -147,7 +147,7 @@ window.PYSPARK_QA = {
     // ─────────────── G6 · Lazy Eval, DAG, Lineage & Catalyst ───────────────
     {
       id: "lazy-evaluation",
-      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
+      group: "Lazy Evaluation, DAG & Fault Tolerance",
       q: "What is lazy evaluation in Spark, and why does it help?",
       difficulty: "Core",
       tags: ["lazy", "transformation", "action", "optimization"],
@@ -169,7 +169,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "what-is-dag",
-      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
+      group: "Lazy Evaluation, DAG & Fault Tolerance",
       q: "What is a DAG in Spark and why is it needed?",
       difficulty: "Core",
       tags: ["dag", "scheduler", "stages"],
@@ -184,7 +184,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "dag-vs-lineage",
-      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
+      group: "Lazy Evaluation, DAG & Fault Tolerance",
       q: "What's the difference between a DAG and lineage?",
       difficulty: "Common",
       tags: ["dag", "lineage", "comparison"],
@@ -199,7 +199,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "lineage-graph",
-      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
+      group: "Lazy Evaluation, DAG & Fault Tolerance",
       q: "What is a lineage graph (RDD lineage)?",
       difficulty: "Core",
       tags: ["lineage", "fault-tolerance", "rdd"],
@@ -231,7 +231,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "fault-tolerance",
-      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
+      group: "Lazy Evaluation, DAG & Fault Tolerance",
       q: "How does Spark achieve fault tolerance?",
       difficulty: "Core",
       tags: ["fault-tolerance", "lineage", "reliability"],
@@ -535,7 +535,7 @@ window.PYSPARK_QA = {
     // ─────────────── G4 · Transformations, Actions & RDD API ───────────────
     {
       id: "transformations-vs-actions",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "What is the difference between a transformation and an action?",
       difficulty: "Core",
       tags: ["transformation", "action", "lazy"],
@@ -549,7 +549,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "narrow-vs-wide",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "Narrow vs wide transformations?",
       difficulty: "Core",
       tags: ["narrow", "wide", "shuffle", "stages"],
@@ -563,7 +563,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "spot-transformation-action",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "How do you tell if an operation is a transformation or an action in your code?",
       difficulty: "Common",
       tags: ["transformation", "action", "return-type"],
@@ -578,7 +578,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "map-flatmap-filter",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "map vs flatMap vs filter?",
       difficulty: "Core",
       tags: ["map", "flatmap", "filter"],
@@ -599,7 +599,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "mappartitions",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "What is mapPartitions and when would you use it?",
       difficulty: "Common",
       tags: ["mappartitions", "performance", "initialization"],
@@ -611,7 +611,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "bykey-ops",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "groupByKey vs reduceByKey vs aggregateByKey?",
       difficulty: "Core",
       tags: ["reducebykey", "groupbykey", "aggregatebykey", "shuffle"],
@@ -626,7 +626,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "rdd-set-ops",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "Explain distinct, union, intersection and subtract.",
       difficulty: "Common",
       tags: ["distinct", "union", "intersection", "subtract"],
@@ -642,7 +642,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "rdd-joins",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "What join operations do Pair RDDs support?",
       difficulty: "Common",
       tags: ["join", "outer-join", "cogroup"],
@@ -660,7 +660,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "rdd-actions",
-      group: "Transformations, Actions & RDD API",
+      group: "Transformations & Actions",
       q: "Name the common RDD actions and what they return.",
       difficulty: "Common",
       tags: ["actions", "collect", "reduce", "count"],
@@ -966,7 +966,7 @@ window.PYSPARK_QA = {
     // ─────────────────────────── G8 · Skew & Broadcast ───────────────────────────
     {
       id: "data-skew",
-      group: "Skew & Broadcast",
+      group: "Data Skew & Broadcast Joins",
       q: "What is data skew and why is it a problem?",
       difficulty: "Core",
       tags: ["skew", "partition", "performance"],
@@ -978,7 +978,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "salting",
-      group: "Skew & Broadcast",
+      group: "Data Skew & Broadcast Joins",
       q: "How do you mitigate skewed data (salting)?",
       difficulty: "Common",
       tags: ["salting", "skew", "join"],
@@ -994,7 +994,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "broadcast-join",
-      group: "Skew & Broadcast",
+      group: "Data Skew & Broadcast Joins",
       q: "What is a broadcast join and when should you use it?",
       difficulty: "Core",
       tags: ["broadcast-join", "join", "shuffle"],
@@ -1009,7 +1009,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "broadcast-vs-accumulator",
-      group: "Skew & Broadcast",
+      group: "Data Skew & Broadcast Joins",
       q: "Broadcast variable vs Accumulator?",
       difficulty: "Core",
       tags: ["broadcast-variable", "accumulator", "shared-variables"],
@@ -1027,7 +1027,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "shared-variables",
-      group: "Skew & Broadcast",
+      group: "Data Skew & Broadcast Joins",
       q: "What are shared variables in Spark?",
       difficulty: "Common",
       tags: ["shared-variables", "broadcast", "accumulator"],
@@ -1906,7 +1906,7 @@ window.PYSPARK_QA = {
     },
     {
       id: "nondeterminism-recompute",
-      group: "Lazy Eval, DAG, Lineage & Fault Tolerance",
+      group: "Lazy Evaluation, DAG & Fault Tolerance",
       q: "How can lazy recomputation cause non-deterministic results?",
       difficulty: "Deep",
       tags: ["non-determinism", "monotonically-increasing-id", "rand", "cache"],
