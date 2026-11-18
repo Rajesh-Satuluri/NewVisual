@@ -47,12 +47,14 @@ export function mount(container) {
       { id: 'paths', label: '🧭 Two Paths' },
       { id: 'medallion', label: '🥉🥈🥇 Bronze → Silver → Gold' },
       { id: 'iceberg', label: '🧊 Iceberg Internals' },
+      { id: 'delta', label: '🔼 Delta Log' },
       { id: 'iq', label: '🎯 Interview Q&A' },
     ],
   });
   buildPaths(container);
   const cleanup = buildMedallion(container);
   buildIceberg(container);
+  buildDelta(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
   return cleanup;
 }
@@ -156,6 +158,85 @@ function buildIceberg(container) {
   tab.querySelector('#ice-snaps').addEventListener('click', e => {
     const el = e.target.closest('[data-snap]'); if (!el) return;
     ptr = +el.dataset.snap; render();
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Delta Log (_delta_log transaction log + checkpoints + MERGE)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildDelta(container) {
+  const tab = container.querySelector('#tab-delta');
+  // commits: {v, op, label, actions, rows}
+  let commits = [];
+  let ptr = -1;
+
+  function pad(n) { return String(n).padStart(5, '0'); }
+
+  function commit(op, label, actions, deltaRows) {
+    commits = commits.slice(0, ptr + 1);
+    const prev = ptr >= 0 ? commits[ptr].rows : 0;
+    const v = commits.length;
+    commits.push({ v, op, label, actions, rows: Math.max(0, prev + deltaRows), checkpoint: v > 0 && v % 10 === 0 });
+    ptr = commits.length - 1;
+    render();
+  }
+
+  function render() {
+    // _delta_log listing
+    const lastCp = [...commits].reverse().find(c => c.checkpoint);
+    tab.querySelector('#dl-log').innerHTML = commits.length === 0
+      ? `<div style="color:#5B6B82;font-size:11px;padding:10px">empty _delta_log — commit to create version 0</div>`
+      : `<div style="font-family:ui-monospace,monospace;font-size:10px;line-height:1.7">
+          <div style="color:#64748B">_delta_log/</div>
+          ${commits.map(c => {
+            const isPtr = c.v === ptr;
+            const opcol = c.op === 'append' ? '#10B981' : c.op === 'merge' ? '#F59E0B' : '#EF4444';
+            return `<div data-v="${c.v}" style="cursor:pointer;padding:1px 6px;border-radius:4px;${isPtr ? 'background:' + opcol + '22;' : ''}">
+              <span style="color:${isPtr ? opcol : '#94A3B8'}">${pad(c.v)}.json</span>
+              <span style="color:#5B6B82"> — ${c.actions}</span>${isPtr ? ` <span style="color:${opcol}">◂ v${c.v}</span>` : ''}</div>
+              ${c.checkpoint ? `<div style="color:#8B5CF6;padding:1px 6px">${pad(c.v)}.checkpoint.parquet <span style="color:#5B6B82">— consolidated state (every 10 commits)</span></div>` : ''}`;
+          }).join('')}
+          <div style="color:#64748B">_last_checkpoint → ${lastCp ? 'v' + lastCp.v : '(none yet)'}</div>
+        </div>`;
+
+    const cur = ptr >= 0 ? commits[ptr] : null;
+    tab.querySelector('#dl-state').innerHTML = cur
+      ? `Reading <code>VERSION AS OF ${cur.v}</code> returns <b style="color:#E2E8F0">${cur.rows} rows</b>. ${ptr < commits.length - 1 ? '<span style="color:#F59E0B">Time-traveled — later versions still exist in the log.</span>' : 'Latest version.'} To reconstruct this, a reader replays ${lastCp && lastCp.v <= cur.v ? `checkpoint v${lastCp.v} + the ${cur.v - lastCp.v} JSON commit(s) after it` : `all ${cur.v + 1} JSON commit(s)`}.`
+      : 'No commits yet.';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Delta Lake's table format is a single <b>ordered transaction log</b>: the <code>_delta_log/</code> directory holds numbered JSON commits, each a list of <b>add</b>/<b>remove</b> file actions. The table's state at any version is "replay the log up to there." A commit is atomic because version <code>N+1.json</code> either writes or it doesn't; every 10 commits a <b>Parquet checkpoint</b> consolidates the log so readers don't replay everything.</div>
+      <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px;min-height:150px">
+        <div style="font-size:11px;font-weight:700;color:#06B6D4;margin-bottom:8px">_delta_log <span style="font-weight:400;color:#64748B">— click a version to time-travel</span></div>
+        <div id="dl-log" style="max-height:260px;overflow:auto"></div>
+      </div>
+      <div id="dl-state" style="font-size:11.5px;line-height:1.6;margin-top:12px;min-height:30px;color:#94A3B8"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="dl-append">➕ Append (add actions)</button>
+        <button class="ctrl-btn" id="dl-merge">🔀 MERGE upsert (remove + add)</button>
+        <button class="ctrl-btn" id="dl-x10">⏩ +10 commits (make checkpoint)</button>
+        <button class="ctrl-btn" id="dl-reset">↻ Reset</button>
+        <span class="ctrl-label">watch the checkpoint appear at version 10 · time-travel by version</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Where Iceberg uses a tree of metadata files and a catalog pointer, Delta Lake uses a single <strong>ordered transaction log</strong>: the <code>_delta_log/</code> directory, containing commit files <code>00000.json</code>, <code>00001.json</code>, … Each commit is a small JSON file listing <strong>actions</strong> — <code>add</code> (a new data file with stats), <code>remove</code> (tombstone an existing data file), <code>metaData</code> (schema), and <code>commitInfo</code>. The table's state at version N is simply the <em>replay</em> of every action from 0 through N: adds minus removes. Data files themselves are plain Parquet, exactly like Iceberg — the format lives entirely in that log.</p>
+      <p>A commit is atomic because it is the creation of the next-numbered file: to commit version N+1, a writer must be the one that successfully creates <code>…N+1.json</code>. If two writers race, only one wins the filename; the loser sees the new version appeared, re-reads it, and retries its operation on top — <strong>optimistic concurrency control</strong>. This is also why Delta needs the storage layer to provide atomic "put-if-absent" (trivial on most object stores via a commit service or on HDFS; the classic S3 caveat is why Delta added coordination for multi-writer S3).</p>
+      <p>Replaying thousands of JSON files would be slow, so every <strong>10 commits</strong> Delta writes a <strong>checkpoint</strong>: a single Parquet file holding the <em>consolidated</em> table state as of that version, plus a <code>_last_checkpoint</code> hint. A reader then loads the latest checkpoint and replays only the handful of JSON commits after it — bounded work regardless of table age. <strong>MERGE</strong> (the CDC upsert) shows up here as a commit containing both <code>remove</code> actions (for the data files holding changed rows) and <code>add</code> actions (rewritten files with the new values) — copy-on-write by default. <strong>Time travel</strong> (<code>VERSION AS OF</code> / <code>TIMESTAMP AS OF</code>) is just reading the state as of an earlier version, which is why <code>VACUUM</code> — which physically deletes files no longer referenced by recent versions — is what ends your ability to time-travel that far back.</p>
+      <p><strong>The classic gotcha:</strong> this <code>_delta_log</code> <em>checkpoint</em> is <strong>not</strong> the Spark Structured Streaming <code>checkpointLocation</code>. The former is table-log compaction (every 10 commits, consolidates the log); the latter tracks which Kafka offsets your streaming job has processed. Deleting one has nothing to do with the other — conflating them in an interview (or in production) is a real mistake. <strong>Interview one-liner:</strong> "Delta = ordered JSON log of add/remove actions, atomic via next-version-file optimistic concurrency, Parquet checkpoints every 10 commits, time-travel by replaying to a version — and the log checkpoint is not the streaming checkpoint."</p>
+    </div>`;
+
+  render();
+  tab.querySelector('#dl-append').addEventListener('click', () => commit('append', 'append', 'add 3 files (+1500 rows)', 1500));
+  tab.querySelector('#dl-merge').addEventListener('click', () => commit('merge', 'merge', 'remove 2 + add 2 files (MERGE)', 0));
+  tab.querySelector('#dl-x10').addEventListener('click', () => { for (let i = 0; i < 10; i++) commit('append', 'append', 'add 1 file (+100 rows)', 100); });
+  tab.querySelector('#dl-reset').addEventListener('click', () => { commits = []; ptr = -1; render(); });
+  tab.querySelector('#dl-log').addEventListener('click', e => {
+    const el = e.target.closest('[data-v]'); if (!el) return;
+    ptr = +el.dataset.v; render();
   });
 }
 
