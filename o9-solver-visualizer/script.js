@@ -71,6 +71,15 @@ const LOADERS = {
   'rca': () => import('./modules/rca.js'),
   'debug': () => import('./modules/debug.js'),
   'invocation': () => import('./modules/invocation.js'),
+  'lot-based': () => import('./modules/lot-based.js'),
+  'supply-code': () => import('./modules/supply-code.js'),
+  'shelf-life': () => import('./modules/shelf-life.js'),
+  'class-based-planning': () => import('./modules/class-based-planning.js'),
+  'no-carry': () => import('./modules/no-carry.js'),
+  'yield-time-varying': () => import('./modules/yield-time-varying.js'),
+  'co-products': () => import('./modules/co-products.js'),
+  'multi-step-routing': () => import('./modules/multi-step-routing.js'),
+  'special-models': () => import('./modules/special-models.js'),
 };
 
 function comingSoon(mod, id) {
