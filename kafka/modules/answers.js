@@ -37,17 +37,28 @@ export function mount(container) {
         </div>
       </div>`;
 
-    initAccordion(container.querySelector('.ta-list'), {
-      fillBody: (body, id) => {
-        if (body.dataset.filled) return;
-        const orig = TIERED.find(x => x.id === id);
-        body.innerHTML = createTieredAnswer(mergeOverride(orig));
-        initTieredAnswer(body);
-        initTieredEdits(body, orig, () => render());
-        body.dataset.filled = '1';
-      },
-      onToggle: (id, open) => { if (open) state.openId = id; else if (state.openId === id) state.openId = null; },
+    initAccordion(container.querySelector('.ta-list'), { fillBody, onToggle: (id, open) => { if (open) state.openId = id; else if (state.openId === id) state.openId = null; } });
+  }
+
+  // Fill (or re-fill) a single card's body in place. On save/reset we re-run
+  // this for just the open card instead of re-rendering the whole list — that
+  // keeps the card open, preserves scroll position, and only refreshes the one
+  // card's content and its collapsed-head "edited" badge.
+  function fillBody(body, id) {
+    const orig = TIERED.find(x => x.id === id);
+    body.innerHTML = createTieredAnswer(mergeOverride(orig));
+    initTieredAnswer(body);
+    initTieredEdits(body, orig, () => {
+      fillBody(body, id);            // refresh this card's content in place
+      const card = body.closest('.ca-card');
+      if (card) {
+        const edited = hasOverride(id);
+        card.classList.toggle('tae-edited', edited);
+        const badge = card.querySelector('.tae-head-badge');
+        if (badge) badge.hidden = !edited;
+      }
     });
+    body.dataset.filled = '1';
   }
 
   render();
