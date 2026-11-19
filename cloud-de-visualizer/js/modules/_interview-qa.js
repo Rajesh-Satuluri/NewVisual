@@ -180,7 +180,6 @@
 
   function styleTag() {
     return `
-<style id="iq-styles">
 .iq { height:100%; overflow-y:auto; padding:30px 32px 72px; }
 .iq-wrap { max-width:920px; margin:0 auto; }
 .iq-eyebrow { font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--brand); margin-bottom:8px; }
@@ -284,7 +283,7 @@
 .iq-ans-html hr { border:none; border-top:1px solid var(--border-default); margin:12px 0; }
 .iq-ans-html kbd { font-family:ui-monospace,Menlo,monospace; font-size:11px; background:var(--bg-2); border:1px solid var(--border-default);
   border-bottom-width:2px; border-radius:5px; padding:1px 6px; }
-</style>`;
+`;
   }
 
   function intuitionHTML(topicId) {
@@ -300,7 +299,15 @@
 
   function render(container, format, topic) {
     container.className = '';
-    const styles = document.getElementById('iq-styles') ? '' : styleTag();
+    // Inject the stylesheet into <head> ONCE — never inside the container, so a
+    // re-render (e.g. a cloud-sync refresh overwriting container.innerHTML) can
+    // never strip the styles.
+    if (!document.getElementById('iq-styles')) {
+      const st = document.createElement('style');
+      st.id = 'iq-styles';
+      st.textContent = styleTag();
+      (document.head || document.documentElement).appendChild(st);
+    }
     const qs = topic.questions || [];
     const tid = topic.id;
     const items = qs.map((x, i) => {
@@ -322,8 +329,7 @@
         <div class="iq-a"><div>${answerInnerHTML(x, format, tid, i, i)}</div></div>
       </div>`;
     }).join('');
-    container.innerHTML = `${styles}
-<div class="iq page-enter">
+    container.innerHTML = `<div class="iq page-enter">
   <div class="iq-wrap">
     <div class="iq-eyebrow">Interview Questions</div>
     <h1 class="iq-h1">${esc(topic.label)}</h1>
