@@ -57,6 +57,7 @@
   var query = "";
   var revealAll = false;
   var got = {};
+  var editingId = null;        // modal: id of the card currently being edited (null = none)
 
   // inline ("Study Hub"-style) view state
   var inlineListEl = null;     // the .study-results container when rendered inline
@@ -214,29 +215,52 @@
 
   function card(p, idx) {
     var open = revealAll || !!p.__open;
-    var c = el("div", "iqa-card" + (open ? " open" : "") + (got[p.id] ? " got" : "") + (bank.srs && isDue(p) ? " due" : ""));
+    var editing = editingId === p.id && open;
+    var c = el("div", "iqa-card" + (open ? " open" : "") + (got[p.id] ? " got" : "") + (bank.srs && isDue(p) ? " due" : "") + (isEdited(p) ? " iqa-edited" : ""));
 
     // question row (click to flip)
     var qrow = el("div", "iqa-q");
     qrow.innerHTML =
       '<span class="iqa-num">' + (idx + 1) + '</span>' +
-      '<span class="iqa-qtext">' + esc(p.q) + '</span>' +
+      '<span class="iqa-qtext">' + esc(viewQ(p)) + '</span>' +
       '<span class="iqa-badges">' +
       (bank.srs && isDue(p) ? '<span class="iqa-due-dot" title="Due for review">●</span>' : '') +
+      '<span class="iqs-edited-badge"' + (isEdited(p) ? '' : ' hidden') + ' title="You have edited this question">edited</span>' +
       '<span class="iqa-lvl ' + lvlClass(p.difficulty) + '">' + esc(p.difficulty || "Core") + '</span>' +
+      '<button type="button" class="iqs-edit-btn" aria-label="Edit this question" title="Edit this question">✎</button>' +
       '<span class="iqa-caret">' + (open ? "▾" : "▸") + '</span>' +
       '</span>';
-    qrow.addEventListener("click", function () {
+    qrow.addEventListener("click", function (ev) {
+      if (ev.target.closest(".iqs-edit-btn")) return;
       p.__open = !(revealAll || p.__open);
       if (revealAll) { p.__open = false; revealAll = false; syncRevealBtn(); }
+      if (!p.__open) editingId = (editingId === p.id ? null : editingId); // closing a card drops its editor
+      bodyEl.__keepScroll = bodyEl.scrollTop;
+      render();
+    });
+    qrow.querySelector(".iqs-edit-btn").addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      editingId = p.id;
+      p.__open = true;
       bodyEl.__keepScroll = bodyEl.scrollTop;
       render();
     });
     c.appendChild(qrow);
 
+    if (editing) {
+      var aedit = el("div", "iqa-a");
+      aedit.appendChild(buildEditor(p, function () {
+        editingId = null;
+        bodyEl.__keepScroll = bodyEl.scrollTop;
+        render();
+      }));
+      c.appendChild(aedit);
+      return c;
+    }
+
     if (open) {
       var ans = el("div", "iqa-a");
-      ans.appendChild(el("div", "iqa-a-body", p.a || ""));
+      ans.appendChild(el("div", "iqa-a-body", viewA(p)));
       if (p.code) ans.appendChild(codeBlock(p.code, p.lang));
       if (p.tip) ans.appendChild(el("div", "iqa-tip", "💡 <b>Interview tip.</b> " + p.tip));
 
@@ -386,7 +410,7 @@
     if (overlay && builtBank !== b.key) teardown();
     bank = b;
     got = loadGot();
-    activeCat = "all"; query = ""; revealAll = false;
+    activeCat = "all"; query = ""; revealAll = false; editingId = null;
     inlineHost = null;           // we're in overlay mode now
     if (!overlay) build();
     // Re-point the shared panel refs at the overlay box (an inline render may have
@@ -518,17 +542,15 @@
     item.classList.toggle("iqs-edited", isEdited(p));
   }
 
-  // In-place editor for one Q&A card. Edits the question (plain text) and the
-  // answer (rich HTML). Saving writes an override into the synced store, so it
-  // propagates to the module list here and to every device on the same sync code.
-  function enterEdit(item, p, idx) {
-    var ans = item.querySelector(".iq-answer");
-    if (!ans) return;
+  // Build the shared in-place editor element for one Q&A card. Edits the question
+  // (plain text) and the answer (rich HTML). Saving writes an override into the
+  // synced store, so it propagates to the module list, the modal, and every
+  // device on the same sync code. `onDone(saved)` is called after Save, Cancel
+  // and Reset so each host (inline vs modal) can refresh its own way.
+  function buildEditor(p, onDone) {
     var ov = ovOf(p);
     var curQ = (ov && typeof ov.q === "string") ? ov.q : p.q;
     var curA = (ov && typeof ov.a === "string") ? ov.a : (p.a || "");
-    item.classList.add("iqs-editing");
-
     var ed = el("div", "iqe-editor");
     ed.innerHTML =
       '<label class="iqe-label">Question</label>' +
@@ -541,17 +563,14 @@
       '  <button type="button" class="iqe-btn iqe-reset"' + (ov ? '' : ' hidden') + '>Reset to original</button>' +
       '</div>' +
       '<div class="iqe-hint">' + syncHintHtml() + '</div>';
-    ans.innerHTML = "";
-    ans.appendChild(ed);
-
     var qField = ed.querySelector(".iqe-q");
     var aField = ed.querySelector(".iqe-a");
     qField.textContent = curQ; // plain text (question renders escaped)
     var cta = ed.querySelector(".iqa-sync-cta");
     if (cta) cta.addEventListener("click", function (e) { e.preventDefault(); openSyncDialog(); });
+    // Clicks inside the editor must never bubble up to a card's flip handler.
+    ed.addEventListener("click", function (e) { e.stopPropagation(); });
     setTimeout(function () { try { qField.focus(); } catch (e) {} }, 0);
-
-    function exit() { item.classList.remove("iqs-editing"); rebuildAnswer(item, p); }
 
     ed.querySelector(".iqe-save").addEventListener("click", function () {
       var nq = (qField.textContent || "").trim();
@@ -560,17 +579,31 @@
       if (nq && nq !== (p.q || "").trim()) next.q = nq;
       if (na && na !== (p.a || "").trim()) next.a = na;
       if (store && store.setIqaEdit) store.setIqaEdit(bank.key, p.id, (next.q == null && next.a == null) ? null : next);
-      exit();
+      onDone(true);
     });
-    ed.querySelector(".iqe-cancel").addEventListener("click", exit);
+    ed.querySelector(".iqe-cancel").addEventListener("click", function () { onDone(false); });
     ed.querySelector(".iqe-reset").addEventListener("click", function () {
       if (store && store.clearIqaEdit) store.clearIqaEdit(bank.key, p.id);
-      exit();
+      onDone(true);
     });
     ed.addEventListener("keydown", function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); ed.querySelector(".iqe-save").click(); }
       else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); ed.querySelector(".iqe-cancel").click(); }
     });
+    return ed;
+  }
+
+  // Inline (Study-Hub) host: swap the read-only answer for the editor, and
+  // rebuild the read-only answer in place when editing finishes.
+  function enterEdit(item, p) {
+    var ans = item.querySelector(".iq-answer");
+    if (!ans) return;
+    item.classList.add("iqs-editing");
+    ans.innerHTML = "";
+    ans.appendChild(buildEditor(p, function () {
+      item.classList.remove("iqs-editing");
+      rebuildAnswer(item, p);
+    }));
   }
 
   function renderInlineList() {
@@ -595,7 +628,7 @@
     var b = BANKS[bankKey] || bank || BANKS.spark;
     bank = b;
     got = loadGot();
-    activeCat = "all"; query = ""; revealAll = false; diffFilter = "all";
+    activeCat = "all"; query = ""; revealAll = false; diffFilter = "all"; editingId = null;
     inlineHost = host;
 
     var total = allItems().length;

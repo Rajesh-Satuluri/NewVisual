@@ -918,7 +918,8 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 .iqs-edit-btn { flex-shrink: 0; align-self: center; border: 1px solid var(--border); background: var(--bg-2);
   color: var(--muted); border-radius: 6px; width: 26px; height: 26px; line-height: 1; font-size: 13px;
   cursor: pointer; opacity: 0; transition: opacity .15s, color .15s, border-color .15s, background .15s; }
-.iq-question:hover .iqs-edit-btn, .iq-item.open .iqs-edit-btn, .iqs-edited .iqs-edit-btn { opacity: 1; }
+.iq-question:hover .iqs-edit-btn, .iq-item.open .iqs-edit-btn, .iqs-edited .iqs-edit-btn,
+.iqa-q:hover .iqs-edit-btn, .iqa-card.open .iqs-edit-btn, .iqa-edited .iqs-edit-btn { opacity: 1; }
 .iqs-edit-btn:hover { color: var(--brand); border-color: var(--brand); background: var(--brand-glow); }
 .iqs-edited-badge { flex-shrink: 0; align-self: center; font-size: 9.5px; font-weight: 800; text-transform: uppercase;
   letter-spacing: .5px; padding: 2px 7px; border-radius: 999px; color: var(--brand); background: var(--brand-glow); }
