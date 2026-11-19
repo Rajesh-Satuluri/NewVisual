@@ -79,7 +79,20 @@
   // An override is { q?: plainText, a?: html } stored under the current bank in
   // store.iqaEdits. The same cloud sync that carries notes/progress carries these,
   // so an edit made on one device shows up on every device with the same sync code.
-  function ovOf(p) { return (store && store.getIqaEdit) ? store.getIqaEdit(bank.key, p.id) : null; }
+  // Baked fallback: Q&A answer edits captured from cloud sync into
+  // data/user_overrides.js (OV.iqa[bankKey][id] = { q?, a? }). Lets edits render
+  // on any device / fresh load even before a live cloud pull completes.
+  function bakedOv(p) {
+    var OV = window.BLIND75 && window.BLIND75.USER_OVERRIDES && window.BLIND75.USER_OVERRIDES.iqa;
+    if (!OV) return null;
+    var m = OV[bank.key];
+    return (m && m[p.id]) ? m[p.id] : null;
+  }
+  // A live, in-tool edit always wins; otherwise fall back to the baked copy.
+  function ovOf(p) {
+    var live = (store && store.getIqaEdit) ? store.getIqaEdit(bank.key, p.id) : null;
+    return live || bakedOv(p);
+  }
   function isEdited(p) { return !!ovOf(p); }
   // The question text to display: the user's edit if present, else the original.
   function viewQ(p) { var ov = ovOf(p); return (ov && typeof ov.q === "string") ? ov.q : p.q; }

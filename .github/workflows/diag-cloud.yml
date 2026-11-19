@@ -1,0 +1,68 @@
+name: Diagnose cloud bundle
+
+# Read-only diagnostic: fetch a sync code's cloud bundle from Supabase and print
+# WHICH edit buckets it contains and HOW MANY entries each has. It never commits,
+# never deploys, and never prints edit content or the sync code itself.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sync_code:
+        description: "Sync code to inspect (optional; defaults to repo secret)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Fetch cloud state and report shape
+        env:
+          INPUT_CODE: ${{ github.event.inputs.sync_code }}
+          SECRET_CODE: ${{ secrets.BLIND75_SYNC_CODE }}
+          SUPA_URL: "https://zkqbgjttjrljikeylchu.supabase.co"
+          SUPA_KEY: "sb_publishable_5vWJiCbxESEkKqLtXK_UKA_e1Bw_okx"
+        run: |
+          set -euo pipefail
+          CODE="${INPUT_CODE:-}"
+          SRC="input"
+          if [ -z "$CODE" ]; then CODE="${SECRET_CODE:-}"; SRC="secret"; fi
+          if [ -z "$CODE" ]; then echo "No sync code available."; exit 0; fi
+          echo "Using sync code from: $SRC (value hidden)"
+          export CODE
+          BODY="$(node -e 'process.stdout.write(JSON.stringify({p_code:process.env.CODE}))')"
+          curl -sS -X POST "$SUPA_URL/rest/v1/rpc/study_get" \
+            -H "Content-Type: application/json" \
+            -H "apikey: $SUPA_KEY" \
+            --data "$BODY" \
+            -o cloud.json
+          echo "Fetched $(wc -c < cloud.json) bytes."
+          node -e '
+            const fs=require("fs");
+            let raw=""; try{raw=fs.readFileSync("cloud.json","utf8");}catch(e){}
+            let p=null; try{p=raw.trim()?JSON.parse(raw):null;}catch(e){console.log("parse error:",e.message);}
+            function st(x){ if(x==null)return {}; if(Array.isArray(x))return x.length?st(x[0]):{}; if(x.state&&typeof x.state==="object")return x.state; return x; }
+            const s=st(p)||{};
+            console.log("TOP-LEVEL STATE KEYS:", JSON.stringify(Object.keys(s)));
+            function cntNested(o){let n=0;for(const k in o)for(const kk in o[k])n++;return n;}
+            function cntFlat(o){return o?Object.keys(o).length:0;}
+            for(const b of ["logicEdits","descEdits","codeEdits","iqaEdits","notes","progress"]){
+              const v=s[b];
+              if(v==null){console.log("  "+b+": ABSENT");continue;}
+              console.log("  "+b+": topKeys="+JSON.stringify(Object.keys(v))+" flat="+cntFlat(v)+" nested="+cntNested(v));
+            }
+            const iqa=s.iqaEdits||{};
+            for(const bank of Object.keys(iqa)){
+              console.log("  iqaEdits."+bank+": "+Object.keys(iqa[bank]).length+" question(s) -> "+JSON.stringify(Object.keys(iqa[bank])));
+            }
+          '
+          rm -f cloud.json
