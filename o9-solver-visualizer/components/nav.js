@@ -42,15 +42,15 @@ export const MODULES = [
   { id:'invocation',       label:'Invocation & Plan Types',  icon:'▶️', group:'Invocation', desc:'exec plugin; FULL / INCREMENTAL / IDENTIFY_SEGMENTS / EXPORT_ONLY' },
 
   // ── Models Supported — advanced capabilities ────────────────────────────────
-  { id:'lot-based',        label:'Lot-Based Planning',       icon:'🏷️', group:'Models Supported', desc:'Lot-level pegging and genealogy' },
-  { id:'supply-code',      label:'Supply Code (+ Mix&Match)',icon:'🧮', group:'Models Supported', desc:'Supply-code planning and mix-and-match supply codes' },
-  { id:'shelf-life',       label:'Shelf Life (+ Class)',     icon:'⏳', group:'Models Supported', desc:'Expiry-aware planning, including class-based shelf life' },
-  { id:'class-based-planning', label:'Class-Based Planning', icon:'🧬', group:'Models Supported', desc:'The hard-peg → class hinge' },
-  { id:'no-carry',         label:'No Inventory Hold',        icon:'🚫', group:'Models Supported', desc:'No-carry push behaviour' },
-  { id:'yield-time-varying', label:'Time-Varying Yield',     icon:'📉', group:'Models Supported', desc:'Time-varying production & consumption (yield)' },
-  { id:'co-products',      label:'Co-Products',              icon:'⚗️', group:'Models Supported', desc:'One activity producing multiple outputs' },
-  { id:'multi-step-routing', label:'Multi-Step Routing',     icon:'🪜', group:'Models Supported', desc:'Multi-operation routings, including WIP support' },
-  { id:'special-models',   label:'Special Cases',            icon:'✨', group:'Models Supported', desc:'Alt-resource consolidation, campaign/batch, PSP, soft quarantine, holidays, transition & substitution' },
+  { id:'lot-based',        label:'Lot-Based Planning',       icon:'🏷️', group:'Models Supported', level:'Advanced', prereq:'Pegging; Lot Size', desc:'Lot-level pegging and genealogy' },
+  { id:'supply-code',      label:'Supply Code (+ Mix&Match)',icon:'🧮', group:'Models Supported', level:'Advanced', prereq:'Pegging; Priority & sorting', desc:'Supply-code planning and mix-and-match supply codes' },
+  { id:'shelf-life',       label:'Shelf Life (+ Class)',     icon:'⏳', group:'Models Supported', level:'Advanced', prereq:'Lot-Based Planning', desc:'Expiry-aware planning, including class-based shelf life' },
+  { id:'class-based-planning', label:'Class-Based Planning', icon:'🧬', group:'Models Supported', level:'Advanced', prereq:'Pegging; Priority & sorting', desc:'The hard-peg → class hinge' },
+  { id:'no-carry',         label:'No Inventory Hold',        icon:'🚫', group:'Models Supported', level:'Core', prereq:'Inventory; Capacity', desc:'No-carry push behaviour' },
+  { id:'yield-time-varying', label:'Time-Varying Yield',     icon:'📉', group:'Models Supported', level:'Advanced', prereq:'Lot Size; Activity params', desc:'Time-varying production & consumption (yield)' },
+  { id:'co-products',      label:'Co-Products',              icon:'⚗️', group:'Models Supported', level:'Advanced', prereq:'Activity params; Excess cleanup', desc:'One activity producing multiple outputs' },
+  { id:'multi-step-routing', label:'Multi-Step Routing',     icon:'🪜', group:'Models Supported', level:'Advanced', prereq:'WIP; Lead-time offset', desc:'Multi-operation routings, including WIP support' },
+  { id:'special-models',   label:'Special Cases',            icon:'✨', group:'Models Supported', level:'Advanced', prereq:'Most of Models Supported', desc:'Alt-resource consolidation, campaign/batch, PSP, soft quarantine, holidays, transition & substitution' },
 
   // ── Optimization & Ops ──────────────────────────────────────────────────────
   { id:'optimization',     label:'Optimization Passes',      icon:'🚀', group:'Optimization & Ops', desc:'ORL passes, WIP sweep, material reallocation, multipass' },
