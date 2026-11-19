@@ -2394,6 +2394,227 @@ window.PYSPARK_QA = {
         "    .mapValues(lambda sc: sc[0] / sc[1]))",
       lang: "python",
       tip: "The one-liner: <b>\"reduceByKey combines on the map side, groupByKey shuffles every value — so groupByKey OOMs on hot keys.\"</b> Showing the (sum, count) average trick proves you can avoid groupByKey even for averages."
+    },
+
+    // ═══════════════ Scenario-Based Questions — batch 2 (2026-11) ═══════════════
+    {
+      id: "scenario-large-large-join",
+      group: "Scenario-Based Questions",
+      q: "Both sides of your join are large (say 500 GB × 800 GB) so broadcast won't work. How do you make it efficient?",
+      difficulty: "Deep",
+      tags: ["scenario", "joins", "sort-merge", "bucketing", "shuffle"],
+      a:
+        "<p>With two big tables you're in <b>sort-merge join</b> territory: Spark hash-partitions <i>both</i> sides on the join key, shuffles them, sorts each partition, then merges. The shuffle is unavoidable in the naive case — so the game is to <b>shrink it or pay it only once</b>.</p>" +
+        "<ul>" +
+        "<li><b>Bucketing</b> — the big win for <i>repeated</i> joins. Pre-write both tables <b>bucketed and sorted on the join key</b> with the same bucket count. Matching keys then already live in co-located buckets, so Spark can join <b>without a shuffle at all</b> (and without re-sorting). Great when the same tables are joined again and again.</li>" +
+        "<li><b>Filter &amp; project first</b> — push down predicates and select only needed columns <i>before</i> the join so fewer bytes cross the network. Pre-aggregate if the grain allows it.</li>" +
+        "<li><b>Right-size shuffle partitions</b> — with hundreds of GB, the default 200 partitions makes each task huge and spill-prone. Raise <code>spark.sql.shuffle.partitions</code> (or let AQE coalesce) so each task's slice fits in memory.</li>" +
+        "<li><b>Handle skew too</b> — if a key is also hot, enable AQE skew join or salt it; otherwise one straggler task defines the whole join's runtime.</li>" +
+        "<li><b>AQE</b> — leave it on: it can coalesce partitions and re-plan at runtime once it sees the real partition sizes.</li>" +
+        "</ul>",
+      code:
+        "# Bucket both tables once, on the join key, same bucket count\n" +
+        "(fact.write.bucketBy(256, 'cust_id').sortBy('cust_id')\n" +
+        "     .mode('overwrite').saveAsTable('fact_bucketed'))\n" +
+        "(dim.write.bucketBy(256, 'cust_id').sortBy('cust_id')\n" +
+        "     .mode('overwrite').saveAsTable('dim_bucketed'))\n\n" +
+        "# Now this join is shuffle-free\n" +
+        "a = spark.table('fact_bucketed')\n" +
+        "b = spark.table('dim_bucketed')\n" +
+        "result = a.join(b, 'cust_id')\n\n" +
+        "# Scale shuffle partitions for one-off big joins\n" +
+        "spark.conf.set('spark.sql.shuffle.partitions', 2000)",
+      lang: "python",
+      tip: "If broadcast is off the table, the senior answer is <b>\"bucket both sides on the join key so the join is shuffle-free, and size shuffle partitions to the data.\"</b> Mention bucketing pays off for <i>repeated</i> joins — one-off joins just need partition tuning + AQE."
+    },
+    {
+      id: "scenario-idempotent-incremental-etl",
+      group: "Scenario-Based Questions",
+      q: "Design an idempotent daily incremental ETL pipeline. What makes it safe to re-run?",
+      difficulty: "Deep",
+      tags: ["scenario", "etl", "incremental", "idempotent", "merge", "delta"],
+      a:
+        "<p>Two requirements drive the design: <b>only process new data</b> (incremental) and <b>re-running produces the same result</b> (idempotent — critical because jobs get retried after failures).</p>" +
+        "<p><b>Incremental — read only what's new:</b></p>" +
+        "<ul>" +
+        "<li>Partition the source by a <b>load/event date</b> and read only the target day's partition (<b>partition pruning</b>) instead of scanning everything.</li>" +
+        "<li>For streams/offsets, track the <b>last processed watermark</b> (a high-water timestamp or offset) and read strictly greater than it.</li>" +
+        "</ul>" +
+        "<p><b>Idempotent — re-run can't double-count:</b></p>" +
+        "<ul>" +
+        "<li><b>Partition overwrite</b> — write a day's output with <code>overwrite</code> scoped to that partition (<code>partitionOverwriteMode=dynamic</code>), so re-running the day replaces it rather than appending duplicates.</li>" +
+        "<li><b>Or Delta MERGE</b> — upsert on the primary key; a replay updates existing rows in place instead of inserting copies.</li>" +
+        "<li><b>Avoid blind <code>append</code></b> — appends are the classic source of duplicates on retry.</li>" +
+        "</ul>" +
+        "<p><b>Operational glue:</b> checkpoint/bookmark the last successful watermark only <i>after</i> a successful write, make each run atomic (write to staging → swap, or rely on Delta's transactional commit), and log the processed range for auditability.</p>",
+      code:
+        "# Process only yesterday's partition\n" +
+        "day = '2026-11-18'\n" +
+        "src = spark.read.parquet('/raw/events').where(f\"load_date = '{day}'\")\n\n" +
+        "out = transform(src)\n\n" +
+        "# Idempotent: dynamic partition overwrite replaces just that day\n" +
+        "spark.conf.set('spark.sql.sources.partitionOverwriteMode', 'dynamic')\n" +
+        "(out.write.mode('overwrite').partitionBy('load_date')\n" +
+        "    .parquet('/warehouse/events'))\n\n" +
+        "# Alternative: Delta upsert on key (also idempotent)\n" +
+        "# tgt.merge(out, 'tgt.id = src.id') \\\n" +
+        "#    .whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()",
+      lang: "python",
+      tip: "The word interviewers want is <b>idempotent</b>: <i>\"I overwrite the target partition (or MERGE on the key) instead of appending, so a retry can't create duplicates.\"</i> Pair it with partition pruning for the <i>incremental</i> half."
+    },
+    {
+      id: "scenario-schema-drift",
+      group: "Scenario-Based Questions",
+      q: "Incoming files keep changing schema — new columns appear, types shift. How do you handle schema drift?",
+      difficulty: "Deep",
+      tags: ["scenario", "schema", "drift", "mergeschema", "data-quality"],
+      a:
+        "<p>Schema drift is a data-engineering fact of life. The decision is <b>evolve vs. fail-loud</b>, and you usually want a bit of both.</p>" +
+        "<p><b>Let the schema evolve (when new columns are expected):</b></p>" +
+        "<ul>" +
+        "<li><b>Parquet/Delta</b> — read with <code>mergeSchema=true</code> (or Delta <code>autoMerge</code> on write) so new columns are absorbed and old files just show <code>NULL</code> for them.</li>" +
+        "<li>Delta enforces schema by default and rejects incompatible writes — you opt into evolution explicitly, which is safer than silent coercion.</li>" +
+        "</ul>" +
+        "<p><b>Control it (when you need stability):</b></p>" +
+        "<ul>" +
+        "<li><b>Declare an explicit schema</b> on read instead of inferring — new unexpected columns are ignored and types are pinned, so a supplier's change can't silently break downstream.</li>" +
+        "<li><b>Quarantine bad records</b> — for JSON/CSV use <code>mode='PERMISSIVE'</code> with <code>columnNameOfCorruptRecord</code> (or <code>badRecordsPath</code>) to route malformed rows to a <b>dead-letter path</b> instead of failing the whole job or dropping data silently.</li>" +
+        "</ul>" +
+        "<p><b>Governance:</b> validate the incoming schema against a contract, alert on unexpected changes, and keep a DLQ so nothing is lost. <i>Fail-loud on breaking changes, evolve on additive ones.</i></p>",
+      code:
+        "# Delta: absorb new columns automatically\n" +
+        "(df.write.format('delta').option('mergeSchema', 'true')\n" +
+        "   .mode('append').save('/warehouse/events'))\n\n" +
+        "# Explicit schema + corrupt-record capture for JSON\n" +
+        "from pyspark.sql.types import StructType\n" +
+        "schema = StructType.fromJson(contract)  # your declared contract\n" +
+        "df = (spark.read.schema(schema)\n" +
+        "      .option('mode', 'PERMISSIVE')\n" +
+        "      .option('columnNameOfCorruptRecord', '_corrupt')\n" +
+        "      .json('/raw/events'))\n\n" +
+        "good = df.where('_corrupt is null')\n" +
+        "bad  = df.where('_corrupt is not null')   # -> dead-letter path",
+      lang: "python",
+      tip: "Frame it as a policy: <b>\"evolve on additive changes (mergeSchema), fail-loud on breaking ones (explicit schema), and quarantine bad rows to a DLQ.\"</b> Mentioning the dead-letter path signals production experience."
+    },
+    {
+      id: "scenario-streaming-late-exactly-once",
+      group: "Scenario-Based Questions",
+      q: "Your Structured Streaming job must handle late-arriving events with exactly-once output. How do you build it?",
+      difficulty: "Deep",
+      tags: ["scenario", "streaming", "watermark", "checkpoint", "exactly-once"],
+      a:
+        "<p>Three separate concerns, each with its own mechanism — interviewers want you to name them distinctly.</p>" +
+        "<ul>" +
+        "<li><b>Late data → watermarking.</b> <code>withWatermark('event_time', '2 hours')</code> tells Spark how late an event can be. It bounds how long windowed/aggregation state is kept, lets genuinely late events still update their window, and <b>drops stragglers older than the watermark</b> so state doesn't grow forever.</li>" +
+        "<li><b>Recovery → checkpointing.</b> A <code>checkpointLocation</code> persists the source offsets and the aggregation state. After a crash, the job resumes from the last committed offset — no data loss, no reprocessing of already-committed batches.</li>" +
+        "<li><b>Exactly-once → idempotent/transactional sink.</b> Spark gives exactly-once <i>end-to-end</i> only when the sink cooperates. Checkpointed offsets + a <b>transactional sink like Delta</b> (or the <code>foreachBatch</code> + idempotent upsert pattern) commit output and offsets atomically, so a replayed batch doesn't duplicate rows. A plain non-idempotent sink is only at-least-once.</li>" +
+        "</ul>" +
+        "<p><b>Output mode matters:</b> use <code>update</code>/<code>complete</code> for aggregations; <code>append</code> only emits a window once its watermark has passed (so results are final). Event-time (in the data) drives correctness, not processing-time (when Spark saw it).</p>",
+      code:
+        "from pyspark.sql import functions as F\n\n" +
+        "agg = (events\n" +
+        "   .withWatermark('event_time', '2 hours')          # bound lateness\n" +
+        "   .groupBy(F.window('event_time', '10 minutes'), 'key')\n" +
+        "   .count())\n\n" +
+        "(agg.writeStream\n" +
+        "   .format('delta')                                 # transactional sink\n" +
+        "   .option('checkpointLocation', '/chk/agg')        # recovery + offsets\n" +
+        "   .outputMode('append')                            # emit finalized windows\n" +
+        "   .start('/warehouse/agg'))",
+      lang: "python",
+      tip: "Map each requirement to its tool out loud: <b>late → watermark, recovery → checkpoint, exactly-once → checkpoint + transactional sink (Delta).</b> Add that exactly-once is only end-to-end if the <i>sink</i> is idempotent — that nuance impresses."
+    },
+    {
+      id: "scenario-works-small-fails-large",
+      group: "Scenario-Based Questions",
+      q: "The job runs fine on a 1 GB sample but is slow or fails on the full 1 TB. What scaled wrong?",
+      difficulty: "Core",
+      tags: ["scenario", "scaling", "tuning", "collect", "partitions"],
+      a:
+        "<p>This is the <b>'works in dev, dies in prod'</b> pattern. Things that are harmless at 1 GB become fatal at 1 TB — and they're almost always these:</p>" +
+        "<ul>" +
+        "<li><b>Driver-side collection</b> — <code>collect()</code>, <code>toPandas()</code>, <code>count()</code> in a loop. Fine on a sample, <b>driver OOM</b> on the full set. Keep data distributed; write to storage instead of pulling it back.</li>" +
+        "<li><b>Fixed / default partition count</b> — <code>spark.sql.shuffle.partitions=200</code> means ~5 GB per task at 1 TB → spill and OOM. It needs to scale with the data (or let AQE coalesce).</li>" +
+        "<li><b>Caching that no longer fits</b> — a <code>cache()</code> that sat in memory at 1 GB now evicts/spills constantly, so you pay recompute <i>and</i> disk. Re-check what's worth caching at scale.</li>" +
+        "<li><b>Skew that was invisible small</b> — a hot key barely shows on a sample but dominates at full volume; one straggler task defines the runtime.</li>" +
+        "<li><b>Python UDFs</b> — the per-row Python↔JVM hop is cheap on a sample, murderous on billions of rows. Replace with built-in functions or pandas/vectorized UDFs.</li>" +
+        "<li><b>Small-files / wide scans</b> — full input has far more files/partitions than the sample; listing and scheduling overhead explodes.</li>" +
+        "</ul>" +
+        "<p><b>Approach:</b> read the Spark UI at full scale (spill, GC, task-time distribution), scale config <i>with</i> the data rather than hard-coding, and remove anything that funnels data through the driver.</p>",
+      tip: "The headline causes: <b>collect()/toPandas() on the driver, a hard-coded shuffle-partition count, caching that no longer fits, and skew that only appears at scale.</b> Say you'd confirm in the UI rather than guess."
+    },
+    {
+      id: "scenario-backfill",
+      group: "Scenario-Based Questions",
+      q: "You need to backfill 2 years of history without disrupting the live daily pipeline. How do you approach it?",
+      difficulty: "Deep",
+      tags: ["scenario", "backfill", "reprocessing", "partitions", "idempotent"],
+      a:
+        "<p>The two risks are <b>blowing up resources</b> (two years at once) and <b>colliding with the live pipeline</b>. Both are solved by controlled, partition-at-a-time reprocessing.</p>" +
+        "<ul>" +
+        "<li><b>Chunk by partition</b> — process <b>one day/month at a time</b> in a loop rather than loading 2 years into one job. This bounds memory and shuffle, and makes progress resumable (a failure retries just that chunk).</li>" +
+        "<li><b>Cap parallelism / isolate resources</b> — run the backfill with a smaller/separate resource pool or lower concurrency so it doesn't starve the daily job of cluster capacity. Schedule it off-peak if sharing a cluster.</li>" +
+        "<li><b>Reuse the exact transform logic</b> — call the same transformation code the daily job uses (parameterized by date) so backfilled data can't drift from live data.</li>" +
+        "<li><b>Idempotent, non-disruptive writes</b> — write each partition with <b>dynamic partition overwrite</b> or <b>Delta MERGE</b>, so re-running a chunk is safe and you only touch the partitions being backfilled. Optionally write to a <b>staging table and atomically swap</b> so readers never see half-finished data.</li>" +
+        "<li><b>Watch for schema differences</b> — 2-year-old data may predate current columns; handle with schema evolution / defaults.</li>" +
+        "</ul>",
+      code:
+        "from datetime import date, timedelta\n\n" +
+        "def daterange(start, end):\n" +
+        "    d = start\n" +
+        "    while d <= end:\n" +
+        "        yield d; d += timedelta(days=1)\n\n" +
+        "spark.conf.set('spark.sql.sources.partitionOverwriteMode', 'dynamic')\n\n" +
+        "for d in daterange(date(2024,1,1), date(2025,12,31)):\n" +
+        "    day = d.isoformat()\n" +
+        "    src = spark.read.parquet('/raw/events').where(f\"load_date='{day}'\")\n" +
+        "    out = transform(src)                       # SAME logic as daily job\n" +
+        "    (out.write.mode('overwrite').partitionBy('load_date')\n" +
+        "        .parquet('/warehouse/events'))         # overwrites only this day",
+      lang: "python",
+      tip: "Lead with <b>\"partition-at-a-time, idempotent overwrites, same transform code as the daily job, capped parallelism so it doesn't starve prod.\"</b> Reusing the live logic (no drift) is the detail interviewers reward."
+    },
+    {
+      id: "scenario-scd-type2",
+      group: "Scenario-Based Questions",
+      q: "Build an SCD Type 2 dimension in Spark that tracks history with effective dates. How?",
+      difficulty: "Deep",
+      tags: ["scenario", "scd", "dimension", "merge", "delta", "history"],
+      a:
+        "<p><b>SCD Type 2</b> keeps full history: when an attribute changes, you don't overwrite the row — you <b>close the old version and insert a new one</b>. Each row carries <code>effective_from</code>, <code>effective_to</code>, and an <code>is_current</code> flag.</p>" +
+        "<p><b>The logic per incoming batch:</b></p>" +
+        "<ul>" +
+        "<li><b>Unchanged keys</b> — do nothing.</li>" +
+        "<li><b>Changed attributes</b> — mark the existing current row <code>is_current=false</code> and set its <code>effective_to</code> to now, <b>then</b> insert the new version as <code>is_current=true</code> with <code>effective_from=now</code> and open-ended <code>effective_to</code>.</li>" +
+        "<li><b>Brand-new keys</b> — insert as current.</li>" +
+        "</ul>" +
+        "<p><b>In Delta this is a two-part MERGE</b> (a single MERGE can't both update the old and insert the new version for the same key, so the common pattern unions a 'force-insert' marker): close changed current rows, then insert the new versions. Use a hash of the tracked columns to detect real changes cheaply.</p>",
+      code:
+        "from delta.tables import DeltaTable\n" +
+        "from pyspark.sql import functions as F\n\n" +
+        "tgt = DeltaTable.forPath(spark, '/warehouse/dim_customer')\n" +
+        "today = F.current_date()\n\n" +
+        "# Rows whose tracked attrs changed must both close old + insert new.\n" +
+        "# Trick: union them twice with a merge_key that is NULL for the insert row.\n" +
+        "updates = (src.alias('s')\n" +
+        "   .withColumn('merge_key', F.col('cust_id')))\n\n" +
+        "insert_rows = (src.join(tgt.toDF().filter('is_current'), 'cust_id')\n" +
+        "   .where('s.attrs_hash <> t.attrs_hash')          # changed only\n" +
+        "   .select('s.*').withColumn('merge_key', F.lit(None)))\n\n" +
+        "staged = updates.unionByName(insert_rows, allowMissingColumns=True)\n\n" +
+        "(tgt.alias('t').merge(staged.alias('s'),\n" +
+        "     't.cust_id = s.merge_key AND t.is_current = true')\n" +
+        "   .whenMatchedUpdate(                               # close old version\n" +
+        "       condition='t.attrs_hash <> s.attrs_hash',\n" +
+        "       set={'is_current': F.lit(False), 'effective_to': today})\n" +
+        "   .whenNotMatchedInsert(set={                       # open new version\n" +
+        "       'cust_id': 's.cust_id', 'attrs_hash': 's.attrs_hash',\n" +
+        "       'is_current': F.lit(True), 'effective_from': today,\n" +
+        "       'effective_to': F.lit('9999-12-31')})\n" +
+        "   .execute())",
+      lang: "python",
+      tip: "Name the columns — <b>effective_from / effective_to / is_current</b> — and the key insight: <b>\"you close the old row and insert a new one, so one change needs both an update and an insert\"</b> (hence the two-part / NULL-merge-key MERGE). An attrs hash to detect changes is the pro touch."
     }
   ]
 };
