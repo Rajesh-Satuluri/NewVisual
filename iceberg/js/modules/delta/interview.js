@@ -283,6 +283,299 @@ Practical takeaway: before pointing a new engine (Trino, DuckDB, delta-rs) at a 
 Rule of thumb: Delta for Databricks-centric lakehouses, Iceberg for multi-engine neutrality at huge scale, Hudi for heavy streaming upserts.`,
       note: '<strong>ShopKart:</strong> chose Delta because the platform is Databricks + Unity Catalog centric, while still being readable from Trino and delta-rs jobs via the open protocol.',
     },
+
+    /* ---- Maintenance, schema & storage mechanics ---- */
+    {
+      level: 'intermediate',
+      q: 'What does VACUUM do, why is the default retention 7 days, and what breaks if you lower it?',
+      a: `VACUUM physically deletes data files that are no longer referenced by the current table version AND are older than the retention window. A remove action only tombstones a file in the log; the Parquet bytes stay on storage until VACUUM removes them.
+
+Why 7 days by default:
+• Time travel and RESTORE depend on those tombstoned files still existing — retention is literally how far back you can query.
+• In-flight readers and long-running jobs may still be reading a file that a newer commit tombstoned; the window protects them from having it deleted mid-scan.
+
+Lowering it (e.g. to 0 hours) is dangerous:
+• It can delete files a concurrent reader or an uncommitted writer still needs, corrupting that job.
+• It destroys time-travel depth immediately.
+
+Delta guards this with spark.databricks.delta.retentionDurationCheck.enabled — you must explicitly disable the check to vacuum below the configured window.`,
+      code: `<span class="k">VACUUM</span> orders;                     <span class="c">-- default 7-day retention</span>
+<span class="k">VACUUM</span> orders <span class="k">RETAIN</span> <span class="s">168</span> <span class="k">HOURS</span>;     <span class="c">-- explicit 7 days</span>
+<span class="k">VACUUM</span> orders <span class="k">DRY RUN</span>;             <span class="c">-- list what WOULD be deleted</span>`,
+      note: '<strong>ShopKart:</strong> VACUUM runs weekly with the default window; the time-travel SLA promised to auditors is "7 days", which is deliberately the same number as the retention.',
+    },
+    {
+      level: 'intermediate',
+      q: 'Explain schema enforcement versus schema evolution. When is a write rejected, and what does mergeSchema change?',
+      a: `Schema enforcement (the default): the _delta_log holds the authoritative schema, and every write is validated against it. A write is rejected when it has columns the table does not know, a type that cannot be safely cast, or a case/nullability mismatch. This stops a malformed upstream batch from silently corrupting the table.
+
+Schema evolution: an opt-in that lets a write ALTER the schema as part of the commit instead of failing.
+• mergeSchema=true on an append/overwrite adds new columns (and widens some types) automatically.
+• spark.databricks.delta.schema.autoMerge.enabled lets new source columns flow through a MERGE.
+• ALTER TABLE ... ADD/CHANGE COLUMN does it explicitly via a metaData action.
+
+What enforcement still rejects even with evolution on: narrowing a type (long to int), incompatible type changes, or dropping a column (that needs column mapping).`,
+      code: `df.write.format(<span class="s">"delta"</span>)
+  .option(<span class="s">"mergeSchema"</span>, <span class="s">"true"</span>)
+  .mode(<span class="s">"append"</span>).saveAsTable(<span class="s">"orders"</span>)`,
+      note: '<strong>ShopKart:</strong> the orders stream uses mergeSchema so a new optional column from the checkout service lands without a manual migration — but a type change still fails loudly and pages the on-call.',
+    },
+    {
+      level: 'advanced',
+      q: 'What is column mapping, and which operations require it?',
+      a: `Column mapping decouples the logical column name you query from the physical name stored inside the Parquet files, by giving each column a stable ID (and a physical name). Two modes are set via delta.columnMapping.mode: name and id.
+
+Why it exists — Parquet files are immutable, so without an indirection layer you cannot rename or drop a column without rewriting every file. Column mapping turns those into metadata-only operations.
+
+Operations that require it:
+• RENAME COLUMN — just updates the logical-name-to-ID mapping.
+• DROP COLUMN — marks the column dropped in metadata; files are untouched.
+• Columns with spaces or special characters that raw Parquet names disallow.
+
+Cost: it is a protocol upgrade (reader + writer feature), so older engines that do not understand column mapping can no longer read the table — enabling it is effectively one-way.`,
+      note: '<strong>ShopKart:</strong> renaming cust_id to customer_id across the 38 TB table was a sub-second metadata commit thanks to column mapping — no file rewrite.',
+    },
+    {
+      level: 'advanced',
+      q: 'How does data skipping work, and why are stats kept on only the first 32 columns by default?',
+      a: `For every data file Delta stores per-column statistics (min, max, null count, row count) in the add action. At query time the planner compares a filter predicate against these stats and skips any file whose range cannot match — before reading a single byte.
+
+The 32-column limit: computing and storing stats for every column is not free, and the stats live in the log and checkpoints, so they bloat metadata. By default Delta indexes only the first 32 columns of the schema (delta.dataSkippingNumIndexedCols). Columns past that get no stats and cannot be skipped on.
+
+Tuning levers:
+• Reorder columns (or raise delta.dataSkippingNumIndexedCols) so your real filter columns fall inside the indexed set.
+• Long string / blob columns make stats huge and skipping weak — push them past the indexed range.
+• Pair skipping with ZORDER or liquid clustering so each file's min/max range is tight enough to actually prune.`,
+      note: '<strong>ShopKart:</strong> a rarely-filtered 4 KB JSON blob column was moved to the end of the schema so it stopped consuming one of the 32 stat slots that order_date and customer_id needed.',
+    },
+
+    /* ---- Streaming, change data & file layout ---- */
+    {
+      level: 'advanced',
+      q: 'How do you use Delta as a streaming source and sink, and what gives exactly-once?',
+      a: `As a sink: Structured Streaming writes each micro-batch as one atomic Delta commit. Exactly-once comes from two things working together:
+1. The query checkpoint (checkpointLocation) records which source offsets have been processed.
+2. The writer records (txnAppId, txnVersion) in the commit, so a replayed batch whose version was already committed is skipped instead of written twice.
+
+As a source: Delta streams out new files commit by commit. Controls:
+• maxFilesPerTrigger / maxBytesPerTrigger — cap batch size so a backfill does not overwhelm the job.
+• ignoreDeletes / skipChangeCommits — decide how deletes and updates in the source are handled (a pure append stream cannot represent an in-place update).
+• Change Data Feed as the source when you need the actual inserts/updates/deletes, not just new files.
+
+The checkpoint, not the table, is the unit of fault tolerance — lose it and the stream reprocesses.`,
+      code: `spark.readStream.format(<span class="s">"delta"</span>).table(<span class="s">"events"</span>)
+  .writeStream.format(<span class="s">"delta"</span>)
+  .option(<span class="s">"checkpointLocation"</span>, <span class="s">"/chk/orders"</span>)
+  .trigger(processingTime=<span class="s">"2 minutes"</span>)
+  .table(<span class="s">"orders"</span>)`,
+      note: '<strong>ShopKart:</strong> a job restart after a crash replays the last micro-batch; the txnVersion guard makes the re-committed batch a no-op, so no duplicate orders land.',
+    },
+    {
+      level: 'advanced',
+      q: 'What is Change Data Feed, how is it stored, and when do you read it instead of the log?',
+      a: `Change Data Feed (CDF) records the row-level changes a table undergoes — not just its latest state — so downstream consumers can process inserts, updates, and deletes incrementally.
+
+Enabled with delta.enableChangeDataFeed=true. After that, change-producing operations emit change data that you read with table_changes():
+• Pure appends are derived from the add files directly, with no extra storage.
+• UPDATE/DELETE/MERGE write explicit change rows into a _change_data/ directory, tagged _change_type = insert / update_preimage / update_postimage / delete, plus _commit_version and _commit_timestamp.
+
+Read CDF (not the raw add/remove log) when you need to propagate changes — materialized views, a downstream MERGE, syncing to a warehouse — because it gives you before/after images and clean delete markers that reconstructing from add/remove cannot.`,
+      code: `<span class="k">SELECT</span> * <span class="k">FROM</span> table_changes(<span class="s">'orders'</span>, <span class="s">842</span>, <span class="s">850</span>)
+<span class="k">WHERE</span> _change_type <span class="k">IN</span> (<span class="s">'update_postimage'</span>, <span class="s">'delete'</span>);`,
+      note: '<strong>ShopKart:</strong> the warehouse mirror stays in sync by reading orders CDF every 5 minutes and MERGE-ing only the changed rows, instead of re-scanning 38 TB.',
+    },
+    {
+      level: 'advanced',
+      q: 'OPTIMIZE, ZORDER, optimized writes, and auto-compaction — what does each do and when do you use which?',
+      a: `They all fight the small-file problem, at different points in the write lifecycle.
+
+<strong>OPTIMIZE (bin-packing):</strong> a batch job that coalesces many small files into fewer ~1 GB files, committed as remove + add. Run it on a schedule.
+
+<strong>ZORDER BY:</strong> an option on OPTIMIZE that co-locates rows sharing similar values of the chosen columns into the same files, so min/max data skipping on those columns becomes far more effective. Best for high-cardinality filter columns; costs a full rewrite of the optimized files.
+
+<strong>Optimized writes (optimizeWrite):</strong> adds a shuffle before the write so each commit produces fewer, larger files up front — prevention, not cure.
+
+<strong>Auto-compaction (autoCompact):</strong> after a write, if a partition has too many small files, Delta kicks off a small compaction automatically.
+
+Modern alternative: liquid clustering replaces ZORDER + partitioning with incremental re-clustering, so you rarely run manual ZORDER on new tables.`,
+      code: `<span class="k">OPTIMIZE</span> orders <span class="k">WHERE</span> order_date >= <span class="s">'2026-11-01'</span>
+  <span class="k">ZORDER BY</span> (customer_id);`,
+      note: '<strong>ShopKart:</strong> optimizeWrite is on for the stream to keep file sizes sane, and a nightly OPTIMIZE handles whatever still fragments.',
+    },
+
+    /* ---- Interop, migration & multi-writer ---- */
+    {
+      level: 'advanced',
+      q: 'How do you migrate an existing Parquet table to Delta in place, and what are the gotchas?',
+      a: `CONVERT TO DELTA writes a _delta_log over an existing directory of Parquet files without rewriting the data — it inventories the current files and emits an initial commit that adds them.
+
+Steps and gotchas:
+1. For a partitioned table you must declare the partition schema, because Delta cannot infer Hive-style partition columns from the path alone.
+2. Stats collection — by default it collects file stats so data skipping works; NO STATISTICS skips that for a faster convert on huge tables (you lose skipping until a later OPTIMIZE).
+3. Files added out-of-band afterwards are invisible until you CONVERT again — once converted, always write through Delta, never drop raw Parquet into the directory.
+4. It is metadata-only, so it is fast and cheap, but any pre-existing small-file or schema mess is inherited — plan an OPTIMIZE afterwards.`,
+      code: `<span class="k">CONVERT TO DELTA</span> parquet.<span class="s">\`s3://lake/orders\`</span>
+  <span class="k">PARTITIONED BY</span> (country <span class="k">STRING</span>, order_date <span class="k">DATE</span>);`,
+      note: '<strong>ShopKart:</strong> the original 38 TB Parquet orders dump was converted in minutes (metadata only), then OPTIMIZE + ZORDER brought reads up to the new standard.',
+    },
+    {
+      level: 'advanced',
+      q: 'What is UniForm, and how does it let Iceberg or Hudi readers see a Delta table?',
+      a: `UniForm (Universal Format) makes a single Delta table readable by Iceberg and Hudi clients without copying the data. The Parquet files stay as the one physical copy; UniForm asynchronously generates the extra metadata those formats expect (Iceberg manifests and snapshot tree, Hudi metadata) alongside the _delta_log.
+
+How it works:
+• Enabled with delta.universalFormat.enabledFormats = iceberg (and/or hudi).
+• After each Delta commit a background process writes the corresponding Iceberg/Hudi metadata, so an Iceberg-only engine (a Snowflake or Trino Iceberg reader, say) can query the same table.
+• It is read interop — writers still write Delta, and the generated metadata trails the Delta commit slightly.
+
+Why it matters: it defuses the "which format do we standardize on" argument — you can stay Delta-native and still serve Iceberg consumers.`,
+      note: '<strong>ShopKart:</strong> a partner team standardized on Iceberg; UniForm lets them query orders through their Iceberg catalog while ShopKart keeps writing Delta.',
+    },
+    {
+      level: 'intermediate',
+      q: 'Explain shallow versus deep CLONE and when you would use each.',
+      a: `CLONE creates a new table from an existing one by copying the Delta metadata.
+
+<strong>Shallow clone</strong> copies only the transaction log / file references, not the data files. It is near-instant and cheap, and the clone points at the source's existing Parquet files — ideal for short-lived dev/test tables, isolated what-if OPTIMIZE or schema changes, and staging a risky change. Caveat: if the source is VACUUMed, files the shallow clone still references can disappear, so shallow clones are not durable backups.
+
+<strong>Deep clone</strong> copies the data files as well as the metadata, producing a fully independent table. Use it for real backups, migrating a table to another location or region, or forking a table you will keep long-term. Slower and more expensive, but self-contained.
+
+Both are incremental on re-clone — a repeat clone copies only what changed.`,
+      code: `<span class="k">CREATE TABLE</span> orders_dev <span class="k">SHALLOW CLONE</span> orders;   <span class="c">-- instant sandbox</span>
+<span class="k">CREATE TABLE</span> orders_bkp <span class="k">DEEP CLONE</span> orders;      <span class="c">-- real backup</span>`,
+      note: '<strong>ShopKart:</strong> every risky migration is first tried on a shallow clone of orders; if it works, it is applied to the real table.',
+    },
+    {
+      level: 'senior',
+      q: 'How do you run Delta with multiple concurrent writers on S3 safely?',
+      a: `The whole ACID story rests on an atomic put-if-absent of the next NNN.json log file. On ABFS (Azure) and GCS the filesystem provides that primitive, so multi-writer works directly. Classic S3 historically did NOT guarantee put-if-absent across clients, so two writers could both believe they created the same version.
+
+Solutions:
+• A commit coordinator that serializes log writes — the DynamoDB LogStore (S3DynamoDBLogStore) uses a DynamoDB table as the mutual-exclusion and ordering authority for log puts.
+• A catalog that owns commits — Unity Catalog (or another coordinated catalog) brokers them so writers never collide.
+• Single-writer discipline — route all writes through one job when coordination infrastructure is unavailable.
+
+Note: S3 has since added conditional writes (if-none-match), which narrows the gap, but for production multi-writer the coordinated LogStore or catalog is still the standard answer.`,
+      note: '<strong>ShopKart:</strong> on S3 the platform uses Unity Catalog to coordinate commits, so the streaming appends and the hourly MERGE target orders concurrently without a lost update.',
+    },
+    {
+      level: 'senior',
+      q: 'What are the main concurrency exceptions, and how do you design writes to avoid each?',
+      a: `Optimistic concurrency throws a specific exception depending on what collided:
+
+<strong>ConcurrentAppendException</strong> a concurrent transaction added files into a partition or condition your operation read. Fix: make conditions partition-specific so two writers touch disjoint partitions — e.g. include the date partition in the MERGE/DELETE predicate.
+
+<strong>ConcurrentDeleteReadException</strong> your operation read a file that a concurrent transaction deleted (e.g. a MERGE racing an OPTIMIZE or VACUUM). Fix: schedule compaction away from heavy write windows, or let the job retry.
+
+<strong>ConcurrentDeleteDeleteException</strong> two transactions tried to delete the same file. Fix: avoid overlapping delete/optimize jobs on the same data.
+
+<strong>MetadataChangedException</strong> the schema or table properties changed under you. Fix: don't run schema changes concurrently with data writes.
+
+General design: partition-align predicates, separate compaction windows, keep transactions short, and make jobs idempotent so an automatic retry is safe.`,
+      note: '<strong>ShopKart:</strong> the hourly MERGE always filters on order_date, so it conflicts only with writers to the same day — appends to other days commit straight through.',
+    },
+
+    /* ---- Scenario & system design ---- */
+    {
+      level: 'senior',
+      q: 'Design a CDC pipeline from a Postgres OLTP into Delta with a 5-minute freshness SLA. Cover layout, merge, and late/out-of-order events.',
+      a: `<strong>Ingest:</strong> Debezium (or the DB's logical replication) streams row changes to Kafka. A Structured Streaming job reads Kafka with a 1-2 minute trigger, comfortably inside the 5-minute SLA.
+
+<strong>Landing (bronze):</strong> write raw change events append-only to a bronze Delta table — an immutable, cheap, replayable audit trail.
+
+<strong>Apply (silver):</strong> MERGE the latest change per key into the current-state table.
+1. Dedupe the micro-batch to one row per primary key, keeping the row with the highest source LSN / commit timestamp — this is what handles out-of-order events.
+2. MERGE on the primary key: WHEN MATCHED AND op='D' THEN DELETE, WHEN MATCHED THEN UPDATE, WHEN NOT MATCHED THEN INSERT.
+3. Guard against stale updates: only apply when the incoming LSN exceeds the stored one, so a late event never overwrites a newer value.
+
+<strong>Layout:</strong> liquid cluster (or partition) the target by the main query key; enable deletion vectors so each MERGE does not rewrite whole files; enable CDF if a gold layer consumes changes downstream.
+
+<strong>Maintenance:</strong> optimizeWrite on the stream, nightly OPTIMIZE, scheduled VACUUM, and a checkpointed stream for exactly-once.`,
+      note: '<strong>ShopKart:</strong> this is exactly the orders pipeline — Kafka to bronze append, then a 2-minute MERGE into silver keyed on order_id with an LSN high-water-mark guard.',
+    },
+    {
+      level: 'senior',
+      q: 'Implement SCD Type 2 on a dimension table in Delta. Walk through the MERGE.',
+      a: `SCD Type 2 keeps full history: each change closes the old row (sets an end timestamp / is_current=false) and inserts a new current row.
+
+The catch is that one MERGE cannot both close an old row and insert its replacement for the same key, so you stage the inserts first:
+1. Build a source where each changed key appears twice — once as a "close the existing current row" instruction (matched on the business key) and once as the "new current row" to insert (with a null merge key so it never matches and always inserts).
+2. MERGE on the business key AND is_current = true:
+   - WHEN MATCHED AND the tracked attributes actually differ THEN UPDATE SET is_current=false, end_ts=now.
+   - WHEN NOT MATCHED THEN INSERT the new current row with is_current=true, start_ts=now, end_ts=null.
+
+What interviewers look for: only expire rows whose tracked attributes changed (hash the attributes to detect it), make it idempotent so a re-run does not create duplicate versions, and cluster/partition on the business key so the MERGE touches few files.`,
+      code: `<span class="k">MERGE INTO</span> dim_customer t
+<span class="k">USING</span> staged s
+  <span class="k">ON</span> t.customer_id = s.mergeKey <span class="k">AND</span> t.is_current = <span class="k">true</span>
+<span class="k">WHEN MATCHED AND</span> t.attr_hash <> s.attr_hash
+  <span class="k">THEN UPDATE SET</span> is_current=<span class="k">false</span>, end_ts=current_timestamp()
+<span class="k">WHEN NOT MATCHED</span>
+  <span class="k">THEN INSERT</span> (customer_id, ..., is_current, start_ts, end_ts)
+       <span class="k">VALUES</span> (s.customer_id, ..., <span class="k">true</span>, current_timestamp(), <span class="k">null</span>);`,
+      note: '<strong>ShopKart:</strong> the customer dimension tracks address history as SCD2 so an order always joins to the address that was current on its order_date.',
+    },
+    {
+      level: 'senior',
+      q: 'A GDPR erasure request must remove one customer from a 40 TB table within 30 days without time travel leaking the data. Design the flow.',
+      a: `The subtlety: a plain DELETE only tombstones files; the deleted rows are still physically present and readable via time travel until VACUUM removes the underlying files. Compliance requires the physical bytes to be gone.
+
+Flow:
+1. DELETE FROM orders WHERE customer_id = :id. With deletion vectors this is a fast metadata write and the rows become logically invisible immediately.
+2. OPTIMIZE the affected files so the deletes are materialized — the rows are physically dropped from newly written Parquet and the old files are tombstoned.
+3. VACUUM to physically delete the tombstoned old files. The retention window must have elapsed (or be deliberately shortened) so the files actually go — inside the 30-day legal deadline but respecting in-flight readers.
+4. Purge every copy: CDF _change_data, the bronze/raw landing table, and any downstream mirrors must get the same deletion, or the data leaks there.
+
+The interviewer's gotcha: time travel to a version before step 3 would still surface the customer, so retention/VACUUM must push the oldest reachable version past the deletion — document that the legal retention and Delta retention are reconciled.`,
+      note: '<strong>ShopKart:</strong> erasure requests are batched weekly — DELETE (deletion vectors) to hide immediately, then OPTIMIZE + VACUUM inside the 30-day window across orders, its CDF, and the bronze landing table.',
+    },
+    {
+      level: 'senior',
+      q: 'A streaming job writes millions of files a day and Trino queries went from seconds to minutes. You are on-call — triage and fix.',
+      a: `<strong>Confirm the symptom:</strong> DESCRIBE HISTORY orders to see commit frequency, and compare file count to table size — millions of tiny files against a modest dataset is the tell. DESCRIBE DETAIL gives numFiles directly.
+
+<strong>Root cause:</strong> a too-short streaming trigger makes each micro-batch commit many KB-sized files; metadata (add entries, checkpoints) balloons and Trino spends its time in planning and listing, not scanning.
+
+<strong>Immediate mitigation:</strong>
+1. OPTIMIZE orders (bin-pack) to compact existing small files into ~1 GB files — restores read performance now.
+2. Confirm checkpoints are being written (every ~10 commits); a missing _last_checkpoint forces long log replay and must be fixed.
+
+<strong>Durable fix:</strong>
+• Raise the streaming trigger interval (e.g. 10s to 2min) so each commit lands fewer, larger files.
+• Turn on optimizeWrite / autoCompact so the stream self-manages file size.
+• Schedule a nightly OPTIMIZE and a VACUUM to clear tombstone buildup.
+• Consider liquid clustering for ongoing layout maintenance.
+
+<strong>Verify:</strong> re-check DESCRIBE DETAIL numFiles and re-time the Trino query.`,
+      note: '<strong>ShopKart:</strong> this incident actually happened — a 10-second trigger created millions of files; a 2-minute trigger plus nightly OPTIMIZE brought planning back to seconds.',
+    },
+    {
+      level: 'senior',
+      q: 'You must serve one Delta table to Databricks Spark, Trino, and a Python delta-rs job at once. What breaks, and how do protocol features, UniForm, and Delta Sharing factor in?',
+      a: `The core risk is protocol/feature mismatch. Enabling a reader/writer feature on the table (deletion vectors, column mapping, v2 checkpoints, timestampNtz) bumps the protocol, and any engine that does not implement that reader feature will refuse to read — correctly, rather than returning wrong results.
+
+What to check and do:
+• Inventory each engine's supported protocol versions and features. Trino and delta-rs trail Databricks on newer features.
+• If a consumer cannot support deletion vectors or column mapping, either do not enable those on this shared table, or give that consumer a different access path.
+• UniForm: if a consumer speaks Iceberg more naturally, enable delta.universalFormat.enabledFormats=iceberg so it reads generated Iceberg metadata over the same files.
+• Delta Sharing: for cross-org or cross-platform access without handing out storage credentials, publish the table via the Delta Sharing protocol; recipients read through the sharing server.
+• Governance: a shared catalog (Unity) gives one place for permissions and commit coordination across writers.
+
+Summary: pick the feature set to the lowest common denominator of your readers, or bridge the gap with UniForm / Delta Sharing rather than forking copies.`,
+      note: '<strong>ShopKart:</strong> orders keeps deletion vectors on for Spark, exposes UniForm Iceberg for the Trino-on-Iceberg team, and shares a curated gold table externally through Delta Sharing.',
+    },
+    {
+      level: 'senior',
+      q: 'Choose between partitioning, Z-ordering, and liquid clustering for a table filtered by customer_id (point lookups) and order_date (range scans). Defend it.',
+      a: `<strong>Partition by order_date:</strong> great for the date range scans (whole partitions pruned) but customer_id is far too high-cardinality to partition on — it would create millions of tiny directories. So date-only partitioning helps one access pattern and does nothing for the other.
+
+<strong>Partition by date + ZORDER by customer_id:</strong> the classic pre-liquid answer. Date partitions prune the range scans; ZORDER co-locates customer_id within each partition so point lookups skip most files. It works, but ZORDER is a manual, periodic full rewrite of touched files, and you are locked into date as the partition column.
+
+<strong>Liquid clustering by (order_date, customer_id):</strong> my default for a new table. It clusters on both keys at once, re-clusters incrementally as data lands (no periodic full ZORDER rewrite), avoids the small-file and skew traps of fixed partitioning, and lets the clustering keys evolve later without rewriting the table — good skipping on both dimensions at once.
+
+<strong>Verdict:</strong> liquid clustering for a greenfield table; date-partition + ZORDER(customer_id) only if you must support an engine or runtime that cannot read liquid-clustered tables.`,
+      note: '<strong>ShopKart:</strong> orders is liquid-clustered by (customer_id, order_date), replacing the old date-partition + ZORDER scheme and eliminating the nightly ZORDER rewrite.',
+    },
   ];
 
   TV.DeltaInterview = QA;
