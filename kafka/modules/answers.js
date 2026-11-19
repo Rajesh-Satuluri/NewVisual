@@ -7,6 +7,7 @@
 import { TIERED } from '../data/tiered.js';
 import { createTieredAnswer, initTieredAnswer } from '../components/tiered-answer.js';
 import { mergeOverride, hasOverride, initTieredEdits } from '../components/tiered-edits.js';
+import { initAccordion } from '../components/accordion.js';
 
 export function mount(container) {
   const state = { openId: TIERED[0] ? TIERED[0].id : null };
@@ -23,33 +24,29 @@ export function mount(container) {
           ${TIERED.map(item => {
             const m = mergeOverride(item);
             return `
-            <div class="ca-card ta-card${hasOverride(item.id) ? ' tae-edited' : ''}" data-id="${item.id}">
+            <div class="ca-card ta-card${hasOverride(item.id) ? ' tae-edited' : ''}${item.id === state.openId ? ' open' : ''}" data-id="${item.id}">
               <button class="ca-card-head" aria-expanded="${item.id === state.openId}">
                 <span class="ca-card-topic">${m.topic}</span>
                 <span class="ca-card-title">${m.question}</span>
                 <span class="iqe-badge tae-head-badge"${hasOverride(item.id) ? '' : ' hidden'} title="You have edited this card">edited</span>
                 <span class="q-chevron">▼</span>
               </button>
-              <div class="ca-card-body" ${item.id === state.openId ? '' : 'hidden'}></div>
+              <div class="ca-card-acc"><div class="ca-card-body"></div></div>
             </div>`;
           }).join('')}
         </div>
       </div>`;
 
-    container.querySelectorAll('.ta-card').forEach(card => {
-      const id = card.dataset.id;
-      const head = card.querySelector('.ca-card-head');
-      const body = card.querySelector('.ca-card-body');
-      if (id === state.openId) {
+    initAccordion(container.querySelector('.ta-list'), {
+      fillBody: (body, id) => {
+        if (body.dataset.filled) return;
         const orig = TIERED.find(x => x.id === id);
         body.innerHTML = createTieredAnswer(mergeOverride(orig));
         initTieredAnswer(body);
         initTieredEdits(body, orig, () => render());
-      }
-      head.addEventListener('click', () => {
-        state.openId = state.openId === id ? null : id;
-        render();
-      });
+        body.dataset.filled = '1';
+      },
+      onToggle: (id, open) => { if (open) state.openId = id; else if (state.openId === id) state.openId = null; },
     });
   }
 

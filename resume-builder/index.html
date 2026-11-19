@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Resume Builder — NewVisual</title>
   <meta name="description" content="Keep a master library of your resume content and compose multiple role-tailored resumes from it — same template, live preview, one-page PDF. Static site, your data stays in your browser." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -10,6 +10,25 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..800;1,14..32,400..600&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..600&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
+  <style id="ipad-polish">
+  /* iPad / touch polish — additive, non-destructive. Safe on all devices. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html,body{overscroll-behavior:none}
+  body{-webkit-tap-highlight-color:transparent}
+  button,a,label,summary,select,[role="button"],[role="tab"],[role="link"],.tab,.btn{touch-action:manipulation}
+  img,svg,canvas{-webkit-user-drag:none}
+  @media (hover:none) and (pointer:coarse){
+    button,summary,select,[role="button"],[role="tab"],.tab,.btn{
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none
+    }
+    input,select,textarea{font-size:max(16px,1em)!important}
+  }
+  @supports (padding:env(safe-area-inset-left)){
+    @media (display-mode:standalone){
+      body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+    }
+  }
+  </style>
 </head>
 <body>
   <!-- Top bar -->

@@ -6,6 +6,7 @@
 // Registered as the #coding PAGE.
 import { CODING_BANK, CODING_LEVELS, CODING_LEVEL_LABEL, CODING_CATEGORIES } from '../data/coding-bank.js';
 import { createCodingProblem, initCodingProblem } from '../components/coding-problem.js';
+import { initAccordion } from '../components/accordion.js';
 import { all } from '../data/progress-store.js';
 
 const DIFFS = ['all', 'easy', 'medium', 'hard'];
@@ -73,33 +74,26 @@ export function mount(container) {
         ? `<span class="cd-rated cd-rated-${rec.rating}">${rec.rating === 'got' ? '✓' : rec.rating === 'partial' ? '~' : '↻'}</span>`
         : '';
       return `
-      <div class="ca-card" data-id="${p.id}">
+      <div class="ca-card${isOpen(p.id) ? ' open' : ''}" data-id="${p.id}">
         <button class="ca-card-head" aria-expanded="${isOpen(p.id)}">
           <span class="ca-card-topic">L${p.level} · ${p.category}</span>
           <span class="ca-card-title">${p.title}${badge}</span>
           <span class="diff-badge diff-${p.difficulty}">${p.difficulty}</span>
           <span class="q-chevron">▼</span>
         </button>
-        <div class="ca-card-body" ${isOpen(p.id) ? '' : 'hidden'}></div>
+        <div class="ca-card-acc"><div class="ca-card-body"></div></div>
       </div>`;
     }).join('');
 
-    listEl.querySelectorAll('.ca-card').forEach(card => {
-      const id = card.dataset.id;
-      const head = card.querySelector('.ca-card-head');
-      const body = card.querySelector('.ca-card-body');
-      if (isOpen(id)) fillBody(body, id);
-      head.addEventListener('click', () => {
-        if (state.revealAll) {
-          // Answer-key mode: head click collapses/expands this card only,
-          // without re-rendering (the body is already filled + revealed).
-          const nowHidden = body.hidden = !body.hidden;
-          head.setAttribute('aria-expanded', String(!nowHidden));
-          return;
-        }
-        state.openId = state.openId === id ? null : id;
-        render();
-      });
+    // In "reveal all" mode cards open independently (multi-open); otherwise one
+    // at a time. The toggle animates in place — no list re-render.
+    initAccordion(listEl, {
+      fillBody,
+      single: !state.revealAll,
+      onToggle: (id, open) => {
+        if (state.revealAll) return;
+        if (open) state.openId = id; else if (state.openId === id) state.openId = null;
+      },
     });
   }
 

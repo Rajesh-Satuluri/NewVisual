@@ -28,9 +28,11 @@
         { id: 'loading-workshop',label: 'Loading Workshop', icon: '🧰' },
         { id: 'loading-incremental', label: 'Incremental & CDC', icon: '🔀' },
         { id: 'loading-cheatsheet', label: 'Loading Cheat-Sheet', icon: '🗂️' },
+        { id: 'loading-deepdive', label: 'Loading Deep Dive', icon: '🎓' },
         { id: 'loading-flashcards', label: 'Loading Flashcards', icon: '🃏' },
         { id: 'semi-structured', label: 'Semi-Structured',  icon: '🧩' },
         { id: 'data-engineering',label: 'Data Engineering',  icon: '🔧' },
+        { id: 'streams-tasks-dt',label: 'Streams · Tasks · DT', icon: '🔄' },
         { id: 'objects',         label: 'Objects & Hierarchy', icon: '🗂️' },
         { id: 'advanced',        label: 'Advanced Features',   icon: '🚀' },
       ],
@@ -62,6 +64,7 @@
         { id: 'lab-query-opt',    label: 'Query Optimization Lab', icon: '🔎' },
         { id: 'lab-cost',         label: 'Cost Decision Lab',      icon: '💰' },
         { id: 'cost-performance', label: 'Cost & Performance',     icon: '📊' },
+        { id: 'observability',    label: 'Observability & Diagnosis', icon: '🩺' },
       ],
     },
     {
@@ -94,6 +97,7 @@
       label: '🎤 Interview',
       items: [
         { id: 'lab-chains',  label: 'Follow-Up Chains',    icon: '🎤' },
+        { id: 'project-stories', label: 'Project Stories (STAR)', icon: '🗣️' },
         { id: 'lab-answers', label: 'Bad → Good → Senior', icon: '🌟' },
         { id: 'lab-case',    label: 'E2E Case Study',      icon: '🎬' },
         { id: 'lab-mock',    label: 'Mock Interview',      icon: '🎙️' },

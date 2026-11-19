@@ -1,4 +1,5 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
+import { drawRoundRect, drawArrow, EventPacket } from '../components/canvas-primitives.js';
 
 export const IQ = [
   { q: 'What is the difference between KStream and KTable in Kafka Streams?', a: 'KStream: an unbounded sequence of records where each record is an independent event. Analogous to a database INSERT — all records are meaningful. KTable: a changelog stream where each record is an UPDATE — only the latest value for a key is relevant. Analogous to a database table. KTable is backed by a changelog topic (compacted) and a local RocksDB state store. Joining a KStream with a KTable: for each stream record, look up the matching KTable entry — powerful for enrichment (e.g., join order events with customer profile).', tip: 'Mental model: KStream = append-only log, KTable = materialized view. Same data, different interpretation.' },
@@ -6,6 +7,11 @@ export const IQ = [
   { q: 'What is a stream-table join and give an Amazon use case?', a: 'A KStream-KTable join enriches each event in the stream with the latest state from a table. For each stream record, Kafka Streams does a local RocksDB lookup — no network hop. Amazon order enrichment: KStream<orderId, OrderPlaced> joined with KTable<customerId, CustomerProfile>. Result: each order event enriched with customer tier (Prime/regular), shipping address, payment preference — all without a database query on the hot path. The KTable is kept fresh via a Debezium CDC topic from the customer database.', tip: 'Kafka Streams joins are always co-partitioned — stream and table must have the same partition key and count. Repartition if needed (results in a repartition topic).' },
   { q: 'How does Kafka Streams windowing handle late-arriving events?', a: 'Streams windows are driven by event time plus a grace period. (1) Each record is placed in its window by its event timestamp, not arrival time, so out-of-order records still land in the right window. (2) A window stays open for its size plus grace.ms; a late event arriving within grace is folded in and updates the result. (3) After the grace period the window closes and truly late events are dropped. (4) Stream time advances by the max timestamp seen, so a sparse partition can delay window closing. The tradeoff: a longer grace tolerates more lateness but holds state longer and delays the final result.', tip: 'Name the knob: grace period (ofSizeAndGrace / grace.ms). Say "windows close on stream time, size + grace; events later than grace are dropped" — shows event-time vs processing-time understanding.', difficulty: 'hard' },
   { q: 'When would you choose Kafka Streams over Flink or Spark Structured Streaming?', a: 'Kafka Streams is a library, not a cluster — it runs inside your own application JVM, so there is no separate processing cluster to operate. (1) Choose Streams when source and sink are both Kafka, you want simple per-key stateful processing, and you prefer embedding logic in a microservice. (2) Choose Flink for advanced event-time windowing, very low latency at large scale, exactly-once across many external systems, or non-Kafka sources. (3) Choose Spark Structured Streaming when you already run Spark and want micro-batch analytics beside batch jobs. The tradeoff: Streams is lightest to operate but Kafka-centric; Flink is heavier but far more capable.', tip: 'Lead with "Streams is a library, Flink/Spark are clusters." That one distinction drives most of the decision — operational simplicity vs raw capability.', difficulty: 'medium' },
+  { q: 'How does Kafka Streams achieve exactly-once processing, and what are its limits?', a: 'Set processing.guarantee=exactly_once_v2. A Streams task\'s unit of work is read-from-Kafka → update-local-state → write-to-Kafka, and because the state store is itself backed by a Kafka changelog, Streams can wrap the whole cycle in ONE Kafka transaction: output records, consumer-offset commits, and changelog writes commit atomically or roll back together. A crash rolls back the incomplete transaction, so there are no duplicate outputs and no state reflecting records whose output never shipped. Limits: (1) it only covers the Kafka→Kafka path — an external sink (DB, S3) still needs its own idempotent/transactional write; (2) it adds latency (transactions have a commit interval, default 100ms) and requires a transactional-capable broker. exactly_once_v2 (Kafka ≥2.8) shares a single producer per instance instead of one per task, so it scales far better than the original EOS.', tip: 'Say "read-process-write + changelog = one Kafka transaction." Then flag the boundary: EOS is end-to-end only within Kafka; external systems need their own idempotency.', difficulty: 'hard' },
+  { q: 'What is co-partitioning and why do most joins require it?', a: 'Co-partitioning means both join inputs have (1) the same key, (2) the same number of partitions, and (3) the same partitioning strategy — so records with the same key are guaranteed to be on the same partition number, and therefore handled by the same Streams task. That is what lets a join do a LOCAL RocksDB lookup with no network hop. If inputs aren\'t co-partitioned, Streams can\'t guarantee the matching record is local, so it throws a TopologyException. The fix is to re-key the offending stream (selectKey/map) so both share a key; Streams then writes an internal repartition topic to physically reshuffle the data by the new key before the join. The exception is a GlobalKTable, which is fully replicated to every instance, so a KStream-GlobalKTable join needs no co-partitioning and can key off any field.', tip: 'One line: "same key, same partition count, same partitioner → matching keys are co-located, so the join is a local lookup." Re-keying triggers a repartition topic; GlobalKTable sidesteps the whole requirement.', difficulty: 'hard' },
+  { q: 'What internal topics does a Kafka Streams application create, and why care?', a: 'Two kinds, both auto-created and prefixed with your application.id. (1) Changelog topics (…-changelog, log-compacted) back every state store, giving durability and restore. (2) Repartition topics (…-repartition) are created whenever you re-key before a stateful op (selectKey/map/groupBy/join on a new key) to shuffle data so it\'s correctly co-partitioned. Why care: they consume real broker storage, partitions, and throughput; a topology with many re-keys and stores can silently create dozens of internal topics. They also tie your app to its application.id — changing it orphans state and forces a full restore. Monitoring, retention, and partition-count planning must account for them, and tools like the TopologyDescription / reset tool exist specifically to inspect and clean them up.', tip: 'Name both: changelog (durability for stores) and repartition (co-partitioning after re-key). Mentioning that application.id owns them — and that the reset tool cleans them — shows operational maturity.', difficulty: 'medium' },
+  { q: 'Your windowed aggregation emits an updated result on every input record, but you only want the final value per window. What do you use?', a: 'suppress(). By default a windowed KTable is emitted continuously — every record that updates a window produces a new downstream record, so consumers see many intermediate results. Suppressed.untilWindowCloses(...) buffers updates and emits only the single final result once the window closes (stream time passes window-end + grace). You must give the buffer a BufferConfig (maxBytes/maxRecords with either shutDownWhenFull or emitEarlyWhenFull) because it holds state in memory until the window closes. Trade-off: suppress adds latency equal to the grace period (you wait for the window to close) in exchange for emitting exactly one clean result per window instead of a stream of partial updates. It only works with a defined grace period, so windows must use ofSizeAndGrace.', tip: 'The keyword is suppress(Suppressed.untilWindowCloses(...)). Say "it trades latency (wait for close) for a single final result per window," and note it needs a bounded buffer and a grace period.', difficulty: 'hard' },
+  { q: 'Compare a KTable and a GlobalKTable — when would you use each?', a: 'A KTable is PARTITIONED: each instance holds only the partitions (shard of the key space) assigned to its tasks, mirroring the source topic\'s partitioning. A GlobalKTable is FULLY REPLICATED: every instance materializes the ENTIRE topic locally. Consequences: (1) a KStream-KTable join requires co-partitioning (same key + partition count) and joins on the stream\'s key; a KStream-GlobalKTable join needs NO co-partitioning and can join on any field via a KeyValueMapper — great for enriching with reference data keyed differently than the stream. (2) GlobalKTable uses more memory/disk per instance (full copy) and is bootstrapped fully on startup, so it suits SMALL, relatively static data (country codes, product catalog, feature flags); a large or high-cardinality table should stay a partitioned KTable. (3) GlobalKTable updates are not synchronized with stream-time, so joins are eventually consistent.', tip: 'KTable = sharded/co-partitioned; GlobalKTable = full replica, no co-partitioning, join on any field, but only for small reference data. That size/consistency trade-off is the whole answer.', difficulty: 'medium' },
 ];
 
 export function mount(container) {
@@ -19,15 +25,116 @@ export function mount(container) {
     },
     tabs: [
       { id: 'dsl',      label: '🌊 Stream DSL' },
+      { id: 'duality',  label: '🔀 KStream ⇄ KTable' },
+      { id: 'state',    label: '🗄️ State & Changelog' },
+      { id: 'windows',  label: '⏱️ Windows & Time' },
+      { id: 'tasks',    label: '🧵 Tasks & Threads' },
+      { id: 'joins',    label: '🔗 Joins & EOS' },
       { id: 'topology', label: '🗺️ Topology View' },
       { id: 'iq',       label: '🎯 Interview Q&A' },
     ]
   });
 
+  const cleanups = [];
   buildDSL(container);
+  cleanups.push(buildDuality(container));
+  buildState(container);
+  cleanups.push(buildWindows(container));
+  cleanups.push(buildTasks(container));
+  buildJoins(container);
   buildTopology(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
-  return null;
+  return () => cleanups.forEach(fn => { if (typeof fn === 'function') fn(); });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — KStream ⇄ KTable (the stream/table duality)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildDuality(container) {
+  const tab = container.querySelector('#tab-duality');
+
+  // A sequence of keyed updates — e.g. each user's running cart total as they shop.
+  const RECS = [
+    { k: 'alice', v: 40 }, { k: 'bob', v: 15 }, { k: 'alice', v: 65 },
+    { k: 'carol', v: 22 }, { k: 'bob', v: 30 }, { k: 'alice', v: 12 }, { k: 'carol', v: 48 },
+  ];
+  const KCOL = { alice: '#3B82F6', bob: '#10B981', carol: '#F59E0B' };
+  let step = 0, timer = null;
+
+  function render() {
+    const seen = RECS.slice(0, step);
+    const lastKey = step > 0 ? RECS[step - 1].k : null;
+
+    // KStream column — every record is a row (append-only)
+    tab.querySelector('#dz-stream').innerHTML = seen.length === 0
+      ? `<div style="color:#5B6B82;font-size:11px;padding:10px">No records yet — press Next.</div>`
+      : seen.map((r, i) => {
+        const isLast = i === seen.length - 1;
+        return `<div style="display:flex;justify-content:space-between;padding:6px 10px;border-radius:6px;margin-bottom:4px;
+          background:${isLast ? KCOL[r.k] + '26' : '#0E1626'};border:1px solid ${isLast ? KCOL[r.k] : '#1C2740'};font-family:ui-monospace,monospace;font-size:11px">
+          <span style="color:${KCOL[r.k]}">${r.k}</span><span style="color:#CBD5E1">cart = $${r.v}</span></div>`;
+      }).join('');
+
+    // KTable column — latest value per key (materialized view)
+    const table = {};
+    seen.forEach(r => { table[r.k] = r.v; });
+    const keys = Object.keys(table);
+    tab.querySelector('#dz-table').innerHTML = keys.length === 0
+      ? `<div style="color:#5B6B82;font-size:11px;padding:10px">Empty table.</div>`
+      : keys.map(k => {
+        const updated = k === lastKey;
+        return `<div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:6px;margin-bottom:4px;
+          background:${updated ? KCOL[k] + '26' : '#0E1626'};border:1px solid ${updated ? KCOL[k] : '#1C2740'};font-family:ui-monospace,monospace;font-size:11.5px">
+          <span style="color:${KCOL[k]};font-weight:700">${k}</span>
+          <span style="color:#CBD5E1">$${table[k]}${updated ? ' <span style="color:' + KCOL[k] + ';font-size:9px">◂ upsert</span>' : ''}</span></div>`;
+      }).join('');
+
+    tab.querySelector('#dz-counts').innerHTML =
+      `<span style="color:#60A5FA">KStream: ${seen.length} records</span> &nbsp;·&nbsp; <span style="color:#FBBF24">KTable: ${keys.length} keys</span>`;
+    tab.querySelector('#dz-next').textContent = step >= RECS.length ? '✓ Done' : '▶ Next record';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">The deepest idea in Kafka Streams: <b>a stream and a table are two readings of the same data</b>. The exact same keyed records, seen as an append-only <b>KStream</b> (every event matters) on the left, and as a materialized <b>KTable</b> (only the latest value per key) on the right. Step records in and watch the table <b>upsert in place</b> while the stream just grows.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:700;color:#60A5FA;margin-bottom:3px">KStream &nbsp;<span style="font-weight:400;color:#64748B">— append-only log</span></div>
+          <div style="font-size:9px;color:#5B6B82;margin-bottom:10px">every record is an independent event (INSERT)</div>
+          <div id="dz-stream" style="max-height:280px;overflow:auto"></div>
+        </div>
+        <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px">
+          <div style="font-size:11px;font-weight:700;color:#FBBF24;margin-bottom:3px">KTable &nbsp;<span style="font-weight:400;color:#64748B">— materialized view</span></div>
+          <div style="font-size:9px;color:#5B6B82;margin-bottom:10px">latest value per key (UPSERT), backed by a compacted changelog</div>
+          <div id="dz-table"></div>
+        </div>
+      </div>
+      <div id="dz-counts" style="text-align:center;font-size:11px;font-family:ui-monospace,monospace;margin-top:12px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="dz-next">▶ Next record</button>
+        <button class="ctrl-btn" id="dz-run">⏩ Play</button>
+        <button class="ctrl-btn" id="dz-reset">↻ Reset</button>
+        <span class="ctrl-label">Same records → the stream grows, the table upserts</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>This is the <strong>stream–table duality</strong>, and internalising it is the thing that makes everything else in Kafka Streams click. The identical sequence of keyed records can be interpreted two ways. As a <strong>KStream</strong> it is an unbounded, append-only log where <em>every</em> record is a meaningful fact — alice's cart hit $40, then later $65, then $12; all three are real events you might count, filter, or join. As a <strong>KTable</strong> it is a changelog: each record is an <em>update</em> for its key, so only the latest value survives — alice's cart <em>is</em> $12 now, the earlier values are history. KStream ≈ INSERTs; KTable ≈ UPSERTs into a keyed table.</p>
+      <p>A KTable isn't just a logical view — it is physically <strong>materialized</strong> in a local RocksDB state store and backed by a <strong>compacted changelog topic</strong>, so compaction eventually keeps only the latest record per key, exactly mirroring the table. That's why a KTable can be looked up by key with no network hop (crucial for joins) and rebuilt after a crash by replaying its changelog. The two directions are first-class DSL operations: <code>builder.table(topic)</code> or <code>stream.toTable()</code> collapses a stream into a table, and <code>table.toStream()</code> re-emits the table's changes as a stream of updates.</p>
+      <p>There's a third type worth naming: a <strong>GlobalKTable</strong>, which materializes the <em>entire</em> topic on <em>every</em> instance (not partitioned), so you can join a stream to it without co-partitioning — ideal for small, mostly-static reference data (country codes, product catalog). The cost is full replication of the table to every instance.</p>
+      <p><strong>Interview angle:</strong> say "a stream is a table's changelog, and a table is a stream's latest-value snapshot — they're duals." Then connect it: aggregations turn a KStream into a KTable (<code>groupByKey().count()</code> yields a KTable of counts); <code>toStream()</code> turns it back. Knowing which operations cross the stream⇄table boundary is what separates someone who has read the docs from someone who understands the model.</p>
+    </div>`;
+
+  render();
+  const next = () => { if (step < RECS.length) { step++; render(); } };
+  tab.querySelector('#dz-next').addEventListener('click', next);
+  tab.querySelector('#dz-reset').addEventListener('click', () => { if (timer) { clearInterval(timer); timer = null; } step = 0; render(); });
+  tab.querySelector('#dz-run').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; }
+    step = 0; render();
+    timer = setInterval(() => { if (step >= RECS.length) { clearInterval(timer); timer = null; return; } step++; render(); }, 850);
+  });
+  return () => { if (timer) clearInterval(timer); };
 }
 
 function buildDSL(container) {
@@ -88,6 +195,544 @@ function buildDSL(container) {
           </div>`).join('')}
       </div>
     </div>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — State Stores & Changelog (RocksDB + changelog restore + standby)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildState(container) {
+  const tab = container.querySelector('#tab-state');
+
+  const RECS = ['pageA', 'pageB', 'pageA', 'pageA', 'pageB', 'pageC', 'pageA'];
+  const KCOL = { pageA: '#3B82F6', pageB: '#10B981', pageC: '#F59E0B' };
+  let idx = 0;
+  let counts = {};          // live state store contents
+  let changelog = [];       // [{k, v}] appended on every state update
+  let storeAlive = true;    // false after a crash with no standby
+  let standby = false;
+  let note = '';
+
+  function render() {
+    // mini flow
+    tab.querySelector('#st-flow').innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px;font-weight:600">
+        <span style="padding:6px 10px;border-radius:7px;background:#111A2B;border:1px solid #FF690066;color:#FF9900">clicks topic</span>
+        <span style="color:#334155">→</span>
+        <span style="padding:6px 10px;border-radius:7px;background:#111A2B;border:1px solid #8B5CF6;color:#8B5CF6">groupByKey().count()</span>
+        <span style="color:#334155">→ writes →</span>
+        <span style="padding:6px 10px;border-radius:7px;background:#111A2B;border:1px solid #06B6D4;color:#06B6D4">changelog topic</span>
+      </div>`;
+
+    // state store panel
+    const storeKeys = Object.keys(counts);
+    tab.querySelector('#st-store').innerHTML =
+      `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:${storeAlive ? '#8B5CF6' : '#EF4444'}">Local State Store · RocksDB ${standby ? '<span style="color:#10B981;font-size:9px">+ standby warm</span>' : ''}</div>
+        <div style="font-size:9px;color:${storeAlive ? '#10B981' : '#EF4444'}">${storeAlive ? '● on instance A' : '✖ lost with instance A'}</div>
+      </div>` +
+      (!storeAlive
+        ? `<div style="color:#F87171;font-size:11px;padding:14px;text-align:center;border:1px dashed #7F1D1D;border-radius:8px">state store gone — local disk died with the instance</div>`
+        : storeKeys.length === 0
+          ? `<div style="color:#5B6B82;font-size:11px;padding:10px">empty — process a record</div>`
+          : storeKeys.map(k => `<div style="display:flex;justify-content:space-between;padding:6px 10px;border-radius:6px;margin-bottom:4px;background:#0E1626;border:1px solid ${KCOL[k]}55;font-family:ui-monospace,monospace;font-size:11.5px"><span style="color:${KCOL[k]};font-weight:700">${k}</span><span style="color:#CBD5E1">count = ${counts[k]}</span></div>`).join(''));
+
+    // changelog panel — compacted: dim superseded entries
+    const latestIdxForKey = {};
+    changelog.forEach((e, i) => { latestIdxForKey[e.k] = i; });
+    tab.querySelector('#st-changelog').innerHTML =
+      `<div style="font-size:11px;font-weight:700;color:#06B6D4;margin-bottom:8px">Changelog topic <span style="font-weight:400;color:#64748B">— compacted, in Kafka (survives crashes)</span></div>` +
+      (changelog.length === 0
+        ? `<div style="color:#5B6B82;font-size:11px;padding:10px">no changelog records yet</div>`
+        : changelog.map((e, i) => {
+          const superseded = latestIdxForKey[e.k] !== i;
+          return `<div style="display:flex;justify-content:space-between;padding:5px 10px;border-radius:6px;margin-bottom:3px;font-family:ui-monospace,monospace;font-size:10.5px;opacity:${superseded ? 0.4 : 1};background:#0E1626;border:1px solid ${superseded ? '#1C2740' : KCOL[e.k] + '55'}">
+            <span style="color:${KCOL[e.k]}">${e.k}</span><span style="color:#CBD5E1">→ ${e.v}${superseded ? ' <span style="color:#64748B;font-size:8px">compacted away</span>' : ' <span style="color:#10B981;font-size:8px">kept</span>'}</span></div>`;
+        }).join(''));
+
+    tab.querySelector('#st-note').innerHTML = note || `<span style="color:#64748B">Process records to build state. Each update is written to the local store <b>and</b> appended to the changelog topic in Kafka. Then crash the instance.</span>`;
+    tab.querySelector('#st-standby').innerHTML = `standby replica = <b>${standby ? 'on' : 'off'}</b>`;
+    tab.querySelector('#st-standby').style.borderColor = standby ? '#10B981' : '';
+    tab.querySelector('#st-next').textContent = idx >= RECS.length ? '↻ (all processed)' : '▶ Process click';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Stateful operators (<code>count</code>, <code>aggregate</code>, <code>join</code>) keep a <b>local RocksDB state store</b> — fast, on-instance, but ephemeral. Durability comes from a <b>compacted changelog topic</b> in Kafka: every state update is written there too. Build some state, then <b>crash the instance</b> and watch it rebuild by replaying the changelog — or fail over instantly with a <b>standby replica</b>.</div>
+      <div id="st-flow" style="margin-bottom:14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div id="st-store" style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px;min-height:150px"></div>
+        <div id="st-changelog" style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:12px 14px;min-height:150px;max-height:280px;overflow:auto"></div>
+      </div>
+      <div id="st-note" style="font-size:11.5px;line-height:1.6;margin-top:12px;min-height:34px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="st-next">▶ Process click</button>
+        <button class="ctrl-btn" id="st-crash">💥 Crash instance</button>
+        <button class="ctrl-btn" id="st-restore">♻ Restore</button>
+        <button class="ctrl-btn" id="st-standby">standby</button>
+        <button class="ctrl-btn" id="st-reset">↻ Reset</button>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Anything stateful in Kafka Streams — a running <code>count</code>, an <code>aggregate</code>, the table side of a join, a window — needs somewhere to remember past records. That somewhere is a <strong>local state store</strong>, RocksDB by default, living on the instance's own disk right next to the processing thread. Local means a key lookup is an embedded-database read with <em>no network hop</em>, which is exactly why Streams joins and aggregations are fast. But local also means <strong>ephemeral</strong>: if the instance dies, its disk goes with it.</p>
+      <p>Durability is solved by backing every store with a <strong>changelog topic</strong> in Kafka (auto-created, named <code>&lt;application.id&gt;-&lt;store&gt;-changelog</code>, and <strong>log-compacted</strong>). Every write to the store is also produced to the changelog, so the topic is a complete, replayable history of the store — and because it's compacted, Kafka eventually keeps only the latest value per key (watch the superseded entries dim above), so the changelog's retained size tracks the store's size rather than growing forever. On a clean restart or a crash, Streams rebuilds the store by <strong>replaying the changelog</strong> from the beginning into a fresh RocksDB instance.</p>
+      <p>The catch is <strong>restore time</strong>: for a multi-gigabyte store, replaying the whole changelog can take minutes, during which that task processes nothing. Two mitigations: <strong>standby replicas</strong> (<code>num.standby.replicas</code>) keep a warm, continuously-updated copy of the store on another instance, so a failure fails over to the standby almost instantly instead of replaying from zero; and Streams persists RocksDB to disk so a restart on the <em>same</em> instance only needs to replay the tail since the last checkpoint, not everything.</p>
+      <p><strong>Interview angle:</strong> the one-liner is "state is local RocksDB for speed, durable via a compacted changelog topic for recovery." Then the senior detail: restore cost is proportional to state size, so you use standby replicas for fast failover and you care about <code>num.standby.replicas</code>, rack-aware assignment, and keeping stores small. Interactive queries (<code>KafkaStreams#store</code> + an RPC layer) let other instances read these same local stores — turning your streaming app into a queryable materialized view with no external database.</p>
+    </div>`;
+
+  function processNext() {
+    if (idx >= RECS.length || !storeAlive) return;
+    const k = RECS[idx++];
+    counts[k] = (counts[k] || 0) + 1;
+    changelog.push({ k, v: counts[k] });
+    note = `<span style="color:#CBD5E1">Processed <b style="color:${KCOL[k]}">${k}</b> → store now ${k}=${counts[k]}, and appended <code>${k}→${counts[k]}</code> to the changelog.</span>`;
+    render();
+  }
+  function crash() {
+    if (!storeAlive) return;
+    if (standby) {
+      note = `<span style="color:#86EFAC">✓ Instance A crashed — but the <b>standby</b> on instance B was warm (kept up to date from the changelog), so the task failed over in <b>seconds</b> with full state intact. No replay needed.</span>`;
+      // state preserved via standby
+    } else {
+      storeAlive = false;
+      note = `<span style="color:#F87171">💥 Instance A crashed and its local RocksDB store is gone. The changelog topic in Kafka survives. Press <b>Restore</b> to rebuild the store by replaying it.</span>`;
+    }
+    render();
+  }
+  function restore() {
+    if (storeAlive) { note = `<span style="color:#64748B">Nothing to restore — the store is alive. Crash the instance first.</span>`; render(); return; }
+    // replay compacted changelog → latest value per key
+    counts = {};
+    const latest = {};
+    changelog.forEach(e => { latest[e.k] = e.v; });
+    Object.assign(counts, latest);
+    storeAlive = true;
+    note = `<span style="color:#86EFAC">♻ Restored: replayed the compacted changelog (${Object.keys(latest).length} live keys) into a fresh RocksDB store on a new instance. State is back — processing resumes. For a large store this replay is what takes minutes.</span>`;
+    render();
+  }
+
+  render();
+  tab.querySelector('#st-next').addEventListener('click', processNext);
+  tab.querySelector('#st-crash').addEventListener('click', crash);
+  tab.querySelector('#st-restore').addEventListener('click', restore);
+  tab.querySelector('#st-standby').addEventListener('click', () => { standby = !standby; note = standby ? `<span style="color:#86EFAC">Standby replica enabled — instance B now keeps a warm copy of the store, updated live from the changelog. A crash will fail over to it instantly.</span>` : ''; render(); });
+  tab.querySelector('#st-reset').addEventListener('click', () => { idx = 0; counts = {}; changelog = []; storeAlive = true; standby = false; note = ''; render(); });
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Windows & Event Time (tumbling windows, grace, late events)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildWindows(container) {
+  const tab = container.querySelector('#tab-windows');
+
+  const WIN = 10, GRACE = 5, TMAX = 45;
+  // Arrival order includes in-order, out-of-order, and a too-late event.
+  const EVENTS = [
+    { id: 'e1', t: 3 }, { id: 'e2', t: 12 }, { id: 'e3', t: 7 },
+    { id: 'e4', t: 23 }, { id: 'e5', t: 9 }, { id: 'e6', t: 18 }, { id: 'e7', t: 31 },
+  ];
+  let step = 0, timer = null;
+
+  // classify events up to `step` arrivals; returns {processed:[{...,cls}], streamTime, counts}
+  function compute() {
+    let streamTime = -1;
+    const processed = [];
+    const counts = {};   // windowStart → count
+    for (let i = 0; i < step; i++) {
+      const e = EVENTS[i];
+      const prevStream = streamTime;
+      const w = Math.floor(e.t / WIN) * WIN;
+      const closeAt = w + WIN + GRACE;
+      let cls;
+      if (e.t > prevStream) { cls = 'ontime'; streamTime = e.t; }
+      else if (prevStream > closeAt) { cls = 'dropped'; }
+      else { cls = 'late'; }
+      if (cls !== 'dropped') counts[w] = (counts[w] || 0) + 1;
+      processed.push({ ...e, w, closeAt, cls });
+    }
+    return { processed, streamTime, counts };
+  }
+
+  function draw() {
+    const canvas = tab.querySelector('#win-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const L = 20, R = 20, baseY = 150;
+    const x = t => L + (t / TMAX) * (W - L - R);
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, H);
+
+    const { processed, streamTime } = compute();
+
+    // tumbling window bands + grace
+    for (let w = 0; w < TMAX; w += WIN) {
+      const x0 = x(w), x1 = x(Math.min(w + WIN, TMAX));
+      const closed = streamTime > w + WIN + GRACE;
+      ctx.fillStyle = (w / WIN) % 2 === 0 ? '#101827' : '#0C1322';
+      ctx.fillRect(x0, 40, x1 - x0, 80);
+      // grace zone
+      const gx1 = x(Math.min(w + WIN + GRACE, TMAX));
+      ctx.fillStyle = '#F59E0B14';
+      ctx.fillRect(x1, 40, gx1 - x1, 80);
+      // border
+      ctx.strokeStyle = closed ? '#EF444455' : '#243149'; ctx.lineWidth = 1;
+      ctx.strokeRect(x0, 40, x1 - x0, 80);
+      ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+      ctx.fillStyle = closed ? '#EF4444' : '#64748B';
+      ctx.fillText(`[${w}–${w + WIN})${closed ? ' CLOSED' : ''}`, (x0 + x1) / 2, 34);
+    }
+    // grace legend tick
+    ctx.font = '8px system-ui'; ctx.fillStyle = '#B4791F'; ctx.textAlign = 'left';
+    ctx.fillText('░ grace +5s', x(0) + 2, 132);
+
+    // stream time marker
+    if (streamTime >= 0) {
+      const sx = x(streamTime);
+      ctx.strokeStyle = '#06B6D4'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(sx, 36); ctx.lineTo(sx, 124); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#06B6D4'; ctx.font = 'bold 9px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(`stream time = ${streamTime}`, sx, 144);
+    }
+
+    // events
+    const COL = { ontime: '#10B981', late: '#F59E0B', dropped: '#EF4444' };
+    processed.forEach((e, i) => {
+      const ex = x(e.t), ey = 80 + ((i % 3) - 1) * 16;
+      ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+      ctx.fillStyle = COL[e.cls]; ctx.fill();
+      ctx.strokeStyle = '#0A0E1A'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.font = 'bold 8px system-ui'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+      ctx.fillText(e.id, ex, ey + 3);
+      if (e.cls === 'dropped') { ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ex - 8, ey - 8); ctx.lineTo(ex + 8, ey + 8); ctx.stroke(); }
+    });
+
+    // axis
+    ctx.strokeStyle = '#243149'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, baseY); ctx.lineTo(W - R, baseY); ctx.stroke();
+    ctx.fillStyle = '#64748B'; ctx.font = '8px system-ui'; ctx.textAlign = 'center';
+    for (let t = 0; t <= TMAX; t += 5) { ctx.fillText(String(t), x(t), baseY + 12); }
+    ctx.textAlign = 'right'; ctx.fillText('event time →', W - R, baseY + 26);
+  }
+
+  function render() {
+    draw();
+    const { processed, counts } = compute();
+    const last = processed[processed.length - 1];
+    const COLT = { ontime: '#10B981', late: '#F59E0B', dropped: '#EF4444' };
+    const MSG = {
+      ontime: (e) => `<b style="color:#10B981">${e.id} @ t=${e.t}</b> is in order — it advances <b>stream time</b> and lands in window [${e.w}–${e.w + WIN}).`,
+      late: (e) => `<b style="color:#F59E0B">${e.id} @ t=${e.t}</b> arrived out of order but window [${e.w}–${e.w + WIN}) is still open (closes at stream time ${e.closeAt}) — folded in, result updated.`,
+      dropped: (e) => `<b style="color:#EF4444">${e.id} @ t=${e.t}</b> is too late — window [${e.w}–${e.w + WIN}) already closed at ${e.closeAt}. Dropped (counted in a dropped-records metric).`,
+    };
+    tab.querySelector('#win-msg').innerHTML = last
+      ? MSG[last.cls](last)
+      : `<span style="color:#64748B">Press <b>Next event</b> to feed records in arrival order. Watch out-of-order events fold into open windows, and a truly late one get dropped once its window closes past the grace period.</span>`;
+    const winStarts = [0, 10, 20, 30, 40];
+    tab.querySelector('#win-counts').innerHTML = winStarts.map(w =>
+      `<div style="flex:1;text-align:center;padding:6px 4px;border-radius:7px;background:#0E1626;border:1px solid #1C2740">
+        <div style="font-size:8px;color:#64748B">[${w}–${w + WIN})</div>
+        <div style="font-size:13px;font-weight:700;color:${counts[w] ? '#E2E8F0' : '#334155'}">${counts[w] || 0}</div>
+      </div>`).join('');
+    tab.querySelector('#win-next').textContent = step >= EVENTS.length ? '✓ Done' : '▶ Next event';
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Windowed aggregations run on <b>event time</b> (when a thing happened), not processing time (when it arrived). Each record lands in its window by its own timestamp, so out-of-order events still count correctly — up to a point. A window closes at <b>size + grace</b> measured in <b>stream time</b>; events later than that are dropped. Step through to see it.</div>
+      <canvas id="win-canvas" width="820" height="185" style="width:100%;max-width:820px"></canvas>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <div style="font-size:9px;color:#64748B;align-self:center;min-width:92px">window counts →</div>
+        <div id="win-counts" style="display:flex;gap:6px;flex:1"></div>
+      </div>
+      <div id="win-msg" style="font-size:11.5px;line-height:1.6;margin-top:12px;min-height:34px"></div>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="win-next">▶ Next event</button>
+        <button class="ctrl-btn" id="win-run">⏩ Play</button>
+        <button class="ctrl-btn" id="win-reset">↻ Reset</button>
+        <span class="ctrl-label">green = in-order · amber = out-of-order (within grace) · red = dropped (too late)</span>
+      </div>
+      <div style="margin-top:20px">
+        <div class="section-header" style="margin-bottom:10px"><div class="section-title">Three window types</div><div class="section-desc">How Kafka Streams carves the event-time axis</div></div>
+        <div class="info-grid">
+          <div class="info-card" style="border-left:3px solid #3B82F6">
+            <div class="info-card-title">⬛ Tumbling</div>
+            <div style="display:flex;gap:2px;margin:8px 0">${[0, 1, 2, 3].map(i => `<div style="flex:1;height:14px;border-radius:3px;background:${i % 2 ? '#3B82F655' : '#3B82F6aa'}"></div>`).join('')}</div>
+            <div class="info-card-body">Fixed-size, non-overlapping, gap-free. Every record belongs to exactly one window. <code>TimeWindows.ofSizeAndGrace(5min, 1min)</code>. Use for "revenue per 5 minutes".</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #8B5CF6">
+            <div class="info-card-title">▨ Hopping</div>
+            <div style="position:relative;height:22px;margin:8px 0">${[0, 1, 2, 3, 4].map(i => `<div style="position:absolute;left:${i * 15}%;width:28%;height:12px;top:${(i % 2) * 8}px;border-radius:3px;background:#8B5CF688"></div>`).join('')}</div>
+            <div class="info-card-body">Fixed-size but <b>overlapping</b> — advance &lt; size, so a record can fall in several windows. <code>.advanceBy(1min)</code>. Use for a smooth "5-min revenue, updated every minute".</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #F59E0B">
+            <div class="info-card-title">◧ Session</div>
+            <div style="display:flex;gap:10px;margin:8px 0;align-items:center">${[26, 14, 40].map(w => `<div style="width:${w}%;height:12px;border-radius:3px;background:#F59E0B99"></div>`).join('')}</div>
+            <div class="info-card-body">Activity-driven, variable size. A window grows to include records within an <b>inactivity gap</b>, then closes. <code>SessionWindows.ofInactivityGapAndGrace(5min, 1min)</code>. Use for user sessions.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>The single most important distinction in stream windowing is <strong>event time vs processing time</strong>. A record carries a timestamp of when the event actually happened (set by the producer, a field in the payload, or the broker append time). Kafka Streams assigns each record to its window using <em>that</em> timestamp, not the wall-clock moment it was processed. This is what lets a mobile app that was offline for an hour upload its events and still have them counted in the correct historical windows — the aggregation is a function of when things happened, not of network weather.</p>
+      <p>But a window can't stay open forever waiting for stragglers, so Streams tracks <strong>stream time</strong>: the maximum event timestamp seen so far on that task (it only moves forward). A window of size S closes once stream time passes <code>window-end + grace</code>. The <strong>grace period</strong> is the explicit "how long will I wait for out-of-order data" knob (<code>ofSizeAndGrace</code>). Watch the demo: <code>e3 @ t=7</code> arrives after <code>e2 @ t=12</code> — out of order — but its window [0–10) is still within grace, so it's folded in and the result is re-emitted. <code>e5 @ t=9</code> arrives even later, after stream time has reached 23; window [0–10) closed at 15, so e5 is simply <strong>dropped</strong> (and shows up in the <code>dropped-records</code> metric, never in the output).</p>
+      <p>Two consequences worth stating. First, stream time is <em>per task</em> and advances only when records arrive, so a <strong>sparse or idle partition</strong> can hold a window open long after you expected it to close — a classic "why isn't my window firing?" bug, addressed with <code>max.task.idle.ms</code> and careful partitioning. Second, grace is a direct <strong>latency-vs-completeness trade-off</strong>: a longer grace catches more late data but holds state longer and delays the final, closed-window result. Windowed stores also need retention ≥ size + grace or late-but-valid updates have nowhere to land.</p>
+      <p><strong>Interview angle:</strong> nail the vocabulary — "windows are assigned by event time, closed by stream time at size + grace; later-than-grace records are dropped." Then the senior layer: suppress() to emit only final results (<code>Suppressed.untilWindowCloses</code>), the idle-partition caveat, and choosing tumbling vs hopping vs session by the question you're answering (fixed buckets, smoothed rolling, or activity sessions).</p>
+    </div>`;
+
+  render();
+  const next = () => { if (step < EVENTS.length) { step++; render(); } };
+  tab.querySelector('#win-next').addEventListener('click', next);
+  tab.querySelector('#win-reset').addEventListener('click', () => { if (timer) { clearInterval(timer); timer = null; } step = 0; render(); });
+  tab.querySelector('#win-run').addEventListener('click', () => {
+    if (timer) { clearInterval(timer); timer = null; }
+    step = 0; render();
+    timer = setInterval(() => { if (step >= EVENTS.length) { clearInterval(timer); timer = null; return; } step++; render(); }, 1100);
+  });
+  return () => { if (timer) clearInterval(timer); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Tasks, Threads & Partitions (parallelism + rebalance)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildTasks(container) {
+  const tab = container.querySelector('#tab-tasks');
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Kafka Streams parallelism is <b>fixed by partitions</b>. The framework splits your topology into exactly one <b>task per input partition</b> (here 4 partitions → 4 tasks). Tasks are the atomic unit of work and of rebalancing; they're handed to <b>stream threads</b> across your app <b>instances</b>, which coordinate like a consumer group. <b>Add</b> or <b>kill</b> instances to watch tasks rebalance — and see why you can't scale past the partition count.</div>
+      <canvas id="kc-tasks-canvas" width="820" height="400" style="width:100%;max-width:820px"></canvas>
+      <div class="canvas-controls">
+        <button class="ctrl-btn" id="kt-kill">💀 Kill instance</button>
+        <button class="ctrl-btn" id="kt-add">➕ Add instance</button>
+        <button class="ctrl-btn" id="kt-reset">↻ Reset</button>
+        <span class="ctrl-label" id="kt-status">2 instances · 4 tasks · 2 tasks/instance</span>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Kafka Streams doesn't have a tunable "parallelism" number — it's <strong>derived from your input topics</strong>. When the app starts, Streams compiles your topology into tasks by taking the <em>maximum partition count</em> across the source topics of each sub-topology and creating that many <strong>tasks</strong> (named <code>subtopology_partition</code>, e.g. <code>0_0</code>…<code>0_3</code>). Each task owns one partition from every topic its sub-topology reads, plus its own slice of every state store. Tasks are <strong>fixed at startup</strong> and are the unit that gets assigned, moved, and restored.</p>
+      <p>Tasks run on <strong>stream threads</strong> (<code>num.stream.threads</code> per instance), and threads live inside your application <strong>instances</strong> (JVMs you deploy). All instances sharing an <code>application.id</code> form a single <strong>consumer group</strong>, so Streams reuses Kafka's group-membership and rebalance protocol to assign tasks to threads across instances. Add an instance (or a thread) and the group rebalances to spread tasks out; kill one and its tasks — and their state-store restoration — move to the survivors. Modern Streams uses a <strong>sticky, cooperative</strong> assignor that keeps tasks on the instance that already has their state (to avoid re-restoring RocksDB) and moves the minimum necessary.</p>
+      <p>The hard ceiling: <strong>you can never have more useful tasks than partitions.</strong> With 4 partitions you get 4 tasks, so a 5th instance (or extra threads beyond 4) sits <strong>idle</strong> with nothing assigned — exactly like an extra consumer in a group. If you need more parallelism, you must repartition the input topic to more partitions. This is why partition count is a capacity-planning decision you make <em>up front</em>: it is the permanent upper bound on how far a Streams app can scale out.</p>
+      <p><strong>Interview angle:</strong> "tasks = max partitions of the source topics, fixed at startup; threads run tasks; instances hold threads; all instances with the same application.id are one consumer group." Then the punchline every interviewer wants: "max parallelism = partition count — beyond that, instances idle." Bonus senior points for naming the sticky cooperative assignor and the reason it exists (avoid needless state-store restoration on every rebalance).</p>
+    </div>`;
+
+  const canvas = tab.querySelector('#kc-tasks-canvas');
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+
+  const TASK_N = 4, MAX_INST = 5;
+  const ICOLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EC4899'];
+  let instCount = 2;
+
+  const tasks = Array.from({ length: TASK_N }, (_, i) => ({ id: i, inst: 0, x: W / 2, y: 320, tx: W / 2, ty: 320 }));
+
+  function instLayout(n) {
+    const pad = 28, gap = 16, area = W - pad * 2;
+    const wW = Math.min(150, (area - gap * (n - 1)) / n);
+    const totW = wW * n + gap * (n - 1), startX = (W - totW) / 2;
+    return Array.from({ length: n }, (_, i) => ({ x: startX + i * (wW + gap), y: 180, w: wW, h: 180 }));
+  }
+
+  function reassign() {
+    const boxes = instLayout(instCount);
+    tasks.forEach((t, i) => {
+      t.inst = i % instCount;
+      const b = boxes[t.inst];
+      const slot = Math.floor(i / instCount);
+      t.tx = b.x + b.w / 2;
+      t.ty = b.y + 66 + slot * 34;
+    });
+    const assigned = new Set(tasks.map(t => t.inst));
+    const idle = instCount - assigned.size;
+    const per = TASK_N / instCount;
+    const perTxt = idle > 0 ? `${idle} instance${idle > 1 ? 's' : ''} idle (ceiling ${TASK_N})`
+      : (Number.isInteger(per) ? `${per} tasks/instance` : `${Math.floor(per)}–${Math.ceil(per)} tasks/instance`);
+    tab.querySelector('#kt-status').textContent = `${instCount} instances · ${TASK_N} tasks · ${perTxt}`;
+  }
+  reassign();
+  tasks.forEach(t => { t.x = t.tx; t.y = t.ty; });
+
+  let raf = null, lastT = 0;
+  function draw(ts) {
+    const dt = Math.min((ts - lastT) / 1000, 0.05); lastT = ts;
+    ctx.clearRect(0, 0, W, canvas.height); ctx.fillStyle = '#0A0E1A'; ctx.fillRect(0, 0, W, canvas.height);
+
+    // partitions row
+    ctx.font = '600 10px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = '#64748B';
+    ctx.fillText('SOURCE TOPIC  "clicks"  —  4 partitions  →  1 task each', W / 2, 20);
+    const pW = 150, pGap = 14, pTot = pW * TASK_N + pGap * (TASK_N - 1), pStart = (W - pTot) / 2;
+    for (let i = 0; i < TASK_N; i++) {
+      const x = pStart + i * (pW + pGap);
+      drawRoundRect(ctx, x, 30, pW, 34, 7, '#111A2B', '#FF690066');
+      ctx.font = 'bold 10px ui-monospace,monospace'; ctx.fillStyle = '#FF9900';
+      ctx.fillText(`P${i}`, x + 20, 51);
+      ctx.font = '9px system-ui'; ctx.fillStyle = '#64748B';
+      ctx.fillText(`→ task 0_${i}`, x + pW / 2 + 14, 51);
+    }
+
+    // instances
+    const boxes = instLayout(instCount);
+    const assigned = new Set(tasks.map(t => t.inst));
+    boxes.forEach((b, i) => {
+      const color = ICOLORS[i % ICOLORS.length];
+      const isIdle = !assigned.has(i);
+      drawRoundRect(ctx, b.x, b.y, b.w, b.h, 10, '#111A2B', isIdle ? '#334155' : color);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 11px system-ui'; ctx.fillStyle = isIdle ? '#64748B' : color;
+      ctx.fillText(`Instance ${i + 1}`, b.x + b.w / 2, b.y + 18);
+      ctx.font = '8px system-ui'; ctx.fillStyle = '#5B6B82';
+      ctx.fillText('num.stream.threads = 2', b.x + b.w / 2, b.y + 32);
+      ctx.fillText('· same application.id', b.x + b.w / 2, b.y + 44);
+      if (isIdle) { ctx.fillStyle = '#EF4444'; ctx.font = 'bold 9px system-ui'; ctx.fillText('⚠ idle — no partition', b.x + b.w / 2, b.y + b.h / 2); }
+    });
+
+    // tasks glide
+    tasks.forEach(t => {
+      t.x += (t.tx - t.x) * Math.min(1, dt * 7);
+      t.y += (t.ty - t.y) * Math.min(1, dt * 7);
+      const color = ICOLORS[t.inst % ICOLORS.length];
+      const moving = Math.abs(t.x - t.tx) + Math.abs(t.y - t.ty) > 1.5;
+      const bw = Math.min(120, boxes[t.inst].w - 20);
+      drawRoundRect(ctx, t.x - bw / 2, t.y - 13, bw, 26, 7, moving ? color + 'cc' : '#1E293B', color);
+      ctx.font = 'bold 10px ui-monospace,monospace'; ctx.fillStyle = moving ? '#fff' : color; ctx.textAlign = 'center';
+      ctx.fillText(`task 0_${t.id}`, t.x, t.y + 3.5);
+    });
+
+    raf = requestAnimationFrame(draw);
+  }
+  raf = requestAnimationFrame(ts => { lastT = ts; draw(ts); });
+
+  tab.querySelector('#kt-kill').addEventListener('click', () => { if (instCount > 1) { instCount--; reassign(); } });
+  tab.querySelector('#kt-add').addEventListener('click', () => { if (instCount < MAX_INST) { instCount++; reassign(); } });
+  tab.querySelector('#kt-reset').addEventListener('click', () => { instCount = 2; reassign(); });
+
+  return () => { if (raf) cancelAnimationFrame(raf); };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TAB — Joins & Exactly-Once (join types, co-partitioning, EOS, recipes)
+   ───────────────────────────────────────────────────────────────────────── */
+function buildJoins(container) {
+  const tab = container.querySelector('#tab-joins');
+
+  const JOINS = {
+    ss: {
+      label: 'Stream–Stream', col: '#8B5CF6',
+      left: 'KStream clicks', right: 'KStream impressions', out: 'KStream (events)',
+      trigger: 'A record on EITHER side looks for matches on the other side within a time window (JoinWindows).',
+      state: 'Both sides buffered in windowed state stores (retention = window + grace).',
+      example: 'Attribute a click to an impression seen within the last 5 minutes.',
+      code: 'clicks.join(impressions,\n  (click, imp) -> attribute(click, imp),\n  JoinWindows.ofTimeDifferenceAndGrace(ofMinutes(5), ofMinutes(1)))',
+    },
+    st: {
+      label: 'Stream–Table', col: '#10B981',
+      left: 'KStream orders', right: 'KTable customers', out: 'KStream (enriched)',
+      trigger: 'ONLY a stream record triggers output; it looks up the table\'s current value. A table update alone emits nothing.',
+      state: 'Table is materialized (RocksDB); the stream side is not stored — pure lookup.',
+      example: 'Enrich each order with the customer\'s current tier / address.',
+      code: 'orders.join(customerTable,\n  (order, profile) -> enrich(order, profile))',
+    },
+    tt: {
+      label: 'Table–Table', col: '#3B82F6',
+      left: 'KTable account', right: 'KTable balance', out: 'KTable (changelog)',
+      trigger: 'A change on EITHER table re-emits the joined row — the result is itself a continuously-updated table.',
+      state: 'Both tables materialized; the output is a new materialized KTable.',
+      example: 'Maintain a live "account + current balance" view.',
+      code: 'accounts.join(balances,\n  (acct, bal) -> new AccountView(acct, bal))',
+    },
+  };
+  let jk = 'st';
+
+  function renderJoin() {
+    const j = JOINS[jk];
+    ['ss', 'st', 'tt'].forEach(k => {
+      const btn = tab.querySelector('#jn-' + k);
+      btn.style.borderColor = k === jk ? JOINS[k].col : '';
+      btn.style.color = k === jk ? JOINS[k].col : '';
+    });
+    tab.querySelector('#jn-diagram').innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center">
+        <div style="padding:8px 12px;border-radius:8px;background:#111A2B;border:1px solid ${j.col};color:${j.col};font-size:11px;font-weight:600">${j.left}</div>
+        <div style="color:#64748B;font-size:18px">⋈</div>
+        <div style="padding:8px 12px;border-radius:8px;background:#111A2B;border:1px solid ${j.col};color:${j.col};font-size:11px;font-weight:600">${j.right}</div>
+        <div style="color:#334155">→</div>
+        <div style="padding:8px 12px;border-radius:8px;background:#0E1626;border:1px solid #10B981;color:#10B981;font-size:11px;font-weight:600">${j.out}</div>
+      </div>`;
+    tab.querySelector('#jn-detail').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px">
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;margin-bottom:3px">What triggers output</div><div style="font-size:11.5px;color:#CBD5E1;line-height:1.5">${j.trigger}</div></div>
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;margin-bottom:3px">State kept</div><div style="font-size:11.5px;color:#CBD5E1;line-height:1.5">${j.state}</div></div>
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;margin-bottom:3px">Example</div><div style="font-size:11.5px;color:#CBD5E1;line-height:1.5">${j.example}</div></div>
+      </div>
+      <pre style="margin:12px 0 0;padding:10px 12px;background:#070B14;border:1px solid #1C2740;border-radius:8px;font-size:10.5px;line-height:1.5;font-family:ui-monospace,monospace;color:#86EFAC;white-space:pre-wrap">${j.code}</pre>`;
+  }
+
+  tab.innerHTML = `
+    <div class="canvas-wrap">
+      <div class="canvas-caption">Kafka Streams has <b>three join flavors</b>, and which side can <b>trigger</b> output is the whole game. Pick one to see its semantics, the state it keeps, and its code — then below, the <b>co-partitioning</b> rule every join (except GlobalKTable) must obey, and how exactly-once works.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="ctrl-btn" id="jn-ss">KStream ⋈ KStream</button>
+        <button class="ctrl-btn" id="jn-st">KStream ⋈ KTable</button>
+        <button class="ctrl-btn" id="jn-tt">KTable ⋈ KTable</button>
+      </div>
+      <div style="background:#0C1424;border:1px solid #1C2740;border-radius:10px;padding:16px">
+        <div id="jn-diagram"></div>
+        <div id="jn-detail"></div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="section-header" style="margin-bottom:10px"><div class="section-title">Co-partitioning &amp; internal topics</div><div class="section-desc">The precondition every key-based join depends on</div></div>
+        <div class="info-grid">
+          <div class="info-card" style="border-left:3px solid #EF4444">
+            <div class="info-card-title">⚠ Co-partitioning required</div>
+            <div class="info-card-body">Both inputs must share the <b>same key</b>, the <b>same partition count</b>, and the same partitioning strategy — so matching keys land on the same task. Streams checks this and throws <code>TopologyException</code> if it can't guarantee it.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #F59E0B">
+            <div class="info-card-title">🔁 Repartition topics</div>
+            <div class="info-card-body">Change the key (<code>selectKey</code>, <code>map</code>, <code>groupBy</code>) before a join/aggregation and Streams auto-creates an internal <b>repartition topic</b> to shuffle data by the new key — real Kafka topics, named <code>&lt;app-id&gt;-…-repartition</code>.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #10B981">
+            <div class="info-card-title">🌍 GlobalKTable exception</div>
+            <div class="info-card-body">A <b>GlobalKTable</b> is fully replicated to every instance, so a <code>KStream</code>-<code>GlobalKTable</code> join needs <b>no co-partitioning</b> and can key off any field via a mapper — ideal for small reference data.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:18px;background:#0C1424;border:1px solid #1C2740;border-left:3px solid #06B6D4;border-radius:10px;padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:#06B6D4;margin-bottom:6px">⚛ Exactly-once (processing.guarantee = exactly_once_v2)</div>
+        <div style="font-size:12px;line-height:1.6;color:#94A3B8">Flip one config and Streams wraps each <b>read → process → update-state → write</b> cycle in a single <b>Kafka transaction</b>: the output records, the offset commits, <em>and</em> the state-store changelog writes all commit atomically or not at all. A crash rolls back the incomplete transaction, so no duplicates and no half-updated state — true end-to-end exactly-once <b>as long as you stay within Kafka</b> (an external sink still needs idempotent writes). <code>exactly_once_v2</code> (Kafka ≥ 2.8) shares one producer per instance, so it scales far better than the original per-task-producer design.</div>
+      </div>
+
+      <div style="margin-top:18px">
+        <div class="section-header" style="margin-bottom:10px"><div class="section-title">Real-world topologies</div><div class="section-desc">What these pieces build in production</div></div>
+        <div class="info-grid">
+          <div class="info-card" style="border-left:3px solid #10B981">
+            <div class="info-card-title">🛒 Order enrichment</div>
+            <div class="info-card-body">A <code>KStream</code> of orders joined to a <code>KTable</code> of customer profiles (kept fresh by Debezium CDC) stamps every order with tier, address, and payment prefs — no DB call on the hot path.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #EF4444">
+            <div class="info-card-title">🚨 Fraud / rate limiting</div>
+            <div class="info-card-body">Windowed <code>count</code> per card over a hopping window flags "&gt; N transactions in 1 min". Pure Streams, exactly-once, feeding an alerts topic a sink pushes to dashboards.</div>
+          </div>
+          <div class="info-card" style="border-left:3px solid #8B5CF6">
+            <div class="info-card-title">📊 Real-time rollups</div>
+            <div class="info-card-body"><code>groupBy(category).windowedBy(5min).aggregate(sum)</code> produces live revenue-by-category, materialized as a queryable KTable exposed via interactive queries — a dashboard with no warehouse.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-explainer">
+      <h3>What you're watching</h3>
+      <p>Joins are where the stream/table duality pays off. The three flavors differ mainly in <strong>which side can trigger an output</strong> and <strong>what state they hold</strong>. A <strong>KStream-KStream</strong> join is inherently <em>windowed</em> — two unbounded logs can only be matched within a bounded time window, so both sides are buffered in windowed stores and a record on either side probes the other. A <strong>KStream-KTable</strong> join is an asymmetric <em>lookup</em>: only the stream side triggers, doing a local RocksDB point-lookup against the table's current value — this is the enrichment workhorse, and it's fast precisely because the table is co-partitioned and local. A <strong>KTable-KTable</strong> join is symmetric and produces another continuously-maintained table: a change on either input re-emits the joined row.</p>
+      <p>The precondition that trips people up is <strong>co-partitioning</strong>. For Streams to join by key locally with no network call, matching keys must already sit on the same task — which requires both inputs to have the <em>same key, same number of partitions, and same partitioning</em>. If your join key differs from the topic's key, you must re-key first (<code>selectKey</code>/<code>map</code>), and that forces Streams to write a <strong>repartition topic</strong> to physically reshuffle the data by the new key before the join. Those internal repartition and changelog topics are real Kafka topics your app auto-creates; knowing they exist (and cost throughput and storage) is a senior-level detail.</p>
+      <p>Finally, <strong>exactly-once</strong>. Because a Streams task's work is read-from-Kafka, update-local-state, write-to-Kafka — and the state is itself backed by a Kafka changelog — Streams can make the <em>entire</em> cycle a single Kafka transaction. With <code>processing.guarantee=exactly_once_v2</code>, output records, consumer-offset commits, and changelog writes commit atomically; a failure rolls the whole thing back, so there are no duplicate outputs and no state that reflects records whose output never shipped. This is stronger than what a hand-rolled consumer/producer gives you for free, and it's one config line — the catch being it only covers the Kafka-to-Kafka path, so any external sink still needs its own idempotency.</p>
+      <p><strong>Interview angle:</strong> "stream-stream is windowed and symmetric; stream-table is an unwindowed lookup triggered only by the stream; table-table is symmetric and yields a table — and all key joins need co-partitioning, which re-keying satisfies via a repartition topic." Add "exactly_once_v2 makes read-process-write-plus-changelog one Kafka transaction" and you've covered the join and correctness story most interviews probe.</p>
+    </div>`;
+
+  renderJoin();
+  tab.querySelector('#jn-ss').addEventListener('click', () => { jk = 'ss'; renderJoin(); });
+  tab.querySelector('#jn-st').addEventListener('click', () => { jk = 'st'; renderJoin(); });
+  tab.querySelector('#jn-tt').addEventListener('click', () => { jk = 'tt'; renderJoin(); });
 }
 
 function buildTopology(container) {
