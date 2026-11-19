@@ -28,6 +28,10 @@ export function mount(container) {
     tag: 'M29 · CDC Integrations',
     title: 'Microservices & the Outbox Pattern',
     subtitle: 'Services as Kafka producers, the dual-write trap that corrupts data, and the transactional outbox (plus Debezium\'s Outbox Event Router) that makes the two writes atomic.',
+    definition: {
+      formal: "The outbox pattern solves the dual-write problem — where a service must update its database and publish an event but cannot do both atomically — by writing the event to an “outbox” table in the same transaction, then letting CDC relay it to Kafka reliably.",
+      easy: "When a service needs to both save data and announce it, doing those as two separate steps can corrupt things if one fails. The fix: save the announcement into a table in the same transaction, and let CDC ship it out — so they always agree.",
+    },
     tabs: [
       { id: 'problem', label: '⚠️ The Dual-Write Problem' },
       { id: 'play', label: '🧪 Failure Playground' },

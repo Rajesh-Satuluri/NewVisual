@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-11T03:23:33.461Z",
+  "generated": "2026-11-17T13:56:02.830Z",
   "groups": {
     "services.aws": [
       "s3",
@@ -34,7 +34,15 @@
       "purview",
       "entra-id",
       "key-vault",
-      "azure-monitor"
+      "azure-monitor",
+      "azure-pipelines",
+      "azure-devops",
+      "azure-repos",
+      "azure-artifacts",
+      "azure-boards-test",
+      "github-actions",
+      "azure-service-bus",
+      "azure-containers"
     ],
     "services.databricks": [
       "delta-lake",
@@ -48,7 +56,8 @@
       "clusters",
       "databricks-sql",
       "mlflow",
-      "delta-sharing"
+      "delta-sharing",
+      "databricks-cicd"
     ],
     "services.fabric": [
       "onelake",
@@ -99,7 +108,19 @@
       "monitoring",
       "scenario",
       "cicd",
-      "senior-architecture"
+      "senior-architecture",
+      "ado-fundamentals",
+      "ado-repos",
+      "ado-pipelines-yaml",
+      "ado-pipelines-advanced",
+      "ado-service-connections",
+      "ado-environments",
+      "ado-artifacts",
+      "ado-github-cicd",
+      "ado-cicd-for-data",
+      "ado-service-bus",
+      "ado-containers",
+      "ado-scenarios"
     ],
     "interview.databricks": [
       "spark-arch",
@@ -116,7 +137,10 @@
       "pricing",
       "workflows",
       "pyspark-coding",
-      "senior-architecture"
+      "senior-architecture",
+      "cicd",
+      "observability",
+      "federation"
     ],
     "interview.fabric": [
       "onelake",

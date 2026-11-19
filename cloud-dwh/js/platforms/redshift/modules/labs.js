@@ -31,7 +31,7 @@
   B.labDecisions = lab('rs-decisions', 'decision', '⚖️ Practice', 'Feature Decisions',
     'When to use which Redshift feature — Spectrum vs COPY, datashares, and more — with the reasoning that separates a good answer from a senior one.');
   B.labSql = lab('rs-sql', 'sql', '🧮 Practice', 'SQL Scenarios',
-    'Redshift-flavored SQL challenges — dedup, windowing, idempotent upserts — written the Redshift way (no QUALIFY).');
+    'Redshift-flavored SQL challenges — dedup, windowing, idempotent upserts — using QUALIFY and native MERGE.');
   B.labTraps = lab('rs-traps', 'traps', '⚠️ Practice', 'Interview Traps',
     'Common Redshift misconceptions. See the myth, why it is wrong, the correct model, and an interview-safe way to say it.');
   B.labDesign = lab('rs-design', 'design', '🏗️ Design', 'System Design Lab',

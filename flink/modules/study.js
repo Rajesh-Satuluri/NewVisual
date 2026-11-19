@@ -10,6 +10,7 @@ import { DECISIONS } from '../data/decisions.js';
 import { SELF_EXPLAIN } from '../data/self-explain.js';
 import { scenarioCard } from '../components/story-ui.js';
 import { createTieredCards, createDecisionDrill, initDecisionDrill, createSelfExplain, initSelfExplain } from '../components/practice.js';
+import { enhanceInterviewEdits } from '../components/interview-edits.js';
 
 const DIFF_ORDER = { easy: 0, medium: 1, hard: 2 };
 const titleOf = id => (MODULES.find(m => m.id === id) || {}).title || id;
@@ -161,32 +162,25 @@ export function mount(container) {
       <div class="study-count">${rows.length} question${rows.length > 1 ? 's' : ''}</div>
       <div class="iq-list">
         ${rows.map(x => `
-          <div class="iq-item">
+          <div class="iq-item" data-iqkey="${x.moduleId}#${x.idx}">
             <div class="iq-question" role="button" tabindex="0" aria-expanded="false">
               <span class="q-num">${x.moduleNum}</span>
-              <span style="flex:1">${x.q}</span>
+              <span class="q-text" style="flex:1">${x.q}</span>
               <span class="diff-badge diff-${x.difficulty}">${x.difficulty}</span>
               <span class="q-chevron">▼</span>
             </div>
             <div class="iq-answer">
               <div class="study-src"><a href="#${x.moduleId}">${x.icon} ${x.moduleTitle}</a></div>
-              ${x.a}
-              ${x.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${x.tip}</div>` : ''}
+              <div class="iq-answer-body">
+                ${x.a}
+                ${x.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${x.tip}</div>` : ''}
+              </div>
             </div>
           </div>`).join('')}
       </div>`;
 
-    resultsEl.querySelectorAll('.iq-question').forEach(qEl => {
-      const toggle = () => {
-        const item = qEl.closest('.iq-item');
-        const open = item.classList.toggle('open');
-        qEl.setAttribute('aria-expanded', String(open));
-      };
-      qEl.addEventListener('click', e => { if (e.target.closest('a')) return; toggle(); });
-      qEl.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
-      });
-    });
+    // Apply saved edits + inject per-card Edit controls (Spec 3).
+    enhanceInterviewEdits(resultsEl);
   }
 
   searchEl.addEventListener('input', () => { state.query = searchEl.value; apply(); });
@@ -198,6 +192,30 @@ export function mount(container) {
     apply();
   });
   selectEl.addEventListener('change', e => { state.module = e.target.value; apply(); });
+
+  // Spec 5 — delegated open/close. resultsEl is persistent across re-renders;
+  // attach ONCE here (never inside apply) so listeners can't stack after a
+  // filter rebuilds the list. Only child-created listeners would need re-binding.
+  const toggleItem = (qEl) => {
+    const item = qEl.closest('.iq-item');
+    if (!item) return;
+    const open = item.classList.toggle('open');
+    qEl.setAttribute('aria-expanded', String(open));
+  };
+  resultsEl.addEventListener('click', e => {
+    if (e.target.closest('a') || e.target.closest('.iq-edit-btn') || e.target.closest('.iq-edit-toolbar')) return;
+    const qEl = e.target.closest('.iq-question');
+    if (qEl && resultsEl.contains(qEl)) toggleItem(qEl);
+  });
+  resultsEl.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const qEl = e.target.closest('.iq-question');
+    if (qEl && resultsEl.contains(qEl)) { e.preventDefault(); toggleItem(qEl); }
+  });
+
+  // Live re-apply when interview edits arrive from another device.
+  const onCloudRefresh = () => { if (state.mode === 'qa') apply(); };
+  window.addEventListener('flink:cloud-refresh', onCloudRefresh);
   container.querySelector('.study-mode-tabs').addEventListener('click', e => {
     const btn = e.target.closest('.study-chip');
     if (!btn) return;
@@ -211,5 +229,5 @@ export function mount(container) {
   });
 
   apply();
-  return () => {};
+  return () => { window.removeEventListener('flink:cloud-refresh', onCloudRefresh); };
 }

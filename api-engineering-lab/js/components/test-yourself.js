@@ -32,12 +32,18 @@
       body.innerHTML =
         '<div class="ty-progress">Question ' + (state.idx + 1) + " / " + qs.length +
           ' · <span class="ty-diff ty-' + item.diff + '">' + item.diff + "</span></div>" +
+        (item.code ? '<div class="ty-code"></div>' : "") +
         '<div class="ty-q">' + item.q + "</div>" +
         '<div class="ty-options">' + item.options.map(function (o, i) {
           return '<button class="ty-option" data-i="' + i + '"><span class="ty-key">' +
             String.fromCharCode(65 + i) + "</span><span>" + o + "</span></button>";
         }).join("") + "</div>" +
         '<div class="ty-fb" hidden></div>';
+      if (item.code) {
+        var ch = body.querySelector(".ty-code");
+        if (ch && AV.CodeViewer && AV.CodeViewer.create) ch.appendChild(AV.CodeViewer.create({ title: "", lang: "http", code: item.code }));
+        else if (ch) ch.innerHTML = "<pre class=\"mono\">" + String(item.code).replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</pre>";
+      }
     }
     function renderResult() {
       var pct = Math.round(state.score / qs.length * 100);
@@ -57,6 +63,7 @@
         var item = qs[state.idx];
         var correct = chosen === item.answer;
         if (correct) state.score++;
+        else if (AV.Review) AV.Review.addMiss(id, item.q);
         body.querySelectorAll(".ty-option").forEach(function (b, i) {
           b.disabled = true;
           if (i === item.answer) b.classList.add("ty-correct");

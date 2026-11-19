@@ -38,6 +38,8 @@
       const editPrefix = opts.editPrefix || opts.notePrefix ||
         (document.documentElement.dataset.platform || 'qa');
 
+      const diffCounts = {}; // difficulty -> count, for the filter chips
+
       items.forEach((it) => {
         const origQ = it.q || it.question || '';
         const origA = it.a || it.answer || '';
@@ -52,6 +54,7 @@
 
         const item = document.createElement('div');
         item.className = 'qa-item';
+        if (diff) { item.dataset.diff = diff; diffCounts[diff] = (diffCounts[diff] || 0) + 1; }
         // role=button (not <button>) so the question text can be contenteditable
         // in place — a native button can't host an editable caret.
         item.innerHTML = `
@@ -61,9 +64,11 @@
             ${diff ? `<span class="qa-diff qa-diff-${_esc(diff)}">${_esc(diff)}</span>` : ''}
             <svg class="qa-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-          <div class="qa-a" id="${panelId}" role="region" aria-labelledby="${btnId}" hidden>
-            <div class="qa-a-inner"></div>
-            <div class="qa-edit" data-edit-key="${_esc(editKey)}"></div>
+          <div class="qa-a" id="${panelId}" role="region" aria-labelledby="${btnId}">
+            <div class="qa-a-body">
+              <div class="qa-a-inner"></div>
+              <div class="qa-edit" data-edit-key="${_esc(editKey)}"></div>
+            </div>
           </div>`;
 
         const header = item.querySelector('.qa-q');
@@ -71,9 +76,13 @@
 
         const setOpen = (open) => {
           header.setAttribute('aria-expanded', String(open));
-          panel.hidden = !open;
           item.classList.toggle('open', open);
+          // Height is animated in CSS (grid-template-rows); keep the collapsed
+          // panel out of the a11y tree and tab order via aria-hidden + the
+          // visibility rule on .qa-a-body.
+          panel.setAttribute('aria-hidden', String(!open));
         };
+        panel.setAttribute('aria-hidden', 'true');
         const toggle = () => {
           if (item.classList.contains('editing')) return;   // never collapse mid-edit
           setOpen(header.getAttribute('aria-expanded') !== 'true');
@@ -93,6 +102,48 @@
         _mountEditable(item, editKey, { q: origQ, a: origA }, setOpen);
         wrap.appendChild(item);
       });
+
+      // ── Difficulty filter chips (only when >= 2 difficulties present) ──
+      if (opts.filter !== false) {
+        const ORDER = ['easy', 'medium', 'hard', 'beginner', 'intermediate', 'advanced'];
+        const present = ORDER.filter(d => diffCounts[d]);
+        if (present.length >= 2) {
+          const total = present.reduce((n, d) => n + diffCounts[d], 0);
+          const bar = document.createElement('div');
+          bar.className = 'qa-filter';
+          bar.setAttribute('role', 'group');
+          bar.setAttribute('aria-label', 'Filter questions by difficulty');
+          const mkChip = (val, label, count) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'qa-filter-chip' + (val === 'all' ? ' active' : '');
+            b.dataset.diff = val;
+            b.setAttribute('aria-pressed', String(val === 'all'));
+            b.innerHTML = `${label} <span class="qa-filter-count">${count}</span>`;
+            return b;
+          };
+          bar.appendChild(mkChip('all', 'All', total));
+          present.forEach(d => bar.appendChild(mkChip(d, d.charAt(0).toUpperCase() + d.slice(1), diffCounts[d])));
+
+          bar.addEventListener('click', (e) => {
+            const chip = e.target.closest('.qa-filter-chip');
+            if (!chip) return;
+            const val = chip.dataset.diff;
+            bar.querySelectorAll('.qa-filter-chip').forEach(c => {
+              const on = c === chip;
+              c.classList.toggle('active', on);
+              c.setAttribute('aria-pressed', String(on));
+            });
+            wrap.querySelectorAll('.qa-item').forEach(it => {
+              it.hidden = !(val === 'all' || it.dataset.diff === val);
+            });
+          });
+
+          // Insert chips above the first question (after the optional title).
+          const firstItem = wrap.querySelector('.qa-item');
+          wrap.insertBefore(bar, firstItem);
+        }
+      }
 
       return wrap;
     },

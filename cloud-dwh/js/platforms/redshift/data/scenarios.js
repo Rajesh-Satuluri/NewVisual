@@ -191,11 +191,11 @@
       scenario: 'A staging table has duplicate rows per user_id from an at-least-once source. Keep only the latest by updated_at.',
       steps: [
         { q: 'Write SQL to keep the latest row per user_id.',
-          sql: "SELECT *\nFROM (\n  SELECT *,\n         ROW_NUMBER() OVER (PARTITION BY user_id\n                            ORDER BY updated_at DESC) AS rn\n  FROM staging_users\n) WHERE rn = 1;",
-          a: 'Redshift supports window functions but not QUALIFY, so wrap ROW_NUMBER() in a subquery and filter rn = 1 to keep the newest row per key.' },
+          sql: "SELECT *\nFROM staging_users\nQUALIFY ROW_NUMBER() OVER (PARTITION BY user_id\n                          ORDER BY updated_at DESC) = 1;",
+          a: 'Redshift supports QUALIFY (since 2023), so you can filter on ROW_NUMBER() directly — no subquery needed. The older form (wrap ROW_NUMBER() in a subquery, then WHERE rn = 1) still works and was required on pre-2023 clusters.' },
         { q: 'How do you load it idempotently into the clean table?',
-          sql: "BEGIN;\nDELETE FROM users_clean\nUSING stg_latest s\nWHERE users_clean.user_id = s.user_id;\nINSERT INTO users_clean SELECT * FROM stg_latest;\nCOMMIT;",
-          a: 'Redshift\'s idiomatic upsert is a staging table + DELETE-then-INSERT inside a transaction (the documented MERGE/upsert pattern). Re-running converges to the same final state.' },
+          sql: "MERGE INTO users_clean AS t\nUSING stg_latest AS s   -- the deduped staging rows from step 1\n  ON t.user_id = s.user_id\nWHEN MATCHED THEN\n  UPDATE SET email = s.email, updated_at = s.updated_at\nWHEN NOT MATCHED THEN\n  INSERT (user_id, email, updated_at)\n  VALUES (s.user_id, s.email, s.updated_at);",
+          a: 'Redshift\'s native MERGE (GA 2023) is the idiomatic upsert — one statement: matched rows update, unmatched rows insert, idempotent on re-run. The equivalent older pattern is a staging table + DELETE-then-INSERT inside a transaction, still valid on pre-MERGE clusters.' },
       ] },
     {
       id: 'rs-sql-topn', area: 'rs-sql', category: 'Windowing', difficulty: 'intermediate',
@@ -203,8 +203,8 @@
       scenario: 'Rank titles within each country and keep the top 3 by total minutes watched.',
       steps: [
         { q: 'Write the ranking query.',
-          sql: "SELECT country, title_id, total_minutes\nFROM (\n  SELECT country, title_id,\n         SUM(minutes) AS total_minutes,\n         RANK() OVER (PARTITION BY country\n                      ORDER BY SUM(minutes) DESC) AS rnk\n  FROM watch_events\n  GROUP BY country, title_id\n) WHERE rnk <= 3;",
-          a: 'Aggregate per (country, title), then RANK() within each country by the aggregate, and filter in an outer query since Redshift lacks QUALIFY.' },
+          sql: "SELECT country, title_id, SUM(minutes) AS total_minutes\nFROM watch_events\nGROUP BY country, title_id\nQUALIFY RANK() OVER (PARTITION BY country\n                     ORDER BY SUM(minutes) DESC) <= 3;",
+          a: 'Aggregate per (country, title), then rank within each country by the aggregate. With QUALIFY (supported since 2023) you keep the top 3 in one statement — no outer subquery needed.' },
       ] },
   ]);
 
@@ -386,17 +386,17 @@
             { text: 'INSERT row by row', correct: false, why: 'Row-by-row INSERT is dramatically slower than bulk COPY.' } ],
           insight: 'COPY throughput scales with the number of evenly sized, slice-aligned files.' },
         { prompt: 'How do you apply upserts idempotently?', choices: [
-            { text: 'Load to a staging table, then DELETE-then-INSERT (merge) in a transaction', correct: true, why: 'The documented Redshift upsert pattern converges to the same state on every run.' },
+            { text: 'Load to a staging table, then MERGE into the target (or DELETE-then-INSERT in a transaction)', correct: true, why: 'Native MERGE (GA 2023) is the idiomatic upsert; the staging + DELETE-then-INSERT transaction is the equivalent older pattern. Both converge to the same state on every run.' },
             { text: 'DELETE the whole table and reload each time', correct: false, why: 'Wasteful and disrupts queries.' },
             { text: 'Trust the source to never duplicate', correct: false, why: 'At-least-once sources duplicate; design for idempotency.' } ],
-          insight: 'Staging + DELETE/INSERT (merge) gives idempotent upserts.' },
+          insight: 'Staging + MERGE (or DELETE/INSERT) gives idempotent upserts.' },
         { prompt: 'Occasional live lookups against the operational DB — how?', choices: [
             { text: 'Federated query to Aurora/RDS PostgreSQL/MySQL', correct: true, why: 'Reads live rows directly with predicate pushdown — no ETL for small, fresh lookups.' },
             { text: 'Replicate the whole OLTP DB nightly', correct: false, why: 'Heavy and stale for occasional lookups.' },
             { text: 'Query production OLTP from BI directly', correct: false, why: 'Risks the operational system and bypasses the warehouse.' } ],
           insight: 'Federated query blends live operational data without ETL.' },
       ],
-      architecture: 'S3 Parquet → split files → COPY to staging → DELETE/INSERT merge into targets (transactional). Automatic compression on first COPY. Federated query for occasional live lookups. Loads run on their own WLM queue so BI stays responsive.',
+      architecture: 'S3 Parquet → split files → COPY to staging → MERGE into targets (or transactional DELETE/INSERT). Automatic compression on first COPY. Federated query for occasional live lookups. Loads run on their own WLM queue so BI stays responsive.',
       tradeoffs: 'Batch COPY throughput vs freshness; federated pushdown is great for small lookups but not bulk.',
       failureModes: 'Single-file loads (no parallelism), non-idempotent loads creating duplicates, and loads starving BI — isolate with queues.',
       cost: 'Bulk COPY is efficient; keep files compressed/columnar, and size the load queue to avoid over-provisioning.' },

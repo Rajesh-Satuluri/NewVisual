@@ -7,9 +7,15 @@
 (function () {
   'use strict';
 
+  // Best scores are namespaced per platform so that modules which share an id
+  // across platforms (home, intro, architecture, lab-*, …) don't collide.
+  function _quizKey(moduleId) {
+    return 'cdwh-' + ((window.CDWH && window.CDWH.activePlatform) || 'snowflake') + '-quiz-' + moduleId;
+  }
+
   const Quiz = {
     bestScore(moduleId) {
-      try { return JSON.parse(localStorage.getItem('cdwh-quiz-' + moduleId) || 'null'); }
+      try { return JSON.parse(localStorage.getItem(_quizKey(moduleId)) || 'null'); }
       catch (_) { return null; }
     },
 
@@ -114,7 +120,7 @@
       function save(score) {
         const prev = Quiz.bestScore(moduleId);
         if (!prev || score > prev.best) {
-          try { localStorage.setItem('cdwh-quiz-' + moduleId, JSON.stringify({ best: score, total: questions.length, ts: Date.now() })); } catch (_) {}
+          try { localStorage.setItem(_quizKey(moduleId), JSON.stringify({ best: score, total: questions.length, ts: Date.now() })); } catch (_) {}
         }
       }
       function renderBest() {

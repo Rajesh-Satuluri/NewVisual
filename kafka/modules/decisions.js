@@ -4,6 +4,7 @@
 // course's trade-offs into decisions you make and then get explained back.
 import { DECISIONS } from '../data/decisions.js';
 import { createChooseApproach, initChooseApproach } from '../components/choose-approach.js';
+import { initAccordion } from '../components/accordion.js';
 import { all } from '../data/progress-store.js';
 
 const DIFFS = ['all', 'easy', 'medium', 'hard'];
@@ -43,26 +44,19 @@ export function mount(container) {
     if (!rows.length) { listEl.innerHTML = `<div class="study-empty">No scenarios at this level.</div>`; return; }
 
     listEl.innerHTML = rows.map(s => `
-      <div class="ca-card" data-id="${s.id}">
+      <div class="ca-card${s.id === state.openId ? ' open' : ''}" data-id="${s.id}">
         <button class="ca-card-head" aria-expanded="${s.id === state.openId}">
           <span class="ca-card-topic">${s.topic}</span>
           <span class="ca-card-title">${s.title}</span>
           <span class="diff-badge diff-${s.difficulty}">${s.difficulty}</span>
           <span class="q-chevron">▼</span>
         </button>
-        <div class="ca-card-body" ${s.id === state.openId ? '' : 'hidden'}></div>
+        <div class="ca-card-acc"><div class="ca-card-body"></div></div>
       </div>`).join('');
 
-    listEl.querySelectorAll('.ca-card').forEach(card => {
-      const id = card.dataset.id;
-      const head = card.querySelector('.ca-card-head');
-      const body = card.querySelector('.ca-card-body');
-      if (id === state.openId) fillBody(body, id);
-      head.addEventListener('click', () => {
-        const opening = state.openId !== id;
-        state.openId = opening ? id : null;
-        render();
-      });
+    initAccordion(listEl, {
+      fillBody,
+      onToggle: (id, open) => { if (open) state.openId = id; else if (state.openId === id) state.openId = null; },
     });
   }
 

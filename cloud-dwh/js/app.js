@@ -39,8 +39,38 @@
     if (ver) ver.textContent = p.meta.version || 'v0.1 · multi';
   }
 
+  /* One-time migration: progress keys used to be un-namespaced, so other
+     platforms (Redshift/Fabric/…) collided with Snowflake on shared ids. All
+     pre-existing data was written in the original Snowflake-only era, so move
+     it under the `snowflake` namespace. Runs once, before anything reads it. */
+  function _migrateNamespacedKeys() {
+    try {
+      if (localStorage.getItem('cdwh-ns-migrated-v1') === '1') return;
+      // visited: single legacy key -> snowflake namespace
+      const v = localStorage.getItem('cdwh-visited');
+      if (v != null) {
+        if (localStorage.getItem('cdwh-snowflake-visited') == null) localStorage.setItem('cdwh-snowflake-visited', v);
+        localStorage.removeItem('cdwh-visited');
+      }
+      // quiz best scores: cdwh-quiz-<id> -> cdwh-snowflake-quiz-<id>
+      const legacy = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && /^cdwh-quiz-/.test(k)) legacy.push(k); // won't match cdwh-<plat>-quiz-
+      }
+      legacy.forEach(k => {
+        const nk = 'cdwh-snowflake-quiz-' + k.slice('cdwh-quiz-'.length);
+        const val = localStorage.getItem(k);
+        if (val != null && localStorage.getItem(nk) == null) localStorage.setItem(nk, val);
+        localStorage.removeItem(k);
+      });
+      localStorage.setItem('cdwh-ns-migrated-v1', '1');
+    } catch (_) {}
+  }
+
   /* ── Boot ───────────────────────────────────────────────── */
   function init() {
+    _migrateNamespacedKeys();
     _buildSwitcher();
     _bindSearch();
     _bindThemeToggle();
@@ -85,9 +115,12 @@
     const list = platforms();
     const track = document.createElement('div');
     track.className = 'plat-track';
+    track.setAttribute('role', 'group');
+    track.setAttribute('aria-label', 'Choose platform');
     list.forEach(id => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'plat-seg'; b.dataset.platform = id;
+      b.setAttribute('aria-pressed', 'false');
       b.textContent = P(id).meta.short;
       b.addEventListener('click', () => setPlatform(id));
       track.appendChild(b);
@@ -95,6 +128,7 @@
     if (list.length > 1 && viz.P.compare && viz.P.compare.meta) {
       const c = document.createElement('button');
       c.type = 'button'; c.className = 'plat-seg plat-seg--compare'; c.dataset.platform = 'compare';
+      c.setAttribute('aria-pressed', 'false');
       c.textContent = '⇄ Compare';
       c.addEventListener('click', () => setPlatform('compare'));
       track.appendChild(c);
@@ -103,7 +137,9 @@
   }
   function _syncSwitcher() {
     document.querySelectorAll('#platform-switch .plat-seg').forEach(b => {
-      b.classList.toggle('active', b.dataset.platform === _platform);
+      const on = b.dataset.platform === _platform;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
     });
   }
 
@@ -158,6 +194,9 @@
     }
     canvas.classList.remove('loading');
     if (window.innerWidth <= 1024 && viz._closeMobileNav) viz._closeMobileNav();
+    // Announce just the module to screen readers (not the whole canvas).
+    const ann = document.getElementById('route-announcer');
+    if (ann) ann.textContent = P().meta.label + ': ' + target.label;
     document.dispatchEvent(new CustomEvent('cdwh:navigate', { detail: { id: target.id, platform: _platform } }));
   }
 
@@ -274,9 +313,29 @@
   }
   function _setupShortcutsModal() {
     const modal = document.getElementById('shortcuts-modal'); const closeBtn = document.getElementById('shortcuts-close'); if (!modal) return;
-    viz._showShortcutsModal = () => { _renderShortcuts(modal); modal.classList.add('visible'); };
-    closeBtn?.addEventListener('click', () => modal.classList.remove('visible'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('visible'); });
+    let lastFocus = null;
+    const close = () => { modal.classList.remove('visible'); if (lastFocus && lastFocus.focus) lastFocus.focus(); };
+    viz._showShortcutsModal = () => {
+      lastFocus = document.activeElement;
+      _renderShortcuts(modal);
+      modal.classList.add('visible');
+      (closeBtn || modal).focus();
+    };
+    viz._closeShortcutsModal = close;
+    closeBtn?.addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    // Escape to close + a minimal focus trap (modal is aria-modal).
+    modal.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key === 'Tab') {
+        const f = [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+          .filter(el => el.offsetParent !== null);
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
   }
   function _renderShortcuts(modal) {
     const grid = modal.querySelector('.shortcuts-grid'); if (!grid || !viz.Keyboard) return;

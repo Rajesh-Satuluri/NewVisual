@@ -124,6 +124,7 @@
   function emptyBundle() {
     return {
       notes: {}, links: {}, codeEdits: {}, logicEdits: {}, descEdits: {},
+      iqaEdits: {},
       status: {}, pyStatus: {}, srs: {}, review: {}, activity: {},
       pyChallenge: {}, prefs: {}, prefsAt: 0
     };
@@ -244,6 +245,7 @@
       codeEdits:   mergeNested(baseS.codeEdits, localB.codeEdits, remoteB.codeEdits),
       logicEdits:  mergeNested(baseS.logicEdits, localB.logicEdits, remoteB.logicEdits),
       descEdits:   mergeBucket(baseS.descEdits, localB.descEdits, remoteB.descEdits),
+      iqaEdits:    mergeNested(baseS.iqaEdits, localB.iqaEdits, remoteB.iqaEdits),
       status:      mergeMonotonic(localB.status, remoteB.status),
       pyStatus:    mergeMonotonic(localB.pyStatus, remoteB.pyStatus),
       srs:         mergeSrs(localB.srs, remoteB.srs),

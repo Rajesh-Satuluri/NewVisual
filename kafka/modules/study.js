@@ -82,7 +82,7 @@ export function mount(container) {
           <div class="iq-item${x.edited ? ' iqe-edited' : ''}" data-mid="${x.moduleId}" data-idx="${x.idx}">
             <div class="iq-question">
               <span class="q-num">${x.moduleNum}</span>
-              <span style="flex:1">${x.q}</span>
+              <span class="q-text" style="flex:1">${x.q}</span>
               <span class="diff-badge diff-${x.difficulty}">${x.difficulty}</span>
               <span class="iqe-tools">
                 <span class="iqe-badge"${x.edited ? '' : ' hidden'} title="You have edited this question">edited</span>
@@ -107,6 +107,22 @@ export function mount(container) {
         enterEdit(btn.closest('.iq-item'));
       });
     });
+  }
+
+  // Refresh a single row's read-only content in place after Save/Reset — rebuild
+  // its answer, question text, "edited" badge and class — WITHOUT re-rendering the
+  // whole list. A full re-render (apply) would tear down the open row's DOM node,
+  // collapsing it and scrolling the page to the top. Mirrors the Cancel path.
+  function refreshRow(item, orig) {
+    item.classList.remove('iqe-editing');
+    const v = viewOf(orig);
+    const ae = item.querySelector('.iq-answer');
+    if (ae) ae.innerHTML = answerInner(v);
+    const qt = item.querySelector('.iq-question .q-text');
+    if (qt) qt.innerHTML = v.q;
+    const badge = item.querySelector('.iqe-badge');
+    if (badge) badge.hidden = !v.edited;
+    item.classList.toggle('iqe-edited', !!v.edited);
   }
 
   // In-place editor for a Study Hub row. Writes the same override key the module
@@ -134,7 +150,7 @@ export function mount(container) {
         <div class="iqe-field iqe-q" contenteditable="true" role="textbox" aria-label="Edit question">${curQ}</div>
         <label class="iqe-label">
           Answer
-          <span class="iqe-md-toggle" title="Tick if you pasted Markdown (**bold**, lists, tables, `code`)">
+          <span class="iqe-md-toggle" title="Tick if you pasted Markdown (**bold**, lists, tables, \`code\`)">
             <input type="checkbox" class="iqe-md"> Markdown
           </span>
         </label>
@@ -178,7 +194,7 @@ export function mount(container) {
       if (a && a !== baseA.trim()) next.a = a;
       saveOverride(mid, idx, next);
       try { cloud.onLocalChange(); } catch (e) {}
-      apply();
+      refreshRow(item, orig);
     });
     ae.querySelector('.iqe-cancel').addEventListener('click', () => {
       item.classList.remove('iqe-editing');
@@ -187,7 +203,7 @@ export function mount(container) {
     ae.querySelector('.iqe-reset').addEventListener('click', () => {
       saveOverride(mid, idx, null);
       try { cloud.onLocalChange(); } catch (e) {}
-      apply();
+      refreshRow(item, orig);
     });
     ae.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); ae.querySelector('.iqe-save').click(); }

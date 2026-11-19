@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Resume Builder — NewVisual</title>
   <meta name="description" content="Keep a master library of your resume content and compose multiple role-tailored resumes from it — same template, live preview, one-page PDF. Static site, your data stays in your browser." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -10,6 +10,25 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..800;1,14..32,400..600&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..600&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
+  <style id="ipad-polish">
+  /* iPad / touch polish — additive, non-destructive. Safe on all devices. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html,body{overscroll-behavior:none}
+  body{-webkit-tap-highlight-color:transparent}
+  button,a,label,summary,select,[role="button"],[role="tab"],[role="link"],.tab,.btn{touch-action:manipulation}
+  img,svg,canvas{-webkit-user-drag:none}
+  @media (hover:none) and (pointer:coarse){
+    button,summary,select,[role="button"],[role="tab"],.tab,.btn{
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none
+    }
+    input,select,textarea{font-size:max(16px,1em)!important}
+  }
+  @supports (padding:env(safe-area-inset-left)){
+    @media (display-mode:standalone){
+      body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+    }
+  }
+  </style>
 </head>
 <body>
   <!-- Top bar -->
@@ -30,13 +49,29 @@
       <span class="save-state" id="saveState" aria-live="polite">Saved</span>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-icon" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
-      <button class="btn btn-icon" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
-      <button class="btn" id="btnImport" title="Import all data (JSON)">Import</button>
-      <button class="btn" id="btnExport" title="Export all data (JSON)">Export</button>
-      <button class="btn" id="btnReset" title="Reset to sample data">Reset</button>
-      <button class="btn btn-primary" id="btnPdf" title="Download the active resume as a print-quality PDF">⬇ PDF</button>
-      <button class="btn btn-primary" id="btnDocx" title="Download the active resume as an editable Word .docx">⬇ DOCX</button>
+      <button class="btn btn-icon" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled></button>
+      <button class="btn btn-icon" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled></button>
+      <div class="menu-wrap" id="downloadWrap">
+        <button class="btn btn-primary btn-menu" id="btnDownload" aria-haspopup="menu" aria-expanded="false" title="Download this resume">
+          <span class="btn-menu-label">Download</span>
+        </button>
+        <div class="menu" id="downloadMenu" role="menu" aria-label="Download" hidden>
+          <button class="menu-item" role="menuitem" id="miPdf"><span class="mi-title">PDF</span><span class="mi-sub">Print-quality, ATS-safe</span></button>
+          <button class="menu-item" role="menuitem" id="miDocx"><span class="mi-title">Word (.docx)</span><span class="mi-sub">Editable document</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" id="miJson"><span class="mi-title">Data backup (.json)</span><span class="mi-sub">All resumes &amp; library</span></button>
+        </div>
+      </div>
+      <div class="menu-wrap" id="moreWrap">
+        <button class="btn btn-icon" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="More actions" title="More actions"></button>
+        <div class="menu menu-right" id="moreMenu" role="menu" aria-label="More actions" hidden>
+          <button class="menu-item" role="menuitem" id="miImportResume"><span class="mi-title">Import existing resume…</span><span class="mi-sub">From .docx, .pdf, or pasted text</span></button>
+          <button class="menu-item" role="menuitem" id="miImport"><span class="mi-title">Import data…</span><span class="mi-sub">Restore from a .json backup</span></button>
+          <button class="menu-item" role="menuitem" id="miPrint"><span class="mi-title">Print…</span><span class="mi-sub">Use the browser print dialog</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item menu-danger" role="menuitem" id="miReset"><span class="mi-title">Reset to sample…</span><span class="mi-sub">Replace everything with the demo</span></button>
+        </div>
+      </div>
       <input type="file" id="fileImport" accept="application/json" hidden />
     </div>
   </header>
@@ -64,6 +99,13 @@
       <div class="ai-pane no-print" id="aiPane"><!-- big editor for AI Assist, built by JS --></div>
     </section>
   </main>
+
+  <!-- Mobile-only: switch between editing and the live preview (the split
+       layout is cramped on phones; this shows one pane at a time) -->
+  <div class="mobile-switch no-print" id="mobileSwitch" role="group" aria-label="Edit or preview">
+    <button class="msw-btn active" id="mswEdit" type="button" aria-pressed="true">Edit</button>
+    <button class="msw-btn" id="mswPreview" type="button" aria-pressed="false">Preview</button>
+  </div>
 
   <script src="js/app.js"></script>
   <!-- Offline backup: one-click .zip download of this project (top-right) -->
