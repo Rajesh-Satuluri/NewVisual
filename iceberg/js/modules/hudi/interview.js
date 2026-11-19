@@ -146,6 +146,232 @@ Fix: run/tune compaction (e.g. hoodie.compact.inline.max.delta.commits lower, or
       a: `Recovery uses savepoints, restore, and markers. A savepoint pins an instant so cleaning won't remove its files — a guaranteed recovery point. Restore rolls the whole table back to a chosen instant by undoing later commits. Markers track the files a write is creating so a failed write's partial files can be deleted on rollback.
 
 Time travel only reads a past instant (the head doesn't move); restore actually resets the table to that instant. Savepoints ensure the target instant survives cleaning so a restore stays possible within the recovery window.` },
+
+    /* ---- Ingestion, write ops & timeline management ---- */
+    { level: 'intermediate', q: 'What is Hudi Streamer (DeltaStreamer) and when do you use it?',
+      a: `Hudi Streamer (formerly DeltaStreamer) is a ready-made ingestion utility that pulls from a source and writes a Hudi table — so you get CDC/streaming ingestion without hand-writing a Spark job.
+
+Key capabilities:
+• Sources — Kafka, DFS/files, JDBC, SQL, and pluggable custom sources; Avro/JSON/Parquet/Protobuf formats.
+• Modes — run-once for batch, or continuous mode for an always-on streaming loop.
+• Schema — integrates with a schema registry (e.g. Confluent) so schema changes flow through.
+• Transforms — SQL-based transformers before the write.
+• Checkpointing — tracks the last consumed source offset in the commit metadata, so restarts resume exactly where they stopped.
+• Multi-table — one job can fan out to many tables (MultiTableStreamer).
+
+Use it as the default for Kafka-to-lake or files-to-lake CDC when you don't need bespoke write logic.`,
+      code: `spark-submit HoodieStreamer \\
+  --source-class ...KafkaSource --target-table orders \\
+  --table-type MERGE_ON_READ --op UPSERT \\
+  --continuous --min-sync-interval-seconds <span class="s">60</span>`,
+      note: '<strong>ShopKart:</strong> orders are ingested by a continuous Hudi Streamer job reading the checkout Kafka topic, upserting into a MoR table with async compaction enabled.' },
+
+    { level: 'intermediate', q: 'What are the main Hudi write operations and how do they differ?',
+      a: `• insert — writes without an index lookup; faster than upsert but may create duplicates if keys repeat. Good for append-mostly data.
+• upsert — the default; index lookup per key, updating existing records or inserting new ones. Correct, but pays the index cost.
+• bulk_insert — optimized for the first big load: no index, sorts and sizes files well, lowest memory overhead. Use for initial backfills.
+• insert_overwrite — replaces the data in the touched partitions (a replacecommit); good for recomputing a partition.
+• insert_overwrite_table — replaces the whole table's data.
+• delete — removes records by key (an upsert of tombstones).
+• delete_partition — drops entire partitions via a replacecommit.
+
+Rule of thumb: bulk_insert to seed, upsert to maintain, insert_overwrite to recompute.`,
+      note: '<strong>ShopKart:</strong> the historical 38 TB orders backfill used bulk_insert; the live CDC stream uses upsert; a corrupted day is fixed with insert_overwrite on that partition.' },
+
+    { level: 'intermediate', q: 'What is the difference between cleaning and timeline archival?',
+      a: `They manage two different kinds of buildup.
+
+<strong>Cleaning</strong> reclaims storage by deleting old file slices (data) past the retention policy — e.g. keep the last N commits or a time window. It controls how much version history of the data survives, and therefore how far back time travel and incremental reads can reach.
+
+<strong>Archival</strong> trims the active timeline metadata: once instants are old enough and safely beyond retention, their small timeline files in .hoodie are moved into archived timeline files so the active timeline stays small and planning stays fast. It does not delete data.
+
+So cleaning = old data files; archival = old timeline entries. Set cleaning retention to cover your longest incremental consumer and time-travel need; archival should always retain at least as much as cleaning keeps reachable.`,
+      note: '<strong>ShopKart:</strong> cleaning keeps the last 10 commits of data; archival keeps the active timeline lean so hundreds of daily deltacommits do not slow planning.' },
+
+    { level: 'intermediate', q: 'How does schema evolution work in Hudi?',
+      a: `Hudi stores the table schema in commit metadata and validates writes against it. Backward-compatible changes work out of the box:
+• add a nullable column
+• promote a safely-widenable type (int -> long, float -> double)
+
+Full schema evolution (hoodie.schema.on.read.enable) adds the harder operations without rewriting data:
+• rename a column
+• drop a column
+• reorder columns
+• change a type within allowed promotions
+
+How it stays cheap: evolution is a metadata change; existing base/log files keep their old schema and are reconciled to the latest schema on read. Incompatible changes (e.g. narrowing a type) are rejected to prevent corruption.`,
+      note: '<strong>ShopKart:</strong> adding an optional loyalty_tier column to orders was a metadata-only change; old files simply read null for it.' },
+
+    /* ---- Keys, merging, migration & layout ---- */
+    { level: 'advanced', q: 'What are key generators, and which one do you pick?',
+      a: `A key generator derives the record key and partition path from each incoming record's fields. The choice shapes both uniqueness and physical layout.
+
+<strong>SimpleKeyGenerator</strong> one field for the key and one for the partition — the common case.
+<strong>ComplexKeyGenerator</strong> composite key and/or multiple partition fields, concatenated.
+<strong>TimestampBasedKeyGenerator</strong> derives the partition from a timestamp field with a format (e.g. date -> yyyy/MM/dd), so time-partitioning is consistent.
+<strong>NonpartitionedKeyGenerator</strong> no partitioning — the whole table is one partition (pairs well with a global index).
+<strong>CustomKeyGenerator</strong> mixes field types (SIMPLE / TIMESTAMP) per partition column for flexible schemes.
+
+Getting this right at table creation matters: the partition path and key definition are effectively fixed, and changing them later means a rewrite.`,
+      code: `hoodie.datasource.write.recordkey.field = order_id
+hoodie.datasource.write.partitionpath.field = order_ts
+hoodie.datasource.write.keygenerator.class = <span class="s">...TimestampBasedKeyGenerator</span>`,
+      note: '<strong>ShopKart:</strong> orders uses a TimestampBasedKeyGenerator on order_ts so partitions land as country/yyyy-MM-dd regardless of event-time formatting upstream.' },
+
+    { level: 'advanced', q: 'What are record payloads and merge modes, and why do they matter for correctness?',
+      a: `When two versions of the same key exist (a new write vs. the stored record, or multiple log entries), Hudi must decide which wins and how to combine them. That logic lives in the record payload / merge mode.
+
+Built-in payloads:
+<strong>OverwriteWithLatestAvroPayload</strong> the incoming record always overwrites — simple last-writer-wins by arrival.
+<strong>DefaultHoodieRecordPayload</strong> honors the precombine field, so a record wins only if its precombine value is greater — correct for out-of-order events.
+<strong>PartialUpdateAvroPayload</strong> merges field-by-field, letting a partial update fill only the columns it carries.
+<strong>Custom payloads</strong> implement combineAndGetUpdateValue / preCombine for domain rules (e.g. never move an order status backward).
+
+Newer Hudi reframes this as RecordMergeMode: EVENT_TIME_ORDERING (precombine-based), COMMIT_TIME_ORDERING (arrival-based), or CUSTOM. Choosing EVENT_TIME_ORDERING is what makes late, out-of-order CDC safe — a stale event loses even though it arrived last.`,
+      note: '<strong>ShopKart:</strong> orders uses event-time ordering on the CDC commit timestamp, so a delayed "created" event can never overwrite a later "shipped" state.' },
+
+    { level: 'advanced', q: 'What is Hudi bootstrap, and how does it migrate an existing table cheaply?',
+      a: `Bootstrap turns an existing directory of Parquet files into a Hudi table without rewriting all the data — it generates Hudi metadata (file groups, index, timeline) that points at the original files.
+
+Two modes, chosen per partition:
+<strong>METADATA_ONLY</strong> generate only Hudi metadata and skeleton files that reference the original Parquet; no data copy. Cheapest and fastest, but the original files must stay in place.
+<strong>FULL_RECORD</strong> actually rewrite the records into Hudi format, producing a fully native table. More expensive, but self-contained and immediately upsertable with no indirection.
+
+A common pattern is metadata-only for cold historical partitions and full-record for the hot/recent ones you will upsert into. After bootstrap, new writes go through Hudi normally.`,
+      note: '<strong>ShopKart:</strong> the 5-year order archive was bootstrapped METADATA_ONLY (no rewrite of cold data), while the current quarter was FULL_RECORD so live CDC upserts run natively.' },
+
+    { level: 'advanced', q: 'How does clustering work, and how is it different from compaction?',
+      a: `Clustering reorganizes data layout for better query performance without changing record values — it rewrites data into new file groups that are better sized and sorted on chosen columns, improving file sizes and data skipping.
+
+Mechanics:
+• It commits as a replacecommit — old file groups are logically replaced by new ones atomically, so readers never see a half-clustered state.
+• Sort columns (hoodie.clustering.plan.strategy.sort.columns) decide the co-location, much like Z-ordering elsewhere.
+• It can run inline (after a commit) or async (a separate job), and can target only small files.
+
+Clustering vs compaction: compaction (MoR only) merges a file group's log files into a new base file to stop read-time merges — it is about the base/log structure. Clustering is about layout and file sizing across file groups, and applies to both CoW and MoR. You often run both: compaction to materialize logs, clustering to right-size and sort.`,
+      note: '<strong>ShopKart:</strong> nightly async clustering sorts orders by (country, order_date) so analytics scans skip aggressively, while compaction handles the MoR logs during the day.' },
+
+    /* ---- Query, engines & metadata ---- */
+    { level: 'advanced', q: 'What are the Hudi query types, and how do engines read them?',
+      a: `Hudi exposes three query types:
+<strong>Snapshot</strong> the latest committed state. On MoR this merges base + log files at read time; on CoW it is a plain columnar scan. Freshest, but MoR pays the merge.
+<strong>Read-optimized</strong> (MoR only) reads only the compacted base files, ignoring un-compacted logs. Faster reads, but data is only as fresh as the last compaction.
+<strong>Incremental</strong> only the records changed between two instants — the basis for efficient downstream pipelines.
+
+Engine support: Spark and Flink are first-class for read and write. Query engines like Trino/Presto, Hive, and Athena read Hudi tables (snapshot and read-optimized), typically via the metadata table for fast planning. The read-optimized vs snapshot trade-off is how you tune freshness against latency per consumer — BI dashboards often use read-optimized, while correctness-critical jobs use snapshot.`,
+      note: '<strong>ShopKart:</strong> Trino dashboards query the read-optimized view for speed; the fraud-scoring job uses incremental queries to process only new orders each minute.' },
+
+    { level: 'advanced', q: 'How does the metadata table speed up reads and point lookups?',
+      a: `The metadata table (.hoodie/metadata, itself a MoR Hudi table) holds several partitions, each a different acceleration structure:
+<strong>files</strong> the authoritative file listing per partition, so planning avoids slow recursive storage listings.
+<strong>column_stats</strong> per-file min/max/null stats for data skipping, so the planner prunes files without opening them.
+<strong>bloom_filters</strong> centralized bloom filters for the bloom index, avoiding footer reads.
+<strong>record_index (RLI)</strong> a global key -> file-group mapping, turning an upsert's index lookup and a point query into an O(1) lookup instead of a scan.
+
+Why it matters at scale: on object storage, LIST and per-file metadata reads dominate planning time. Consolidating them into one MoR table (cheap log-append updates, periodic compaction) is what keeps planning fast as a table grows to millions of files.`,
+      note: '<strong>ShopKart:</strong> enabling the record-level index cut single-order point lookups from a partition scan to a direct file-group fetch, and the column_stats partition drives skipping for Trino.' },
+
+    { level: 'advanced', q: 'How does Hudi integrate with Flink for streaming writes?',
+      a: `Hudi has a first-class Flink writer, so a Flink job can continuously upsert into a Hudi table with low latency.
+
+Pipeline shape:
+• A streaming source (Kafka, or CDC via Flink CDC) feeds the Hudi sink connector.
+• The writer buffers records and flushes on Flink checkpoints — each successful checkpoint corresponds to a Hudi commit/deltacommit, giving exactly-once aligned with Flink's checkpoint barrier.
+• MoR is the usual choice so each checkpoint is a cheap log append; compaction runs async (inline-scheduled, offline-executed, or within the Flink job).
+• Streaming-friendly indexes (bucket index, or the Flink-state-backed index) keep per-record routing fast without a heavy lookup.
+
+This is the standard for sub-minute freshness when the platform is Flink-centric rather than Spark-centric.`,
+      note: '<strong>ShopKart:</strong> a Flink CDC job mirrors the orders OLTP into Hudi MoR, committing on a 30-second checkpoint interval with a bucket index for steady routing.' },
+
+    { level: 'advanced', q: 'Global versus non-global index — what is the trade-off, and how do you choose an index?',
+      a: `<strong>Non-global index</strong> enforces key uniqueness only within a partition, so the lookup is scoped to the record's partition — fast and cheap. The catch: if a record's partition value can change (e.g. a status-based partition), the same key could exist in two partitions, creating a duplicate.
+
+<strong>Global index</strong> enforces uniqueness across the whole table and can relocate a record when its partition changes, at the cost of a table-wide lookup. Record-level index (RLI) and HBase index are global.
+
+Choosing an index:
+• Bucket index — steady high-throughput streaming; O(1) hash routing, no filter upkeep, but a fixed bucket count you must size.
+• Bloom index — good general default for batch upserts; filters in file footers.
+• Simple index — small/medium tables or when bloom upkeep is not worth it.
+• Record-level index — fast global lookups / point queries without an external store.
+• HBase — very large global index with an existing HBase cluster.
+
+Decide on: partition stability (global vs non-global), throughput pattern (bucket for streaming), and whether you need point lookups (RLI).`,
+      note: '<strong>ShopKart:</strong> orders partitions by date (immutable once set), so a non-global bucket index is safe and gives steady routing for the CDC stream.' },
+
+    { level: 'advanced', q: 'What is Non-Blocking Concurrency Control (NBCC), and how does it differ from OCC?',
+      a: `Optimistic concurrency control (OCC) lets writers proceed in parallel but, at commit, takes a lock and aborts any writer whose file groups overlap another's — the loser must retry. Under heavy multi-writer upserts to the same partitions, that means wasted work and contention.
+
+Non-Blocking Concurrency Control (NBCC), introduced for MoR, lets multiple writers commit to the same file group concurrently without aborting each other. Each writer appends its own log file; ordering and conflict resolution are deferred to read time and compaction, using the completion time and the record merge logic (precombine / merge mode) to decide the final value deterministically.
+
+Net effect: writers don't block or fail on overlap — throughput stays high with many concurrent streaming writers — while correctness is preserved because the merge mode resolves which record version wins. It trades some read/compaction-time work for conflict-free ingestion.`,
+      note: '<strong>ShopKart:</strong> during peak sale events several writers hit the same hot partitions; NBCC on the MoR orders table lets them all commit without the OCC retry storms.' },
+
+    /* ---- Scenario & system design ---- */
+    { level: 'senior', q: 'Design a sub-minute CDC pipeline from an OLTP database into Hudi. Cover ingestion, table type, index, and services.',
+      a: `<strong>Ingestion:</strong> capture row changes with Debezium to Kafka (or Flink CDC directly), then ingest with Hudi Streamer in continuous mode (or a Flink Hudi sink). Offset tracking in commit metadata gives exactly-once resume.
+
+<strong>Table type:</strong> Merge-on-Read, so each micro-batch is a cheap Avro log append — the only way to hit sub-minute freshness without constantly rewriting base files.
+
+<strong>Keys & ordering:</strong> record key = primary key; merge mode = EVENT_TIME_ORDERING on the source commit timestamp so late/out-of-order events resolve correctly; handle deletes via the CDC op flag (hard delete).
+
+<strong>Index:</strong> bucket index (or RLI) for fast, steady routing at high throughput; non-global if the partition is stable.
+
+<strong>Table services:</strong> async compaction (every N deltacommits) to keep snapshot reads fast; async clustering nightly to right-size files; cleaning to bound history; metadata table + column stats on for planning and skipping.
+
+<strong>Consumption:</strong> downstream marts use incremental queries from the last consumed instant; BI reads the read-optimized view.`,
+      note: '<strong>ShopKart:</strong> this is the orders pipeline — Debezium to Kafka, continuous Hudi Streamer into MoR with a bucket index, async compaction + nightly clustering, incremental pulls downstream.' },
+
+    { level: 'senior', q: 'A GDPR request requires erasing a customer from a Hudi table. How do you do a true hard delete?',
+      a: `Hudi distinguishes soft and hard deletes:
+<strong>Soft delete</strong> nulls the record's data columns but keeps the key — the row still exists, so it does NOT satisfy erasure.
+<strong>Hard delete</strong> actually removes the record. Issue delete operations for the customer's keys (an upsert of tombstones), dropping them from the current file slices.
+
+But removal from the current slice is not enough for compliance, because older file slices and log files still physically contain the data and are reachable via time travel / incremental reads until cleaning removes them. The full flow:
+1. Hard-delete the customer's records (by key, or delete_partition if isolated to partitions).
+2. Ensure compaction materializes the deletes into new base files (MoR).
+3. Let cleaning remove the old file slices that still hold the data — within the legal deadline; you may need to tighten retention so the slices actually age out.
+4. Check savepoints — a savepoint pins old slices against cleaning, so any savepoint covering the data must be released.
+5. Purge copies: incremental consumers, downstream tables, and any bootstrapped original Parquet files.`,
+      note: '<strong>ShopKart:</strong> erasure requests hard-delete by customer key, then rely on compaction + tightened cleaning to physically remove old slices inside the 30-day window, and drop any savepoint that would preserve them.' },
+
+    { level: 'senior', q: 'Migrate a 50 TB Hive/Parquet table to Hudi with minimal downtime. Walk through it.',
+      a: `The goal is to avoid a 50 TB rewrite and a long freeze.
+
+1. <strong>Bootstrap the history:</strong> run bootstrap METADATA_ONLY on the cold historical partitions — Hudi generates metadata/skeleton files pointing at the existing Parquet, so no data is copied. For the hot recent partitions you will upsert into, use FULL_RECORD so they are native.
+2. <strong>Cutover writes:</strong> start writing new data through Hudi (Hudi Streamer or Spark) while the old pipeline still runs, pausing writes only briefly for the final switch.
+3. <strong>Validate:</strong> row counts and checksums per partition between the Hive and Hudi tables; sample point lookups via the record index.
+4. <strong>Repoint readers:</strong> switch query engines (Trino/Hive/Spark) to the Hudi table; the metadata table keeps planning fast.
+5. <strong>Enable services:</strong> turn on cleaning, compaction (if MoR), and clustering, and schedule them.
+6. <strong>Decommission:</strong> once validated and readers migrated, retire the old pipeline — but keep the original Parquet while any METADATA_ONLY partitions still reference it.
+
+Downtime is limited to the brief final cutover; the bulk of the data is never rewritten.`,
+      note: '<strong>ShopKart:</strong> the legacy Hive orders table was bootstrapped (metadata-only for the archive, full-record for the current quarter), validated per partition, then readers were repointed with no long freeze.' },
+
+    { level: 'senior', q: 'For a high-ingest table that is also queried by BI, would you pick CoW or MoR, and which index? Defend it.',
+      a: `Start from the write/read ratio and the freshness need.
+
+<strong>Heavy, frequent ingest (streaming CDC) with sub-minute freshness:</strong> MoR. Writes become cheap log appends instead of full base-file rewrites, so you can commit often. Pay the read-time merge only where you need the freshest data; serve BI from the read-optimized view and run async compaction so that view stays close to current. Index: bucket index for steady O(1) routing at high throughput (or RLI if you also need point lookups).
+
+<strong>Periodic/batch writes, read-heavy with strict query latency:</strong> CoW. Reads are plain columnar scans with no merge, which is what BI wants, and the heavier write cost is acceptable because writes are infrequent. Index: bloom (good default) or simple.
+
+The trap to avoid: CoW with frequent small upserts causes severe write amplification (rewriting big base files for a few changed rows), and MoR without disciplined compaction causes slow snapshot reads. State the compaction/clustering plan as part of the answer — the table type is only half the decision.`,
+      note: '<strong>ShopKart:</strong> orders is MoR (sub-minute CDC) with a bucket index; BI uses the read-optimized view and async compaction keeps it fresh — CoW here would rewrite multi-GB files for a handful of changed rows.' },
+
+    { level: 'senior', q: 'Two streaming jobs plus async table services all write the same Hudi table. How do you keep them from corrupting each other?',
+      a: `You need a concurrency model, a lock provider, and a service-execution plan.
+
+<strong>Concurrency control:</strong>
+• For writers whose file groups rarely overlap, OCC is enough — configure a lock provider so commit-time conflict checks are coordinated.
+• For MoR with writers hitting the same partitions hard, prefer NBCC so concurrent writers append logs without aborting each other; the merge mode resolves final values deterministically.
+
+<strong>Lock provider:</strong> OCC needs an external lock to coordinate the commit check — Zookeeper, DynamoDB, Hive Metastore, or a filesystem lock. Without one, two writers can corrupt the timeline. Pick one all writers share.
+
+<strong>Table services:</strong> compaction, clustering, and cleaning also mutate the table, so they participate in concurrency control too. Run them async with the same lock provider, and ideally schedule them from a single coordinator (or let one writer own them) to avoid two jobs planning the same compaction.
+
+<strong>Ordering/merge:</strong> set a precombine / event-time merge mode so that regardless of which writer commits first, the record with the correct version wins.
+
+Summary: shared lock provider + OCC or NBCC + coordinated async services + event-time merge = safe multi-writer.`,
+      note: '<strong>ShopKart:</strong> the CDC writer and a late-correction batch job share a DynamoDB lock provider; MoR + NBCC lets them both commit during peaks, and compaction is owned by a single scheduled job.' },
   ];
 
   TV.HudiInterview = QA;

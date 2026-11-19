@@ -1,6 +1,6 @@
 # Deep-Dive Coverage Ledger
 
-_Generated 2026-11-17 by tools/coverage-ledger.js — a structural audit of enrichment-field presence. It reports what content EXISTS; it does not claim any content has been independently verified, and all code examples in the banks are authored as illustrative, not tested._
+_Generated 2026-11-19 by tools/coverage-ledger.js — a structural audit of enrichment-field presence. It reports what content EXISTS; it does not claim any content has been independently verified, and all code examples in the banks are authored as illustrative, not tested._
 
 ## AWS — 18/18 full deep dives
 
