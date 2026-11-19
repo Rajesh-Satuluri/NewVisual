@@ -5,6 +5,7 @@
 // Bank (incident-bank.js) — one source, two views.
 import { INCIDENTS } from '../data/incidents.js';
 import { createInvestigation, initInvestigation } from '../components/investigation-flow.js';
+import { initAccordion } from '../components/accordion.js';
 import { all } from '../data/progress-store.js';
 
 const DIFFS = ['all', 'medium', 'hard'];
@@ -45,25 +46,19 @@ export function mount(container) {
     if (!rows.length) { listEl.innerHTML = `<div class="study-empty">No scenarios at this level.</div>`; return; }
 
     listEl.innerHTML = rows.map(s => `
-      <div class="ca-card" data-id="${s.id}">
+      <div class="ca-card${s.id === state.openId ? ' open' : ''}" data-id="${s.id}">
         <button class="ca-card-head" aria-expanded="${s.id === state.openId}">
           <span class="ca-card-icon">${s.icon}</span>
           <span class="ca-card-title">${s.title}</span>
           <span class="diff-badge diff-${s.difficulty}">${s.difficulty}</span>
           <span class="q-chevron">▼</span>
         </button>
-        <div class="ca-card-body" ${s.id === state.openId ? '' : 'hidden'}></div>
+        <div class="ca-card-acc"><div class="ca-card-body"></div></div>
       </div>`).join('');
 
-    listEl.querySelectorAll('.ca-card').forEach(card => {
-      const id = card.dataset.id;
-      const head = card.querySelector('.ca-card-head');
-      const body = card.querySelector('.ca-card-body');
-      if (id === state.openId) fillBody(body, id);
-      head.addEventListener('click', () => {
-        state.openId = state.openId === id ? null : id;
-        render();
-      });
+    initAccordion(listEl, {
+      fillBody,
+      onToggle: (id, open) => { if (open) state.openId = id; else if (state.openId === id) state.openId = null; },
     });
   }
 

@@ -11,9 +11,28 @@
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/layout.css?v=20261028llsvg" />
   <link rel="stylesheet" href="css/components.css?v=20261024logiccopy" />
-  <link rel="stylesheet" href="css/python.css?v=20261020sqlfocus" />
-  <link rel="stylesheet" href="css/master.css?v=20261027iofit" />
+  <link rel="stylesheet" href="css/python.css?v=20261106steadybtns" />
+  <link rel="stylesheet" href="css/master.css?v=20261118iqainline" />
   <link rel="stylesheet" href="css/ipad.css" />
+  <style id="ipad-polish">
+  /* iPad / touch polish — additive, non-destructive. Safe on all devices. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html,body{overscroll-behavior:none}
+  body{-webkit-tap-highlight-color:transparent}
+  button,a,label,summary,select,[role="button"],[role="tab"],[role="link"],.tab,.btn{touch-action:manipulation}
+  img,svg,canvas{-webkit-user-drag:none}
+  @media (hover:none) and (pointer:coarse){
+    button,summary,select,[role="button"],[role="tab"],.tab,.btn{
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none
+    }
+    input,select,textarea{font-size:max(16px,1em)!important}
+  }
+  @supports (padding:env(safe-area-inset-left)){
+    @media (display-mode:standalone){
+      body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+    }
+  }
+  </style>
 </head>
 <body>
   <div id="navProgress" class="nav-progress" aria-hidden="true"></div>
@@ -44,11 +63,11 @@
       </div>
     </div>
     <button id="focusGlobalBtn" class="focus-global-btn" aria-pressed="false" title="Global focus mode — show only the problem, examples &amp; solution (Esc to exit)" aria-label="Toggle global focus mode">🎯 <span class="btx">Focus</span></button>
+    <button id="focusCodeBtn" class="focus-global-btn focus-code-global-btn" aria-pressed="false" style="display:none" title="Global code-only focus (PySpark &amp; SQL) — show only the solution code (Esc to exit)" aria-label="Toggle global code-only focus">💻 <span class="btx">Focus: Code</span></button>
     <div class="topbar-right">
       <button id="paletteBtn" class="ghost-btn" title="Jump to anything (Cmd/Ctrl+K)" aria-label="Command palette — jump to any topic or problem">⌘K <span class="btx">Jump to…</span></button>
       <button id="rosettaBtn" class="ghost-btn" title="Same task in SQL / Spark SQL / PySpark / Pandas / Python" aria-label="Rosetta — same task in every dialect">🔀 <span class="btx">Rosetta</span></button>
       <button id="postmortemBtn" class="ghost-btn" title="Interview postmortem — how to dissect a question: spot the pattern, the approach, do's & don'ts (SQL & PySpark)" aria-label="Interview postmortem — how to dissect a question">🩺 <span class="btx">Postmortem</span></button>
-      <button id="interviewBtn" class="ghost-btn iqa-btn" title="Interview Q&amp;A — rapid-fire theory with interview-ready answers" aria-label="Interview questions and answers">🎤 <span class="btx">Interview Q&amp;A</span></button>
       <button id="cheatBtn" class="ghost-btn ref-btn" title="PySpark function cheatsheet — every function, its parameters, and what they do" aria-label="PySpark cheatsheet">⚡ <span class="btx">PySpark ref</span></button>
       <button id="pyCheatBtn" class="ghost-btn ref-btn" title="Python cheatsheet — the built-ins, idioms & stdlib for a coding round" aria-label="Python cheatsheet">🐍 <span class="btx">Python ref</span></button>
       <button id="sqlCheatBtn" class="ghost-btn ref-btn" title="SQL cheatsheet — every function, its parameters, and how to use it" aria-label="SQL cheatsheet">🗄 <span class="btx">SQL ref</span></button>
@@ -201,7 +220,7 @@
   <script src="js/learncore.js"></script>
   <script src="js/modules/markdown.js?v=20261028llsvg"></script>
   <script src="js/supabase-config.js"></script>
-  <script src="js/modules/store.js?v=20261022searchnext"></script>
+  <script src="js/modules/store.js?v=20261101codesql"></script>
   <script src="js/modules/cloudsync.js"></script>
   <script src="js/filters.js"></script>
   <script src="js/modules/pyviz.js"></script>
@@ -245,7 +264,7 @@
        fast and stops the big synchronous parse that tripped "Page Unresponsive".
        The DSA (Blind 75) practice data above stays eager because app.js builds
        its search index at parse time from it. -->
-  <script src="js/dataloader.js?v=20261027sparksubmit"></script>
+  <script src="js/dataloader.js?v=20261119scenarios2"></script>
 
   <!-- User edits baked from cloud sync (logic/description/code), applied onto the
        eager DSA problems BEFORE app.js builds its search index. GENERATED file —
@@ -253,12 +272,12 @@
   <script src="data/user_overrides.js?v=20261024publish"></script>
 
   <script src="js/search-enhance.js?v=20261020sqlfocus"></script>
-  <script src="js/app.js?v=20261024publish"></script>
+  <script src="js/app.js?v=20261101codesql"></script>
   <script src="js/pyrun.js"></script>
   <script src="js/pyapp.js"></script>
   <script src="js/problemlab.js?v=20261027iocols"></script>
   <script src="js/execguide.js"></script>
-  <script src="js/conceptlab.js"></script>
+  <script src="js/conceptlab.js?v=20261118iqainline"></script>
   <!-- rosetta + postmortem stay eager (small, cross-stack). Each stack's
        interview_qa + cheatsheet now load with that stack's group (dataloader.js). -->
   <script src="data/rosetta.js"></script>
@@ -266,7 +285,7 @@
   <script src="js/palette.js"></script>
   <script src="js/rosetta.js"></script>
   <script src="js/postmortem.js"></script>
-  <script src="js/interviewqa.js"></script>
+  <script src="js/interviewqa.js?v=20261118iqainline"></script>
   <script src="js/cheatsheet.js?v=20261027sqlcollapse"></script>
   <script src="js/copybtn.js"></script>
   <script src="js/sidebar-resize.js"></script>

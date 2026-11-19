@@ -123,6 +123,8 @@
 .ty-med { color: var(--yellow); background: var(--yellow-subtle); }
 .ty-hard { color: var(--red); background: var(--red-subtle); }
 .ty-q { font-size: 1.02rem; font-weight: 700; color: var(--text-primary); margin-bottom: var(--space-4); line-height: 1.45; }
+.ty-code { margin-bottom: var(--space-3); }
+.ty-code .code-block { margin: 0; }
 .ty-options { display: flex; flex-direction: column; gap: var(--space-2); }
 .ty-option {
   display: flex; align-items: center; gap: var(--space-3); text-align: left; cursor: pointer;

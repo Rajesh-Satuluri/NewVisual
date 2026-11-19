@@ -5,6 +5,8 @@ export const IQ = [
   { q: 'How does Kafka use the OS page cache to achieve high throughput?', a: 'Kafka never maintains an in-process message cache. All data is written to and read from the OS page cache via regular file system calls. The OS handles caching and eviction with LRU. Kafka\'s log segments map directly to page-cached regions. When a consumer reads data that was just produced, it almost certainly comes from page cache (not disk), so the read is as fast as RAM. This design keeps Kafka brokers stateless with respect to cache and allows the JVM heap to stay small (<6GB).', tip: 'Say: "Kafka trusts the OS page cache rather than rolling its own — the OS is better at it, and it enables zero-copy reads."' },
   { q: 'What is the structure of a Kafka log segment?', a: 'Each partition is stored as a directory of log segments. A segment consists of: (1) .log — the actual message data (records appended sequentially). (2) .index — sparse offset-to-byte-offset index, one entry per ~4KB. (3) .timeindex — timestamp-to-offset index for time-based seeks. Active segment is the latest; older segments are sealed and eligible for retention cleanup. Segments are rolled on size (log.segment.bytes, default 1GB) or time (log.roll.ms).', tip: 'Know that Kafka can locate any offset in O(log n) using the binary search on the sparse .index file.' },
   { q: 'How does zero-copy I/O work in Kafka and why does it matter?', a: 'Without zero-copy, serving a fetch request involves: disk→kernel buffer→user space buffer→kernel socket buffer→NIC. That\'s 2 extra copies and 4 context switches. With sendfile() (Linux) or TransferTo (Java NIO), data goes disk→kernel buffer→NIC directly — 0 user-space copies, 2 context switches. For a 10Gbps NIC, this is the difference between saturating the link or not. Kafka\'s 2M msg/s throughput benchmarks depend on this.', tip: 'Mention that zero-copy only works for uncompressed data (or when the consumer and producer use the same compression codec). If Kafka must re-compress, it must copy to user space.' },
+  { q: 'Kafka does not fsync every message to disk — so how is it durable?', a: 'Kafka relies on replication, not fsync, for durability. By default it does not force each write to disk — writes land in the OS page cache and the OS flushes lazily. Durability comes from acks=all plus replication: a record is committed only once every in-sync replica holds it, so one broker or its disk can die with zero data loss. (1) fsync per message would wreck throughput. (2) Replication across brokers on independent hardware beats a single disk\'s fsync. The tradeoff: simultaneous power loss on all ISR brokers before any flush could lose unflushed data — which is why replicas span failure domains.', tip: 'Say "Kafka trades fsync for replication." You can still force flushes via log.flush.interval.messages for a single-broker or compliance setup, at a throughput cost.', difficulty: 'medium' },
+  { q: 'How does a broker locate a specific offset on disk so quickly?', a: 'Through segment file names plus a sparse index. (1) Each partition is split into segments named by their base offset, so the broker binary-searches those names to find which segment holds the target offset. (2) Inside that segment the .index file maps offsets to byte positions, but only about every 4KB (log.index.interval.bytes) — it is sparse, not per-record. (3) The broker binary-searches the index for the nearest lower offset, seeks to that byte in the .log, then scans forward a few records to the exact one. So a lookup is O(log n) with a tiny linear scan at the end — no full-file read, and the index stays small enough to memory-map.', tip: 'Emphasize "sparse index + binary search + short forward scan." The index trades a little precision to stay small enough to live in memory.', difficulty: 'medium' },
 ];
 
 export function mount(container) {
@@ -12,6 +14,10 @@ export function mount(container) {
     tag: 'M05 · Core Internals',
     title: 'Broker Internals',
     subtitle: 'Log segments, page cache, zero-copy I/O — explained through Amazon\'s orders broker',
+    definition: {
+      formal: "A broker is a Kafka server that stores partition data on disk as segmented log files and serves reads and writes. Internally it relies on the OS page cache and zero-copy transfer to move data at near-network speed.",
+      easy: "A broker is one Kafka server. It writes messages to files on disk and hands them out to readers, leaning on the operating system’s memory tricks to stay fast.",
+    },
     tabs: [
       { id: 'segments',  label: '📁 Log Segments' },
       { id: 'pagecache', label: '🧠 Page Cache' },
@@ -196,6 +202,24 @@ function buildAmazon(container) {
         </div>
       </div>
 
+      <!-- Theory: append-only + OS cache -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The mental model — the broker is an append-only file, and the OS is the cache</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px">Every write is an <strong style="color:#E2E8F0">append to the end of the active segment</strong> — never an in-place update, never a random seek. Sequential disk throughput runs into the hundreds of MB/s even on spinning disks, one to two orders of magnitude faster than random I/O, so by only ever appending, Kafka turns "writing to disk" into the one thing disks are genuinely fast at. The log is also <strong style="color:#E2E8F0">immutable</strong>: a record, once written, is never modified — which is why there are no row locks, no in-place fragmentation, and why replication and retention reduce to "copy a byte range" and "delete a file."</p>
+          <p style="margin:0 0 14px">When Fulfillment reads offset 847,231, the broker calls <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">sendfile()</code> and the kernel streams bytes <strong style="color:#E2E8F0">straight from the page cache to the network socket</strong> — never copying them into the broker's Java heap and back. A naive server does four copies and two context switches per read; zero-copy does it with none in user space. That is why a broker's CPU barely moves while it serves millions of reads a second — it is, as the note below puts it, transparent glass.</p>
+          <p style="margin:0">Kafka keeps a deliberately <strong style="color:#E2E8F0">small JVM heap</strong> (often 5–6 GB even on a 64 GB box) and hands the rest of RAM to the OS page cache. Recent reads are served from that cache — the same RAM the write just populated — so a "disk read" is usually a RAM read, and Kafka needs no cache of its own inside the heap. Because the page cache lives in kernel memory, it <strong style="color:#E2E8F0">survives a broker process restart</strong>: a bounced broker comes back with a warm cache, where an in-heap cache would start cold.</p>
+        </div>
+      </div>
+
+      <!-- Where the model breaks -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Where the fast path breaks down</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid #F59E0B;border-radius:10px;padding:14px 18px;font-size:12px;color:#94A3B8;line-height:1.7">
+          Two things turn this fast path slow. <strong style="color:#F59E0B">Too many partitions on one broker:</strong> each partition is its own set of files with its own append point, so thousands of them fragment the single sequential write into many scattered ones and multiply open file handles and failover time. <strong style="color:#F59E0B">Consumers reading old data:</strong> a backfill of week-old records is a guaranteed page-cache miss, pulling cold pages off disk and competing with live writes for I/O. This is exactly why Amazon keeps the latency-sensitive Fulfillment consumer and the throughput-only Analytics consumer apart — so the second can never starve the first.
+        </div>
+      </div>
+
       <!-- Key insight callout -->
       <div style="background:#10B98112;border:1.5px solid #10B98133;border-radius:12px;padding:16px 20px;font-size:13px;color:#94A3B8;line-height:1.7">
         💡 <strong style="color:#10B981">The broker does almost nothing.</strong> It appends bytes to a file (sequential write — fastest possible disk operation), indexes them, and later reads them via sendfile (zero user-space copies). There's no message parsing, no routing logic, no per-message overhead. This is why a single commodity server can handle 2 million messages per second. Kafka's performance isn't clever — it's just refusing to do unnecessary work.
@@ -271,5 +295,94 @@ function buildPageCache(container) {
           </marker>
         </defs>
       </svg>
+    </div>
+
+    <!-- What the page cache actually is -->
+    <div style="margin-top:8px;margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">What the page cache actually is</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 14px">The <strong style="color:#E2E8F0">page cache</strong> is not a Kafka feature — it is a part of the Linux kernel. Whenever any process reads or writes a file, the OS keeps those 4KB chunks (<em>pages</em>) of the file in otherwise-free RAM, so the next access to the same bytes is served from memory instead of disk. Kafka's entire I/O design is built on handing this job to the kernel rather than reinventing it inside the JVM.</p>
+        <p style="margin:0 0 14px">When Broker 1 appends your iPhone 15 Pro order to the active segment, it doesn't force the bytes to the physical platter and wait. It writes into the page cache and returns immediately; the kernel flushes those <em>dirty pages</em> to disk in the background. So a "write to disk" is really a <strong style="color:#E2E8F0">write to RAM</strong> that the OS persists later — which is why a single broker sustains millions of appends per second.</p>
+        <p style="margin:0">A few seconds later the Fulfillment Service reads that same offset. The page is <strong style="color:#E2E8F0">still in the cache</strong> — the exact RAM the write just populated — so the read never touches the disk at all. Write-populates-cache, read-hits-cache: the same pages serve both sides, and the disk is only ever touched lazily in the background.</p>
+      </div>
+    </div>
+
+    <!-- Reading the diagram: why zero-copy needs the cache -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Reading the diagram — why zero-copy depends on the cache</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 14px">In the <strong style="color:#EF4444">traditional path</strong> (top row), serving one record copies it four times — disk → kernel buffer → the broker's user-space (Java heap) buffer → socket buffer → NIC — and crosses the user/kernel boundary on every hop. The broker's CPU is busy shovelling bytes it never even looks at.</p>
+        <p style="margin:0 0 14px">In the <strong style="color:#10B981">zero-copy path</strong> (bottom row), the broker calls <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">sendfile()</code> and the kernel streams the bytes <strong style="color:#E2E8F0">straight from the page cache into the socket</strong>, skipping the user-space buffer entirely. The data never enters the JVM heap, so there is nothing to garbage-collect and the CPU barely moves. This only works because the records are <em>already sitting in the page cache</em> — zero-copy and the page cache are two halves of the same trick.</p>
+        <p style="margin:0">That is the real meaning of "the broker is transparent glass": on the hot path it parses nothing, caches nothing in its own heap, and routes nothing — it just points the kernel at a byte range and lets the hardware do the transfer.</p>
+      </div>
+    </div>
+
+    <!-- Hit vs miss, and the small-heap trade-off -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">Cache hit vs. miss — and why Kafka keeps a tiny heap</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:16px 20px">
+          <div style="font-size:13px;font-weight:700;color:#10B981;margin-bottom:8px">Hit — the common case (~99.7%)</div>
+          <div style="font-size:12px;color:#94A3B8;line-height:1.7">Fulfillment reads records seconds after they're written. Those pages are still resident, so the read is a RAM read served by <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 5px;border-radius:5px">sendfile()</code> with no disk seek. This is the path almost every live consumer takes.</div>
+        </div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:16px 20px">
+          <div style="font-size:13px;font-weight:700;color:#06B6D4;margin-bottom:8px">Miss — the cold case</div>
+          <div style="font-size:12px;color:#94A3B8;line-height:1.7">The Analytics consumer backfills 3-day-old records whose pages were evicted long ago. That forces a real disk read and competes with live writes for I/O — which is exactly why Amazon isolates the latency-sensitive Fulfillment consumer from the throughput-only Analytics one.</div>
+        </div>
+      </div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:16px 20px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 12px">Because the kernel is doing the caching, Kafka deliberately runs a <strong style="color:#E2E8F0">small JVM heap</strong> — often just 5–6 GB even on a 64 GB broker — and hands the other ~58 GB to the OS for the page cache. Caching inside the heap would be counter-productive: it would double-store the same bytes (once in the heap, once in the kernel cache) and hand the garbage collector tens of gigabytes to scan.</p>
+        <p style="margin:0">The page cache lives in kernel memory, so it also <strong style="color:#E2E8F0">survives a broker process restart</strong>. A bounced broker comes back to a <em>warm</em> cache and keeps serving reads from RAM, where an in-heap cache would restart stone cold and hammer the disk until it refilled.</p>
+      </div>
+    </div>
+
+    <!-- Worked example: a real cluster -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">A real cluster — watch the page cache actually happen</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 16px">Abstractions get slippery without numbers, so here is a concrete Amazon-scale <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">orders</code> cluster. Every claim below is just arithmetic on these specs — no Kafka magic.</p>
+
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px">
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Hardware — per broker</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8">6 × AWS <strong style="color:#E2E8F0">i3en.2xlarge</strong><br>8 vCPU · <strong style="color:#E2E8F0">64 GB RAM</strong> · 25 Gbps NIC<br>2 × 2.5 TB local NVMe SSD</div>
+          </div>
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Memory split</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8">JVM heap: <strong style="color:#E2E8F0">6 GB</strong><br>OS + overhead: ~3 GB<br>Free for <strong style="color:#10B981">page cache: ~55 GB</strong></div>
+          </div>
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Topic + load (Prime Day peak)</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8">36 partitions · RF 3 · lz4<br>~1 KB/record · <strong style="color:#E2E8F0">500 MB/s</strong> written per broker</div>
+          </div>
+          <div style="background:#0A0E1A;border:1px solid #1E293B;border-radius:9px;padding:12px 14px">
+            <div style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin-bottom:6px">Consumers</div>
+            <div style="font-size:12px;color:#CBD5E1;line-height:1.8"><span style="color:#10B981">Fulfillment</span> — lags ~10 s<br><span style="color:#06B6D4">Analytics</span> — backfills hours/days</div>
+          </div>
+        </div>
+
+        <p style="margin:0 0 6px;color:#E2E8F0;font-weight:700;font-size:12px">① The write (a producer appends an order)</p>
+        <p style="margin:0 0 16px">The broker's <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">write()</code> to the active segment file returns in <strong style="color:#E2E8F0">microseconds</strong> — it only copied ~1 KB into a page cache page and marked that page <em>dirty</em>. No platter was touched. The kernel's flusher threads write dirty pages to NVMe in the background, governed by <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">vm.dirty_background_ratio</code> (start flushing at ~N% dirty) and <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">vm.dirty_ratio</code> (block writers if dirty pages pile up too high). At 500 MB/s the SSD keeps up easily, so dirty pages rarely accumulate — the write path never stalls.</p>
+
+        <p style="margin:0 0 6px;color:#E2E8F0;font-weight:700;font-size:12px">② The cache horizon — the one number that explains everything</p>
+        <p style="margin:0 0 10px">How long does a record stay in RAM before the kernel evicts it to make room for newer writes? It's just capacity ÷ rate:</p>
+        <div style="background:#0A0E1A;border:1px solid #10B98144;border-radius:9px;padding:14px 16px;margin-bottom:12px;font-family:ui-monospace,monospace;font-size:12px;color:#CBD5E1;line-height:1.9">
+          cache horizon ≈ page cache size ÷ write rate<br>
+          &nbsp;&nbsp;= 55 GB ÷ 500 MB/s<br>
+          &nbsp;&nbsp;≈ <strong style="color:#10B981">110 seconds</strong> of the newest data lives in RAM
+        </div>
+        <p style="margin:0 0 16px">So <strong style="color:#E2E8F0">any consumer lagging under ~110 seconds is a guaranteed cache hit</strong> — its reads never touch disk. Fulfillment, lagging ~10 s, sits comfortably inside the window: that's the <strong style="color:#10B981">~99.7% hit rate</strong>. Note the direction: a <em>bigger</em> write rate <em>shrinks</em> the window, so the busier the cluster gets, the shorter the span a lagging consumer can afford before it falls to disk.</p>
+
+        <p style="margin:0 0 6px;color:#E2E8F0;font-weight:700;font-size:12px">③ The read (Fulfillment fetches offset 847,231)</p>
+        <p style="margin:0 0 16px">The record was written 10 s ago — well inside the 110 s horizon — so its page is still resident. The broker issues <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">sendfile()</code> and the kernel DMA-streams those bytes from the page cache straight to the NIC. Zero user-space copies, no JVM heap allocation, no disk seek. The 25 Gbps network — not the CPU and not the SSD — is the ceiling.</p>
+
+        <p style="margin:0 0 6px;color:#06B6D4;font-weight:700;font-size:12px">④ The miss (Analytics backfills 3-day-old orders)</p>
+        <p style="margin:0">Those pages were evicted ~110 s after they were written, three days ago. The fetch now triggers a <strong style="color:#E2E8F0">real NVMe read</strong>, and — worse — the kernel pulls those cold pages <em>into</em> the cache, evicting hot pages the live consumers were using. One greedy backfill can quietly cool the cache for everyone, which is exactly why Amazon runs Analytics on a separate consumer (often a separate set of follower-fetch or tiered-storage brokers) so its cold reads never evict Fulfillment's hot pages.</p>
+      </div>
+    </div>
+
+    <!-- Key takeaway -->
+    <div style="background:#10B98112;border:1.5px solid #10B98133;border-radius:12px;padding:16px 20px;font-size:13px;color:#94A3B8;line-height:1.7">
+      💡 <strong style="color:#10B981">Kafka's speed is borrowed, not built.</strong> It doesn't implement a cache, a buffer pool, or a read-ahead engine — it lets the Linux page cache do all three, then uses <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">sendfile()</code> to move bytes from that cache to the network without ever touching user space. The write warms the cache; the read drains it; the disk is just the backing store the kernel flushes to in the background.
     </div>`;
 }

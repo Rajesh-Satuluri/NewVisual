@@ -7,8 +7,11 @@ import { getNavItem, MODULES } from '../components/nav.js';
 
 const MODES = [
   { id:'learn', icon:'📚', name:'Learn', color:'#3B82F6',
-    blurb:'Start from zero and build up. Follow the story, then the core features.',
-    path:['m01','m07','m08','m09','m10','m11','m13','m15','m14','m12'] },
+    blurb:'Start from zero and build up. Follow the story, the core features, then build one yourself.',
+    path:['m01','m07','m08','m09','m10','m11','m13','m15','m14','m12','project-ide'] },
+  { id:'build', icon:'🛠️', name:'Build', color:'#14B8A6',
+    blurb:'Hands-on: write real SQL, template Jinja & YAML, then build and test a whole dbt project in the browser.',
+    path:['studio','config-lab','project-ide','project-explorer','m37'] },
   { id:'internals', icon:'🔬', name:'Internals', color:'#8B5CF6',
     blurb:'How dbt actually works under the hood — compile, manifest, selection.',
     path:['m17','m18','m19','m20'] },

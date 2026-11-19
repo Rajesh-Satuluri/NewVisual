@@ -5,6 +5,8 @@ export const IQ = [
   { q: 'How do you choose the right number of partitions for a topic?', a: 'Target throughput / (partition throughput). Partition throughput: ~10MB/s write, ~50MB/s read per partition (disk I/O bound). Rule of thumb: partition count = max(T/10, desired consumer parallelism). Over-partitioning increases file handles, leader election cost, and end-to-end latency. Under-partitioning limits consumer parallelism. For Amazon orders at 1GB/s: ~100 partitions. Cannot reduce partition count after creation (only increase).', tip: 'Mention: more partitions = more files, more replication traffic, higher minimum latency (each extra partition adds ~1ms to a broker\'s produce loop).' },
   { q: 'What is a hot partition and how do you fix it?', a: 'A hot partition receives disproportionate traffic because many records share the same partition key. E.g., if key=country and 80% of orders are US, partition 0 gets 80% of load. Fix options: (1) Better key — use customer_id or order_id for even distribution. (2) Key salting — append random suffix to key, then strip in consumer. (3) Custom partitioner — route based on business logic. (4) More partitions — doesn\'t help if key cardinality is low.', tip: 'Amazon fraud detection story: keying by payment_method caused hot partition for "credit card". Switched to hash(customer_id) for even distribution.' },
   { q: 'Why does Kafka only guarantee ordering within a partition, not across partitions?', a: 'Each partition is a single ordered log maintained by one leader broker. Ordering across partitions would require a distributed transaction log — prohibitively expensive at scale. For entities that require ordering (e.g., all events for order #12345 in sequence), use the order ID as the partition key: all events route to the same partition and are consumed in order. If you need total ordering across all events, use a single-partition topic (forfeiting parallelism).', tip: 'State the tradeoff explicitly: ordering guarantees come at the cost of parallelism. Single-partition = total order but 1 consumer max.' },
+  { q: 'Why does increasing a topic\'s partition count break key-based ordering?', a: 'Partition routing is partition = hash(key) mod partitionCount. Change partitionCount and the modulus changes, so a key that used to map to partition 2 may now map to partition 5. (1) Old records for that key stay on partition 2; new records go to partition 5 — the key\'s history is split across two partitions with no ordering between them. (2) A consumer rebuilding per-key state can see new events before older ones. This is why you cannot safely add partitions to a keyed, order-sensitive topic in place. The fix: create a new topic with the target partition count and migrate, or size partitions correctly up front.', tip: 'Say it plainly: adding partitions rehashes keys, so per-key ordering only holds for records written after the change. Size order-sensitive topics once, do not grow them.', difficulty: 'hard' },
+  { q: 'Why can you increase partitions but never decrease them?', a: 'Decreasing would have to move or delete data and would break ordering and offsets. (1) Each partition is an independent ordered log; merging two into one has no correct way to interleave records while preserving order. (2) Consumers track committed offsets per partition in __consumer_offsets — dropping a partition strands those offsets and any unconsumed data. (3) Keyed records placed by hash(key) mod N would need rehashing. So Kafka only allows increasing partition count, and even that reshuffles future key routing. To truly shrink, create a new topic with fewer partitions and migrate — so plan capacity up front.', tip: 'Frame it as a one-way door: partition count only goes up. Treat the initial choice as near-permanent and size for peak throughput.', difficulty: 'easy' },
 ];
 
 export function mount(container) {
@@ -12,6 +14,10 @@ export function mount(container) {
     tag: 'M06 · Core Internals',
     title: 'Partitions',
     subtitle: 'Distribution, ordering, parallelism, hot partitions — decisions Amazon makes for every topic',
+    definition: {
+      formal: "A partition is an ordered, immutable sequence of records within a topic. It is Kafka’s unit of parallelism and ordering: records are ordered within a partition but not across partitions, and a record’s key decides which partition it lands in.",
+      easy: "A topic is split into lanes called partitions. Order is guaranteed inside one lane but not between lanes, and a message’s key picks its lane. More lanes means more readers working at once.",
+    },
     tabs: [
       { id: 'balance', label: '⚖️ Load Distribution' },
       { id: 'hot',     label: '🔥 Hot Partition Demo' },
@@ -212,6 +218,23 @@ function buildAmazon(container) {
                 </tr>`).join('')}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Theory: partition is the unit of three things -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The theory — a partition is the unit of three things at once</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px">A partition is simultaneously the unit of <strong style="color:#10B981">parallelism</strong>, <strong style="color:#F59E0B">ordering</strong>, and <strong style="color:#3B82F6">placement</strong> — and every partition decision is really a decision about all three. <strong style="color:#10B981">Parallelism:</strong> at most one consumer <em>per group</em> reads a given partition, so the partition count is the hard ceiling on how many consumers can share the work. <strong style="color:#F59E0B">Ordering:</strong> Kafka guarantees order only <em>within</em> a partition, never across them — so the key, which picks the partition, is precisely what decides which records stay in sequence. <strong style="color:#3B82F6">Placement:</strong> a partition and its replicas live on specific brokers, so partitions are also how storage and load physically spread across the cluster.</p>
+          <p style="margin:0">Routing is <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">murmur2(key) % N</code>, so the count <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">N</code> is baked into where every key lands. Change <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">N</code> and the modulo changes, keys move, and per-key ordering breaks for in-flight data — which is why count is effectively a <strong style="color:#E2E8F0">one-way door</strong> and Amazon over-provisions once rather than resize later. But more partitions isn't free: each one adds open files and memory on <em>every</em> broker, another leader to elect (so cluster-wide failover takes longer), more producer-side buffering, and more for a consumer group to shuffle on every rebalance. "Enough for 2× peak, no more" is the balance between future headroom and these standing costs.</p>
+        </div>
+      </div>
+
+      <!-- Practical: salting a hot key -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">When the key is unavoidably skewed — salting</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid #8B5CF6;border-radius:10px;padding:14px 18px;font-size:12px;color:#94A3B8;line-height:1.7">
+          Sometimes the natural key is skinny: a flash sale where 70% of events are one <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">product_id</code>, so one partition melts no matter how many you add. The fix is <strong style="color:#8B5CF6">key salting</strong> — append a small random suffix to the hot key (<code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">B08N5WRWNW#0</code> … <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">#9</code>) so it spreads across 10 partitions, then have the consumer side re-group the sub-keys. You trade strict per-key ordering for throughput, so salt only the keys that are actually hot — detect them first — and leave the cold majority on the plain key, where ordering still holds.
         </div>
       </div>
 

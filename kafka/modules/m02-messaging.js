@@ -16,6 +16,18 @@ export const IQ = [
     a: 'Kafka retains messages durably; consumers pull at their own pace. Push-based pub/sub (SNS, Google Pub/Sub) delivers and typically deletes. Amazon\'s own SNS+SQS: SNS fans out to SQS queues, each queue gets one copy, and once consumed the message is gone. With Kafka: the fulfillment, fraud-detection, and notifications consumer groups all read the same <code>orders</code> topic independently — no separate fan-out wiring needed. If fraud-detection crashes and restarts, it replays from its last offset — it doesn\'t miss a single order. That durable, replayable log is Kafka\'s core difference.',
     tip: 'SNS+SQS is push-based fan-out + competing consumers. Kafka unifies both patterns, adds durable replay, and gives strict per-partition ordering.'
   },
+  {
+    q: 'How does a single Kafka topic serve both queue-style and pub/sub-style consumers?',
+    a: 'Consumer groups are the switch. Put every consumer in the same group and Kafka load-balances the partitions across them — that is queue semantics, each message handled once by the group. Put consumers in different groups and each group gets its own full copy — that is pub/sub fan-out. Amazon example: the <code>orders</code> topic is read by a <code>fulfillment</code> group (3 instances splitting the partitions, queue-style) and independently by <code>fraud-detection</code> and <code>notifications</code> groups, each replaying every order. One topic, one copy on disk, both patterns at once — no separate SNS fan-out wiring. The <code>group.id</code> is the only thing that decides which behavior you get.',
+    tip: 'Say "same <code>group.id</code> = competing consumers (queue); different <code>group.id</code> = independent subscribers (pub/sub)." That one sentence answers the whole question.',
+    difficulty: 'easy'
+  },
+  {
+    q: 'What three things does a message key control in Kafka?',
+    a: 'The key controls three things at once. (1) Partition routing: Kafka hashes the key (murmur2 mod partition count) so all records with the same key land on the same partition. (2) Ordering: because order is only guaranteed within a partition, a stable key keeps one customer\'s or order\'s events in sequence. (3) Compaction: with <code>cleanup.policy=compact</code>, Kafka keeps only the latest value per key, making the key a changelog\'s primary key. Amazon example: keying <code>orders</code> by <code>order_id</code> keeps every status update for one order on one partition and in order. A null key means round-robin, which sacrifices ordering.',
+    tip: 'Remember the chain: key → hash → partition → ordering. When someone\'s events arrive out of order, the first question is always "what is your key?"',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {
@@ -23,6 +35,10 @@ export function mount(container) {
     tag: 'M02 · Foundation',
     title: 'Messaging Fundamentals',
     subtitle: 'Producers, brokers, topics, consumers — every concept explained through Amazon\'s order system',
+    definition: {
+      formal: "Messaging is the pattern of moving data between systems as discrete events through an intermediary — decoupling the apps that produce data (producers) from those that consume it (consumers) via named streams called topics on a broker.",
+      easy: "Instead of apps calling each other directly, they drop messages into labeled mailboxes (topics). Senders do not need to know who reads them, and readers do not need the sender to be online.",
+    },
     tabs: [
       { id: 'concepts', label: '📖 Core Concepts' },
       { id: 'flow',     label: '🔄 Message Journey' },
@@ -149,6 +165,57 @@ function buildConcepts(container) {
           Notifications is at 847,231 — on time, sent your email.
           Each group's offset is <strong>completely independent</strong>. Fraud Detection lagging
           doesn't slow Fulfillment by even 1ms.
+        </div>`
+    },
+    {
+      icon: '📦',
+      title: 'Record',
+      tag: 'The Atom',
+      body: `The single unit Kafka moves and stores — also called an <strong>event</strong> or message. Six fields always travel together: <strong>key, value, timestamp, headers, partition, offset</strong>.
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          One Buy Now click becomes one record. <code>key = "U-88234"</code> (routes it to P2),
+          <code>value = {orderId, product, price}</code> (the actual order JSON),
+          <code>timestamp</code> = the moment you clicked, and <code>headers</code> carry metadata <em>about</em> the event —
+          <code>trace-id</code>, <code>source=ios-app</code> — kept out of the value so consumers can route or filter without parsing it.
+          The broker then stamps <strong>partition = P2</strong> and <strong>offset = 847,231</strong> — the record's permanent address.
+          Key and headers are optional; a <code>null</code> value is even meaningful (a delete marker). Everything the business cares about rides in these six fields.
+        </div>`
+    },
+    {
+      icon: '🔀',
+      title: 'Queue vs Pub/Sub',
+      tag: 'Two Models, One Log',
+      body: `Older systems make you pick: a <strong>queue</strong> (one message → one worker, then deleted) or <strong>pub/sub</strong> (one message → every subscriber). Kafka is <strong>both at once</strong> — the <em>consumer group</em> alone decides which.
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          <strong>Inside</strong> the <code>fulfillment</code> group, 3 consumers split the partitions — each order goes to exactly one worker. That is the <strong>queue</strong> model: competing consumers, work shared.
+          <strong>Across</strong> groups, <code>fulfillment</code>, <code>fraud-detection</code> and <code>notifications</code> each get their own full copy of every order. That is the <strong>pub/sub</strong> model: fan-out.
+          Same topic, same records — grouping is the only knob. And unlike a real queue, nothing is deleted on read, so a brand-new group can appear tomorrow and still receive all of it.
+        </div>`
+    },
+    {
+      icon: '🎯',
+      title: 'Delivery Semantics',
+      tag: 'Processing Guarantee',
+      body: `How many times a record can be <strong>processed</strong> when something crashes — decided mostly by <em>when</em> the consumer commits its offset. Three levels:
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          <strong>At-most-once</strong> — commit <em>before</em> processing. A crash loses the order; it is never retried. (Fine for a click metric, fatal for a purchase.)<br>
+          <strong>At-least-once</strong> — commit <em>after</em> processing. A crash replays the order, so Fulfillment could ship twice unless the step is idempotent. This is Kafka's practical default.<br>
+          <strong>Exactly-once</strong> — commit and processing happen as one atomic step. Payment Service charges your card once, even through a crash. Strongest guarantee, most setup.
+        </div>`
+    },
+    {
+      icon: '🔁',
+      title: 'Replay',
+      tag: 'Rewind the Log',
+      body: `Because the log <strong>keeps records after they are read</strong> (a queue deletes them), a consumer can move its offset <strong>backward</strong> and read history again — the capability a traditional queue can never offer.
+        <div class="example-block">
+          <span class="example-label">Amazon</span>
+          The <code>analytics</code> team ships a new dashboard on Thursday. Instead of starting empty, it <strong>resets its offset to Monday</strong> and replays 3 days of real orders to backfill every chart.
+          Fulfillment, Fraud and Notifications never notice — their offsets don't move. A fixed bug can be re-run over the exact events that tripped it.
+          Replay only reaches as far back as <strong>retention</strong> allows (here, 7 days) — older records are pruned and gone for good.
         </div>`
     },
   ];

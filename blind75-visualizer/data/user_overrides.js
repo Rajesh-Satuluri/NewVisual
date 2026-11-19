@@ -2,8 +2,8 @@
    Baked from cloud sync by .github/workflows/bake-edits.yml. It overlays the
    user's in-tool edits (logic / description / code) onto the problems at load,
    so edits render for everyone and are captured in the Backup (.zip).
-   generatedAt: 2026-10-31T01:50:29.150Z
-   edits: logic=76 desc=0 code=39 */
+   generatedAt: 2026-11-19T08:47:44.735Z
+   edits: logic=76 desc=0 code=42 */
 (function () {
   "use strict";
   var B = window.BLIND75 || (window.BLIND75 = {});
@@ -299,6 +299,9 @@
     "container-with-most-water": {
       "1:plain": "class Solution:\n    def maxArea(self, height: List[int]) -> int:\n        left, right = 0, len(height) - 1\n        best = 0\n        while left < right:\n            area = (right - left) * min(height[left], height[right])  # Area formula\n            best = max(best, area)   # Update the best\n            if height[left] < height[right]:   # Move the pointers\n                left += 1\n            else:\n                right -= 1\n        return best"
     },
+    "spark:create-df-structtype": {
+      "0:secondary": "from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType\n\nschema = StructType([  # StructType represents the entire schema — the collection of columns.\n    StructField('employee_id', IntegerType(), False),   # nullable=False — the column must not contain NULL values.\n    StructField('name', StringType(), True),     # nullable=True— the column can contain NULL values.\n    StructField('department', StringType(), True), # StructField represents one column within that schema.\n    StructField('salary', DoubleType(), True),\n])\n\ndata = [(1, 'Asha', 'Engineering', 120000.0)]\ndf = spark.createDataFrame(data, schema)\ndf.printSchema()"
+    },
     "spark:extract-email-domain": {
       "0:primary": "from pyspark.sql.functions import col, split, element_at, regexp_extract  # Import column, split, array-element, and regex-extraction functions.\n\n# Option A: Split the email at '@' and take the second element.\ndomA = element_at(split(col('email'), '@'), 2)  # 'asha@acme.com' → ['asha', 'acme.com'] → 'acme.com'.\n# split takes two params, string and the delimeter.\n\n# Option B: Use one regex to capture everything after '@'.\ndomB = regexp_extract(col('email'), '@(.+)$', 1)  # Group 1 captures the domain → 'asha@acme.com' → 'acme.com'.\n# Regex: '@(.+)$'\n# @   → Match the literal '@'.\n# (.+) → Capture group 1: one or more of any character.\n# $   → End of string.\n# Overall → Capture everything after the '@' until the end.\n\nresult = (users\n    .withColumn('domain', domA))  # Add the extracted domain as a new column; this is a narrow transformation (no shuffle).\n\nresult.select(  # Select only the columns needed in the output.\n    'user_id', 'email', 'domain'\n).show(truncate=False)  # show() triggers Spark execution and displays the complete values.",
       "0:secondary": "from pyspark.sql.functions import col, split, element_at, regexp_extract\n# split() Breaks a string into an array on a delimiter or regex.  returns an array  [\"john\", \"example.com\"]\n# element_at() retrieves the second element from the array.\n\nresult = users.withColumn('domain', element_at(split(col('email'), '@'), 2)) \nresult.select('user_id', 'email', 'domain').show(truncate=False)"
@@ -308,6 +311,9 @@
     },
     "pacific-atlantic-water-flow": {
       "1:plain": "class Solution:\n    def pacificAtlantic(self, heights: list[list[int]]) -> list[list[int]]:\n        m, n = len(heights), len(heights[0])\n        pacific = [[False] * n for _ in range(m)]\n        atlantic = [[False] * n for _ in range(m)]\n        directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]\n\n        def dfs(r, c, reachable):\n            reachable[r][c] = True\n            for dr, dc in directions:\n                nr, nc = r + dr, c + dc\n                # Move to neighbor if it has equal or greater height (reverse flow)\n                if 0 <= nr < m and 0 <= nc < n and not reachable[nr][nc] and heights[nr][nc] >= heights[r][c]:\n                    dfs(nr, nc, reachable)\n\n        # DFS from Pacific border (top row + left column)\n        for c in range(n):\n            dfs(0, c, pacific)\n        for r in range(m):\n            dfs(r, 0, pacific)\n\n        # DFS from Atlantic border (bottom row + right column)\n        for c in range(n):\n            dfs(m - 1, c, atlantic)\n        for r in range(m):\n            dfs(r, n - 1, atlantic)\n\n        # Collect cells reachable from both oceans\n        result = []\n        for r in range(m):\n            for c in range(n):\n                if pacific[r][c] and atlantic[r][c]:\n                    result.append([r, c])\n        return result"
+    },
+    "spark:create-df-from-tuples": {
+      "0:secondary": "from pyspark.sql import SparkSession\n\nspark = SparkSession.builder.getOrCreate()\n\ndata = [   # Take a list of tuples (data).\n    (1, 'Asha', 'Engineering', 120000),\n    (2, 'Ravi', 'Sales', 80000),\n]\ncolumns = ['employee_id', 'name', 'department', 'salary']  # List of strings (header).\n\ndf = spark.createDataFrame(data, columns)\ndf.show()"
     },
     "spark:split-full-name-parts": {
       "0:primary": "from pyspark.sql.functions import col, split, element_at, size, trim  # Import column, split, array-element, array-size, and whitespace-trimming functions.\n\nparts = split(trim(col('name')), r'\\s+')  # Trim outer spaces, then split name on 1+ whitespace characters.\n# Regex: r'\\s+' → \\s = whitespace; + = one or more → \"Maria  de la Cruz\" → ['Maria','de','la','Cruz'].\n\nresult = (customers\n    .withColumn('first_name', element_at(parts, 1))       # element_at(array, 1) → first element; Spark arrays use 1-based indexing.\n    .withColumn('last_name', element_at(parts, size(parts))))  # size(parts) → array length; element_at(..., size) → last element.\n)\n\nresult.select(  # Keep only the required output columns.\n    'customer_id', 'name', 'first_name', 'last_name'\n).show(truncate=False)  # show() triggers Spark execution and displays the complete values."
@@ -329,6 +335,9 @@
     },
     "spark:orders-on-consecutive-days": {
       "0:secondary": "from pyspark.sql.window import Window\nfrom pyspark.sql.functions import col, lag, datediff\n\ndays = orders.select('customer_id', 'order_date').distinct()  # Get the distinct orders\n\nw = (Window   #  PySpark window specification builder\n     .partitionBy('customer_id')\n     .orderBy('order_date'))\n\nprev_day = lag('order_date').over(w)  # prev_day is a PySpark Column expression, not an actual column in your DataFrame yet.\n\nresult = (days\n    .withColumn('gap', datediff(col('order_date'), prev_day))  # Gap between curr and prev order\n    .filter(col('gap') == 1)      # Gap==1 means orders are on consecutive days\n    .select('customer_id').distinct())\nresult.show()"
+    },
+    "spark:inner-join-customers-orders": {
+      "0:secondary": "from pyspark.sql.functions import col\n\nc = customers.alias('c')\no = orders.alias('o')\nresult = c.join(\n    o,\n    on=col('c.customer_id') == col('o.customer_id'),\n    how='inner'\n)\nresult.select(\n    col('o.order_id'),\n    col('c.customer_id'),\n    col('c.name'),\n    col('o.order_amount')\n).show()"
     },
     "spark:parse-json-string-to-struct": {
       "1:primary": "from pyspark.sql.functions import col, from_json, schema_of_json, lit  \n\nsample = '{\"user\":\"u1\",\"action\":\"click\",\"count\":3}'  # Representative JSON string used to infer the expected structure.\ninferred = schema_of_json(lit(sample))               # Infer a Spark schema from the sample JSON.\n\n# Regex: None — this code does not use a regex.\n\nresult = (events\n    .withColumn(  # Add a new column containing the parsed JSON as a STRUCT.\n        'parsed',\n        from_json(col('payload'), inferred)  # Parse the JSON string in payload using the inferred schema.\n    )\n    .select(  # Select the event ID and expand the STRUCT fields into separate columns.\n        'event_id',\n        'parsed.*'  # * expands user, action, count from the parsed STRUCT.\n    )\n)\n\nresult.show()  # show() is an ACTION → Spark executes the transformations and displays the result.",
@@ -354,7 +363,7 @@
     }
   }
 };
-  OV.generatedAt = "2026-10-31T01:50:29.150Z";
+  OV.generatedAt = "2026-11-19T08:47:44.735Z";
   B.USER_OVERRIDES = OV;
 
   // Every problem registry the unified app exposes an .all() on.

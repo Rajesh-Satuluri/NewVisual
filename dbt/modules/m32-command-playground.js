@@ -1,8 +1,11 @@
 // M32 · Command Playground
 // An interactive dbt command reference. Pick a command to see its purpose, a
 // real example, what happens internally, the production use, and the common
-// mistake. Plus the selectors/flags that modify every command.
+// mistake. Plus the selectors/flags that modify every command — and a Terminal
+// that SIMULATES a command against the sample project, with output derived from
+// the real manifest graph (labeled simulated; the IDE does real execution).
 import { createModuleShell, createIQSection, injectCodeEnhancements } from '../components/module-shell.js';
+import { buildArtifacts } from '../data/manifest-gen.js';
 
 const GROUPS = [
   {
@@ -84,13 +87,247 @@ export function mount(container) {
     subtitle: 'Every dbt command — purpose, example, what happens internally, production use, and the common mistake.',
     tabs: [
       { id: 'lab',    label: '⌨️ Commands' },
+      { id: 'term',   label: '🖥️ Terminal' },
       { id: 'detail', label: '📋 Selectors & flags' },
       { id: 'iq',     label: '🎯 Interview Q&A' },
     ],
   });
   buildLab(container);
+  buildTerminal(container);
   buildDetail(container);
   container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+}
+
+// ── Terminal simulator ───────────────────────────────────────────────────────
+// Output is DERIVED from the sample project's manifest graph (data/manifest-gen),
+// so selection, ordering and node names are real — but nothing is executed. For
+// genuine execution (real DuckDB build + tests) use the Project Builder IDE.
+function buildGraph() {
+  const { NODES, COMPILED, MANIFEST } = buildArtifacts();
+  const byName = {};
+  const models = Object.entries(NODES).filter(([, n]) => n.kind === 'model').map(([id, n]) => {
+    const name = n.label;
+    const schema = name.startsWith('stg_') ? 'main_staging' : 'main_marts';
+    byName[name] = { id, name, schema, materialized: n.materialized,
+      parents: n.parents.filter(p => NODES[p]?.kind === 'model').map(p => NODES[p].label),
+      children: n.children.filter(c => NODES[c]?.kind === 'model').map(c => NODES[c].label),
+      path: `models/${name.startsWith('stg_') ? 'staging' : 'marts'}/${name}.sql`,
+      compiled: COMPILED[id] };
+    return byName[name];
+  });
+  // Kahn topo order (upstream first)
+  const indeg = {}; models.forEach(m => indeg[m.name] = m.parents.length);
+  const order = [], q = models.filter(m => indeg[m.name] === 0).map(m => m.name).sort();
+  while (q.length) { const n = q.shift(); order.push(n); byName[n].children.sort().forEach(c => { if (--indeg[c] === 0) q.push(c); }); }
+  models.forEach(m => { if (!order.includes(m.name)) order.push(m.name); });
+  // tests per model, from the derived manifest. A test runs once, grouped under
+  // the model it is DEFINED on — depends_on.nodes[0] — even if it also references
+  // another model (e.g. a relationships test's `to:` target).
+  const testsByModel = {};
+  Object.entries(MANIFEST.nodes).filter(([id]) => id.startsWith('test.')).forEach(([id, t]) => {
+    const primary = (t.depends_on.nodes || [])[0];
+    const mn = NODES[primary]?.label;
+    if (mn && byName[mn]) { (testsByModel[mn] = testsByModel[mn] || []).push(id.split('.').slice(2).join('.')); }
+  });
+  const counts = {
+    models: models.length,
+    tests: Object.keys(MANIFEST.nodes).filter(id => id.startsWith('test.')).length,
+    sources: Object.keys(MANIFEST.sources).length,
+    snapshots: Object.keys(MANIFEST.nodes).filter(id => id.startsWith('snapshot.')).length,
+  };
+  return { byName, order, testsByModel, counts };
+}
+
+function ancestors(name, G, acc = new Set()) { (G.byName[name]?.parents || []).forEach(p => { if (!acc.has(p)) { acc.add(p); ancestors(p, G, acc); } }); return acc; }
+function descendants(name, G, acc = new Set()) { (G.byName[name]?.children || []).forEach(c => { if (!acc.has(c)) { acc.add(c); descendants(c, G, acc); } }); return acc; }
+
+function selectModels(sel, G, ctx) {
+  if (!sel) return G.order.slice();
+  if (sel.startsWith('path:')) { const p = sel.slice(5); return G.order.filter(n => G.byName[n].path.startsWith(p)); }
+  if (sel.startsWith('tag:')) { ctx.note = 'No tags are defined in the sample project, so this selector matches nothing.'; return []; }
+  let name = sel, up = false, down = false;
+  if (sel.startsWith('state:')) {
+    ctx.note = 'state: diffs against a prior --state manifest. Illustrative here: treating stg_orders as the modified node.';
+    name = 'stg_orders'; down = sel.endsWith('+');
+  } else {
+    if (name.startsWith('+')) { up = true; name = name.slice(1); }
+    if (name.endsWith('+')) { down = true; name = name.slice(0, -1); }
+  }
+  if (!G.byName[name]) { ctx.note = `No node named "${name}" in this project.`; return []; }
+  const set = new Set([name]);
+  if (up) ancestors(name, G).forEach(x => set.add(x));
+  if (down) descendants(name, G).forEach(x => set.add(x));
+  return G.order.filter(n => set.has(n));
+}
+
+const L = (text, cls = '') => ({ text, cls });
+const tFmt = () => (0.1 + Math.random() * 0.5).toFixed(2);
+
+function simulate(cmdStr, G) {
+  const raw = cmdStr.trim().replace(/\s+/g, ' ');
+  const parts = raw.split(' ');
+  if (parts[0] !== 'dbt') return [L('$ ' + raw), L("commands start with `dbt` (e.g. dbt build).", 'err')];
+  let verb = parts[1] || '', rest = parts.slice(2);
+  if (verb === 'source' && parts[2] === 'freshness') { verb = 'source freshness'; rest = parts.slice(3); }
+  if (verb === 'docs') { verb = 'docs ' + (parts[2] || ''); rest = parts.slice(3); }
+  let sel = '';
+  for (let i = 0; i < rest.length; i++) if (['--select', '-s', '-m', '--models'].includes(rest[i])) { sel = rest[i + 1] || ''; i++; }
+  const ctx = {};
+  const out = [L('$ ' + raw)];
+  const sel2 = () => selectModels(sel, G, ctx);
+  const noteLine = () => { if (ctx.note) out.push(L('ℹ ' + ctx.note, 'dim')); };
+
+  switch (verb) {
+    case 'run': {
+      const ms = sel2(); noteLine();
+      if (!ms.length) { out.push(L('Nothing to do. Try a different selector.', 'warn')); break; }
+      out.push(L(`Running with dbt=1.9.0 against target 'dev' (duckdb)`, 'dim'));
+      out.push(L(`Found ${G.counts.models} models, ${G.counts.tests} tests, ${G.counts.sources} sources, ${G.counts.snapshots} snapshot`, 'dim'), L(''));
+      ms.forEach((n, i) => { const m = G.byName[n]; out.push(L(`${i + 1} of ${ms.length} OK created sql ${m.materialized} model ${m.schema}.${n} ${'.'.repeat(Math.max(2, 34 - n.length - m.schema.length))} [OK in ${tFmt()}s]`, 'ok')); });
+      out.push(L(''), L(`Finished running ${ms.length} ${ms.length === 1 ? 'model' : 'models'}.`, 'dim'), L('Completed successfully', 'ok'), L(`Done. PASS=${ms.length} WARN=0 ERROR=0 SKIP=0 TOTAL=${ms.length}`, 'ok'));
+      break;
+    }
+    case 'build': {
+      const ms = sel2(); noteLine();
+      if (!ms.length) { out.push(L('Nothing to do.', 'warn')); break; }
+      const tests = ms.flatMap(n => (G.testsByModel[n] || []).map(t => ({ model: n, t })));
+      const total = ms.length + tests.length;
+      out.push(L(`Found ${G.counts.models} models, ${G.counts.tests} tests, ${G.counts.sources} sources, 1 snapshot`, 'dim'), L(''));
+      let idx = 0;
+      ms.forEach(n => {
+        const m = G.byName[n]; idx++;
+        out.push(L(`${idx} of ${total} OK created sql ${m.materialized} model ${m.schema}.${n} ${'.'.repeat(Math.max(2, 30 - n.length))} [OK in ${tFmt()}s]`, 'ok'));
+        (G.testsByModel[n] || []).forEach(t => { idx++; out.push(L(`${idx} of ${total} PASS ${t} ${'.'.repeat(Math.max(2, 46 - t.length))} [PASS in ${tFmt()}s]`, 'ok')); });
+      });
+      out.push(L(''), L('Completed successfully', 'ok'), L(`Done. PASS=${total} WARN=0 ERROR=0 SKIP=0 TOTAL=${total}`, 'ok'));
+      break;
+    }
+    case 'test': {
+      const ms = sel2(); noteLine();
+      const tests = ms.flatMap(n => (G.testsByModel[n] || []).map(t => ({ model: n, t })));
+      if (!tests.length) { out.push(L('No tests selected.', 'warn')); break; }
+      out.push(L(`Found ${G.counts.tests} tests across ${G.counts.models} models`, 'dim'), L(''));
+      tests.forEach((x, i) => out.push(L(`${i + 1} of ${tests.length} PASS ${x.t} ${'.'.repeat(Math.max(2, 46 - x.t.length))} [PASS in ${tFmt()}s]`, 'ok')));
+      out.push(L(''), L('Completed successfully', 'ok'), L(`Done. PASS=${tests.length} WARN=0 ERROR=0 SKIP=0 TOTAL=${tests.length}`, 'ok'));
+      break;
+    }
+    case 'compile': {
+      const ms = sel2(); noteLine();
+      if (!ms.length) { out.push(L('Nothing to compile.', 'warn')); break; }
+      out.push(L(`Compiled ${ms.length} node(s) to target/compiled/jaffle_commerce/`, 'dim'), L(''));
+      const show = ms.slice(0, 1)[0];
+      out.push(L(`── target/compiled/.../${show}.sql ──`, 'head'));
+      (G.byName[show].compiled || '').split('\n').forEach(line => out.push(L(line)));
+      if (ms.length > 1) out.push(L(''), L(`(+${ms.length - 1} more compiled — select a single model to see one.)`, 'dim'));
+      break;
+    }
+    case 'ls':
+    case 'list': {
+      const ms = sel2(); noteLine();
+      if (!ms.length) { out.push(L('(no nodes matched)', 'warn')); break; }
+      ms.forEach(n => out.push(L(`jaffle_commerce.${n.startsWith('stg_') ? 'staging' : 'marts'}.${n}`)));
+      out.push(L(''), L(`${ms.length} of ${G.counts.models} nodes selected`, 'dim'));
+      break;
+    }
+    case 'seed':
+      out.push(L('Found 3 seeds', 'dim'), L(''));
+      ['raw_customers', 'raw_orders', 'raw_payments'].forEach((s, i) => out.push(L(`${i + 1} of 3 OK loaded seed file main.${s} ${'.'.repeat(10)} [INSERT in ${tFmt()}s]`, 'ok')));
+      out.push(L(''), L('Completed successfully', 'ok'), L('Done. PASS=3 WARN=0 ERROR=0 SKIP=0 TOTAL=3', 'ok'));
+      break;
+    case 'snapshot':
+      out.push(L('1 of 1 OK snapshotted snapshots.customers_snapshot ...... [OK in ' + tFmt() + 's]', 'ok'), L(''), L('Completed successfully', 'ok'));
+      break;
+    case 'source freshness':
+      out.push(L('1 of 3 PASS freshness of raw.raw_customers ...... [PASS in ' + tFmt() + 's]', 'ok'));
+      out.push(L('2 of 3 PASS freshness of raw.raw_orders ......... [PASS in ' + tFmt() + 's]', 'ok'));
+      out.push(L('3 of 3 SKIP freshness of raw.raw_payments (no freshness configured)', 'warn'));
+      out.push(L(''), L('Done.', 'dim'));
+      break;
+    case 'parse':
+      out.push(L('Performance info: target/perf_info.json', 'dim'));
+      out.push(L(`Found ${G.counts.models} models, ${G.counts.tests} tests, ${G.counts.sources} sources, ${G.counts.snapshots} snapshot, 1 macro`, 'ok'));
+      out.push(L('Manifest written to target/manifest.json', 'dim'));
+      break;
+    case 'debug':
+      out.push(L('Connection test:', 'dim'), L('  profiles.yml file [OK found and valid]', 'ok'), L('  dbt_project.yml file [OK found and valid]', 'ok'), L('  connection: [OK connection ok] (duckdb)', 'ok'), L(''), L('All checks passed!', 'ok'));
+      break;
+    case 'deps':
+      out.push(L('Installing dbt-labs/dbt_utils', 'dim'), L('  Installed from version 1.3.0', 'ok'), L('Up to date!', 'ok'));
+      break;
+    case 'clean':
+      out.push(L('Checking target/*', 'dim'), L('  Cleaned target/', 'ok'), L('Checking dbt_packages/*', 'dim'), L('  Cleaned dbt_packages/', 'ok'), L('Finished cleaning all paths.', 'ok'));
+      break;
+    case 'docs generate':
+      out.push(L(`Found ${G.counts.models} models, ${G.counts.tests} tests, ${G.counts.sources} sources`, 'dim'), L('Building catalog', 'dim'), L('Catalog written to target/catalog.json', 'ok'), L('Manifest written to target/manifest.json', 'ok'));
+      break;
+    case 'docs serve':
+      out.push(L('Serving docs at http://localhost:8080', 'ok'), L('Press Ctrl+C to exit.', 'dim'));
+      break;
+    case 'init':
+      out.push(L("Running with dbt=1.9.0", 'dim'), L('Your new dbt project "my_project" was created!', 'ok'));
+      break;
+    default:
+      out.push(L(`Unknown or unsupported command: "${verb}".`, 'err'));
+      out.push(L('Try: dbt build · dbt run --select stg_orders+ · dbt ls --select +dim_customers · dbt compile --select fct_orders · dbt source freshness', 'dim'));
+  }
+  return out;
+}
+
+const QUICK = [
+  'dbt build',
+  'dbt run --select stg_orders+',
+  'dbt build --select fct_orders+',
+  'dbt test --select fct_orders',
+  'dbt compile --select fct_orders',
+  'dbt ls --select +dim_customers',
+  'dbt ls --select state:modified+',
+  'dbt source freshness',
+  'dbt docs generate',
+  'dbt seed',
+  'dbt deps',
+  'dbt parse',
+];
+
+function buildTerminal(container) {
+  const tab = container.querySelector('#tab-term');
+  const G = buildGraph();
+  tab.innerHTML = `
+    <p class="lab-intro">Type a dbt command (or pick one) and run it against the
+      <a href="#project-explorer" style="color:var(--accent);font-weight:600">jaffle_commerce</a> sample project. The
+      output is <strong>derived from the real manifest graph</strong> — selection, ordering and node names are genuine —
+      but <strong>nothing is executed</strong>. For real execution (DuckDB build + tests), use the
+      <a href="#project-ide" style="color:var(--accent);font-weight:600">Project Builder IDE</a>.</p>
+
+    <div class="term-quick" id="term-quick">
+      ${QUICK.map(q => `<button class="lab-chip term-chip" data-q="${q}">${q}</button>`).join('')}
+    </div>
+
+    <div class="term-inputrow">
+      <span class="term-prompt">$</span>
+      <input class="term-input" id="term-input" spellcheck="false" value="dbt build" aria-label="dbt command">
+      <button class="btn btn-primary" id="term-go" type="button">▶ Run (simulated)</button>
+    </div>
+
+    <div class="term-screen" id="term-screen"></div>
+    <p class="term-foot">🖥️ <strong>Simulated output</strong> — illustrative, derived from the sample project's graph. No warehouse, no dbt, nothing executed here.</p>
+  `;
+
+  const input = tab.querySelector('#term-input');
+  const screen = tab.querySelector('#term-screen');
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  function run() {
+    const lines = simulate(input.value, G);
+    screen.innerHTML = lines.map(l => `<div class="term-line ${l.cls ? 'term-' + l.cls : ''}">${esc(l.text) || '&nbsp;'}</div>`).join('');
+  }
+
+  tab.querySelector('#term-go').addEventListener('click', run);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+  tab.querySelector('#term-quick').addEventListener('click', e => {
+    const chip = e.target.closest('.term-chip'); if (!chip) return;
+    input.value = chip.dataset.q; run();
+  });
+  run();
 }
 
 function buildLab(container) {

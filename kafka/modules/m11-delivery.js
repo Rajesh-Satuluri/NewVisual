@@ -5,6 +5,8 @@ export const IQ = [
   { q: 'How does Kafka achieve exactly-once semantics (EOS)?', a: 'EOS requires two components: (1) Idempotent producer: each producer gets a PID (producer ID) and sends a monotonic sequence number per partition. The broker deduplicates retries using (PID, partition, sequence). (2) Transactions: group produce + consumer offset commit into an atomic transaction using beginTransaction() / commitTransaction(). Consumers must use isolation.level=read_committed to skip uncommitted records. Together: consume-transform-produce is atomic — either all succeeds or none is visible.', tip: 'EOS is only "exactly-once within Kafka." If the Kafka consumer writes to an external system (e.g., DynamoDB), that write must also be idempotent. The Kafka guarantee ends at the Kafka sink.' },
   { q: 'What is the difference between at-least-once and at-most-once delivery?', a: 'At-most-once: commit offset before processing. If consumer crashes, records are lost (never reprocessed). Zero duplicates, possible data loss. At-least-once: commit offset after processing. If consumer crashes before commit, records are reprocessed. Possible duplicates, no data loss. Which is worse depends on the domain: for financial transactions, data loss is unacceptable → at-least-once. For sensor data where loss is acceptable but duplicates cause double-billing → at-most-once.', tip: 'Amazon: payment events use EOS (financial). Clickstream events use at-least-once (duplicates deduped in Redshift UPSERT). Sensor telemetry uses at-most-once (latest value overwrites).' },
   { q: 'What is the transaction coordinator in Kafka and what is its role?', a: 'The transaction coordinator is a broker-side component that manages transaction state. Each transactional producer is assigned a coordinator based on its transactional.id hash. The coordinator maintains a transaction log (__transaction_state, 50 partitions). State machine: ONGOING → PREPARE_COMMIT → COMMIT (or PREPARE_ABORT → ABORT). On producer failure, the coordinator waits transaction.timeout.ms and then aborts. Consumers filter uncommitted records by checking the transaction markers (COMMIT/ABORT records written to the log).', tip: 'Mention the two-phase commit: first, coordinator writes prepare, then writes the transaction marker to each involved partition. Consumers see the marker and skip or include records.' },
+  { q: 'What does isolation.level=read_committed do, and what is the LSO?', a: 'With isolation.level=read_committed, a consumer skips records from aborted transactions and never reads past the Last Stable Offset (LSO) — the offset of the earliest still-open transaction. (1) The broker tracks commit/abort markers in the log; read_committed consumers filter aborted batches and expose only committed ones. (2) They can read up to the LSO, not the high watermark, because anything beyond the LSO belongs to a transaction that has not resolved. (3) read_uncommitted (the default) ignores all this and returns everything, including records that may later abort. The tradeoff: read_committed adds latency equal to how long transactions stay open, so keep transactions short.', tip: 'Say "read_committed reads only up to the LSO and drops aborted records." The latency cost equals the duration of the longest open transaction.', difficulty: 'medium' },
+  { q: 'Kafka gives exactly-once internally — why is exactly-once to an external sink still hard?', a: 'Kafka transactions are atomic only across Kafka topics plus the offset commit; they cannot wrap an external system like a database or S3. (1) Read-process-write within Kafka is truly exactly-once because the output records and the offset commit share one transaction. (2) The moment you write to an external sink, the sink and the offset commit are two separate systems — a crash between them means a double-write or a lost write. (3) The fixes: make the external write idempotent (upsert on a key), or use the sink\'s own transaction via two-phase commit, as Kafka Connect sinks and Flink\'s TwoPhaseCommitSinkFunction do. End-to-end exactly-once really means at-least-once delivery plus an idempotent sink.', tip: 'The honest framing: "Kafka EOS is exactly-once within Kafka; crossing to an external store needs idempotent writes or a two-phase commit." Interviewers respect that nuance.', difficulty: 'hard' },
 ];
 
 export function mount(container) {
@@ -12,6 +14,10 @@ export function mount(container) {
     tag: 'M11 · Delivery',
     title: 'Delivery Guarantees',
     subtitle: 'At-most-once, at-least-once, exactly-once — animated 3-lane comparison',
+    definition: {
+      formal: "A delivery guarantee is the contract for how many times a message may be processed when failures occur: at-most-once (0 or 1, risks loss), at-least-once (1 or more, risks duplicates), or exactly-once (effectively once, via idempotent producers and transactions).",
+      easy: "It is the promise about what happens to a message when something crashes: it might be dropped (at-most-once), it might be handled twice (at-least-once), or — with extra machinery — it counts exactly once.",
+    },
     tabs: [
       { id: 'lanes',  label: '🛡️ 3-Lane Comparison' },
       { id: 'eos',    label: '⚛️ EOS Deep Dive' },
@@ -41,10 +47,37 @@ function buildLanes(container) {
       </div>
     </div>
     <div class="canvas-explainer">
-      <h3>What you're watching</h3>
-      <p>The three lanes run the same consume-process-produce workflow under different delivery semantics. <strong>Red (at-most-once)</strong> commits the offset before processing — if the consumer crashes after the commit but before finishing work, that record is permanently gone. Zero duplicates, possible data loss. Producers use <code>acks=0</code> or <code>acks=1</code> and never retry. This is acceptable for sensor telemetry where the latest reading overwrites the last anyway.</p>
-      <p><strong>Amber (at-least-once)</strong> commits only after successful processing — a crash before the commit causes the consumer to restart from the last committed offset and reprocess. No data loss, but duplicates are possible. Your downstream system must be idempotent: a database upsert keyed on <code>order_id</code> is safe to run twice, a bank transfer is not. This is Amazon's default for most non-financial pipelines including clickstream, inventory sync, and notifications.</p>
-      <p><strong>Green (exactly-once)</strong> wraps consume + process + produce-offset into one atomic Kafka transaction. Either all three succeed together, or none are visible. The cost: producer needs <code>enable.idempotence=true</code> and a <code>transactional.id</code>, consumers need <code>isolation.level=read_committed</code>, and each transaction adds ~5ms latency for the two-phase commit round-trip with the transaction coordinator. Amazon uses EOS for payment confirmations. It does not use it for recommendation clicks — the operational cost isn't justified.</p>
+      <h3>The one idea behind all three guarantees</h3>
+      <p>For every message, a consumer does <strong>two separate things</strong>: it <strong>processes</strong> the record (the real work — a DB write, an email, producing to another topic) and it <strong>commits the offset</strong> (moves its bookmark forward — "I've handled everything up to here"; on restart it resumes from that bookmark). A crash can land at any instant. <strong>The entire delivery guarantee is decided by which of these two you do first — and what state you're left in if the crash lands in the gap between them.</strong> That one choice is the whole secret; everything below falls out of it.</p>
+
+      <h3 style="color:#EF4444">🔴 At-most-once — commit <em>before</em> processing</h3>
+      <p>You move the bookmark forward first, then do the work. Crash after the commit but before processing finishes, and the bookmark already says "done" — so on restart that record is <strong>skipped forever</strong>. Every message is delivered <strong>0 or 1 times</strong>: never duplicated, but data can be lost. Producers use <code>acks=0</code>/<code>acks=1</code> and never retry. Good for sensor telemetry or metrics, where a dropped reading is cheaper than a duplicated one and the newest value overwrites the last anyway.</p>
+
+      <h3 style="color:#F59E0B">🟡 At-least-once — process <em>before</em> committing <span style="font-weight:400;font-size:.85em;color:#8A98AE">(Kafka's default)</span></h3>
+      <p>You do the work first, then move the bookmark. Crash after processing but before the commit lands, and the bookmark still points at that record — so on restart it is <strong>processed again</strong>. Every message is delivered <strong>1 or more times</strong>: never lost, but duplicates are possible. The cure for duplicates is <strong>idempotency</strong> — make the handler safe to run twice: <code>UPSERT order_id</code> instead of <code>INSERT</code>, <code>SET balance=100</code> instead of <code>balance += 10</code>. In practice, <strong>at-least-once + an idempotent sink</strong> is how most production pipelines get correct results without the cost of true exactly-once. It is Amazon's default for clickstream, inventory sync, and notifications.</p>
+
+      <h3 style="color:#10B981">🟢 Exactly-once — make process + commit <em>one atomic unit</em></h3>
+      <p>The weakness of the two above is that process and commit are two <em>separate</em> steps, so a crash can fall between them. Exactly-once removes the gap: it wraps the work <em>and</em> the offset commit into a <strong>single Kafka transaction</strong> that either fully commits or fully rolls back — there is no "in between" left to crash into. Either everything lands, or nothing does and it is retried cleanly. The cost: producer needs <code>enable.idempotence=true</code> and a <code>transactional.id</code>, consumers need <code>isolation.level=read_committed</code>, and each transaction adds ~5ms for the two-phase commit round-trip with the transaction coordinator.</p>
+      <p style="background:#F59E0B14;border:1px solid #F59E0B33;border-radius:8px;padding:12px 16px;margin-top:10px"><strong style="color:#F59E0B">⚠️ The interview trap:</strong> Kafka's exactly-once only holds <strong>Kafka-to-Kafka</strong> — the consume → process → <em>produce-to-another-topic</em> pattern, where your "output" is itself a Kafka write. The transaction can roll back Kafka writes and the offset commit together, but it <strong>cannot</strong> undo an external side effect — an email you already sent, a row you already wrote to Postgres. For those sinks you still fall back to at-least-once + idempotency (dedupe on a unique key). "Exactly-once magically de-duplicates everything" is the classic mistake.</p>
+
+      <h3>The shortcut that makes it stick</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin:12px 0 16px">
+        <div style="display:grid;grid-template-columns:1.25fr 1.1fr 1fr 1fr;gap:8px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A98AE;padding:0 10px">
+          <div>Guarantee</div><div>Which do you commit first?</div><div>Crash in the gap →</div><div>You accept</div>
+        </div>
+        ${[
+          { g:'At-most-once',  c:'#EF4444', order:'commit → process',          crash:'message LOST',        accept:'data loss' },
+          { g:'At-least-once', c:'#F59E0B', order:'process → commit',          crash:'message REPROCESSED', accept:'duplicates' },
+          { g:'Exactly-once',  c:'#10B981', order:'process + commit = 1 unit', crash:'rolled back, retried', accept:'cost + Kafka-only' },
+        ].map(r => `
+          <div style="display:grid;grid-template-columns:1.25fr 1.1fr 1fr 1fr;gap:8px;align-items:center;background:#111827;border:1px solid #1E293B;border-left:3px solid ${r.c};border-radius:8px;padding:10px 10px;font-size:11px">
+            <div style="color:${r.c};font-weight:700">${r.g}</div>
+            <div style="color:#CBD5E1"><code style="font-size:10px">${r.order}</code></div>
+            <div style="color:#94A3B8">${r.crash}</div>
+            <div style="color:#94A3B8">${r.accept}</div>
+          </div>`).join('')}
+      </div>
+      <p><strong>Commit before the work → you risk losing it. Commit after the work → you risk repeating it. Fuse them into one atomic unit → you risk neither — but only inside Kafka.</strong></p>
     </div>`;
 
   const canvas = tab.querySelector('#dlv-canvas');
@@ -52,19 +85,25 @@ function buildLanes(container) {
   const ctx = canvas.getContext('2d');
 
   const LANES = [
-    { y: 80,  label: 'At-Most-Once',  color: '#EF4444', commit: 'before', desc: 'Commit offset → process → crash → LOST' },
-    { y: 200, label: 'At-Least-Once', color: '#F59E0B', commit: 'after',  desc: 'Process → commit offset → crash → REPROCESS (duplicate)' },
-    { y: 320, label: 'Exactly-Once',  color: '#10B981', commit: 'atomic', desc: 'Atomic transaction: process + commit = one unit' },
+    // crashX = the x where the crash strikes this lane, in the critical gap:
+    //   before → after Commit Offset (280), before Process (500)
+    //   after  → after Process (280), before Commit Offset (500)
+    //   atomic → inside the single Process+Commit transaction block
+    { y: 80,  label: 'At-Most-Once',  color: '#EF4444', commit: 'before', crashX: 390, stages: ['Producer', 'Commit Offset', 'Process', 'Done'],       desc: 'Commit offset → process → crash → LOST' },
+    { y: 200, label: 'At-Least-Once', color: '#F59E0B', commit: 'after',  crashX: 390, stages: ['Producer', 'Process', 'Commit Offset', 'Done'],       desc: 'Process → commit offset → crash → REPROCESS (duplicate)' },
+    { y: 320, label: 'Exactly-Once',  color: '#10B981', commit: 'atomic', crashX: 390, stages: ['Producer', 'Process', 'Commit (atomic)', 'Done'],     desc: 'Atomic transaction: process + commit = one unit' },
   ];
 
   const packets = [];
   let crashed = false;
   let raf = null, lastT = 0, tick = 0;
 
-  function spawnPackets() {
+  // nearCrash=true positions each message just before its lane's crash point
+  // so the crash resolves in a beat instead of a long crawl from Producer.
+  function spawnPackets(nearCrash = false) {
     packets.length = 0;
     LANES.forEach((lane, li) => {
-      packets.push(new EventPacket({
+      const pk = new EventPacket({
         label: `msg-${li+1}`,
         color: lane.color,
         path: [
@@ -73,8 +112,10 @@ function buildLanes(container) {
           { x: 500, y: lane.y + 30 },
           { x: 720, y: lane.y + 30 },
         ],
-        speed: 0.8,
-      }));
+        speed: 1.5,
+      });
+      if (nearCrash) pk.traveled = Math.max(0, (lane.crashX - 60) - 70);
+      packets.push(pk);
     });
   }
 
@@ -89,7 +130,15 @@ function buildLanes(container) {
     ctx.fillStyle = '#0A0E1A';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    LANES.forEach(lane => {
+    LANES.forEach((lane, li) => {
+      const packet = packets[li];
+      const crashDist = lane.crashX - 60;
+      // A crash only produces its verdict once the message has actually
+      // travelled to the critical point for this lane; until then the message
+      // is still in flight and nothing has been lost, duplicated or rolled back.
+      const reached = crashed && packet && packet.traveled >= crashDist - 0.5;
+      const px = packet ? Math.min(packet.traveled, crashDist) + 60 : lane.crashX;
+
       // Lane box
       drawRoundRect(ctx, 30, lane.y, 760, 100, 10, '#1E293B', lane.color + '44');
 
@@ -102,50 +151,98 @@ function buildLanes(container) {
       ctx.fillStyle = '#94A3B8';
       ctx.fillText(lane.desc, 50, lane.y + 82);
 
-      // Stage markers
-      const stages = ['Producer', 'Commit Offset', 'Process', 'Done'];
+      // Stage markers. For at-most-once & at-least-once these are discrete,
+      // ordered steps. Exactly-once is different: process + commit are a SINGLE
+      // atomic transaction — there is no gap between them to crash into — so it
+      // is drawn as one fused block, not two sequential dots.
       const xs = [60, 280, 500, 720];
-      stages.forEach((s, i) => {
-        ctx.font = '9px system-ui';
-        ctx.fillStyle = '#8A98AE';
-        ctx.textAlign = 'center';
-        ctx.fillText(s, xs[i], lane.y + 55);
-        ctx.beginPath();
-        ctx.arc(xs[i], lane.y + 30, 5, 0, Math.PI * 2);
-        ctx.fillStyle = lane.color + '66';
-        ctx.fill();
-      });
-
-      // Crash marker
-      if (crashed) {
-        const crashX = lane.commit === 'before' ? 370 : lane.commit === 'after' ? 370 : 600;
-        ctx.font = 'bold 16px system-ui';
-        ctx.fillStyle = '#EF4444';
-        ctx.textAlign = 'center';
-        ctx.fillText('💥', crashX, lane.y + 35);
-
-        if (lane.commit === 'before') {
-          ctx.fillStyle = '#EF4444';
+      if (lane.commit === 'atomic') {
+        // Endpoints: Producer and Done
+        [[60, 'Producer'], [720, 'Done']].forEach(([x, label]) => {
+          ctx.font = '9px system-ui';
+          ctx.fillStyle = '#8A98AE';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, x, lane.y + 55);
+          ctx.beginPath();
+          ctx.arc(x, lane.y + 30, 5, 0, Math.PI * 2);
+          ctx.fillStyle = lane.color + '66';
+          ctx.fill();
+        });
+        // Fused atomic-transaction block spanning the two middle stages
+        const bx = 230, bw = 320, by = lane.y + 16, bh = 40;
+        drawRoundRect(ctx, bx, by, bw, bh, 8, lane.color + (reached ? '12' : '1F'), lane.color);
+        if (!reached) {
+          ctx.textAlign = 'center';
+          ctx.fillStyle = lane.color;
           ctx.font = 'bold 10px system-ui';
-          ctx.fillText('LOST!', crashX + 50, lane.y + 35);
+          ctx.fillText('⚛️  Process  +  Commit offset', bx + bw / 2, by + 17);
+          ctx.fillStyle = '#94A3B8';
+          ctx.font = '9px system-ui';
+          ctx.fillText('one atomic transaction — all or nothing', bx + bw / 2, by + 31);
+        }
+      } else {
+        const stages = lane.stages;
+        stages.forEach((s, i) => {
+          ctx.font = '9px system-ui';
+          ctx.fillStyle = '#8A98AE';
+          ctx.textAlign = 'center';
+          ctx.fillText(s, xs[i], lane.y + 55);
+          ctx.beginPath();
+          ctx.arc(xs[i], lane.y + 30, 5, 0, Math.PI * 2);
+          ctx.fillStyle = lane.color + '66';
+          ctx.fill();
+        });
+      }
+
+      // Crash verdict — drawn at the message's actual (frozen) position, and
+      // only once the message has reached the crash point for this lane.
+      if (reached) {
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 16px system-ui';
+        ctx.fillText('💥', px - 42, lane.y + 33);
+
+        ctx.font = 'bold 11px system-ui';
+        if (lane.commit === 'before') {
+          // offset already committed, processing never ran → skipped on restart
+          ctx.fillStyle = '#EF4444';
+          ctx.fillText('CRASH after commit → message LOST', px, lane.y + 12);
         } else if (lane.commit === 'after') {
+          // processed but offset not yet committed → replayed on restart
           ctx.fillStyle = '#F59E0B';
-          ctx.fillText('RETRY', crashX + 50, lane.y + 35);
+          ctx.fillText('CRASH before commit → REPROCESSED (duplicate)', px, lane.y + 12);
         } else {
+          // atomic: the whole transaction rolls back and is retried cleanly —
+          // neither the process output nor the offset commit is left behind.
           ctx.fillStyle = '#10B981';
-          ctx.fillText('ABORT TX', crashX + 60, lane.y + 35);
+          ctx.fillText('ROLLED BACK → RETRIED — nothing lost, nothing duplicated', px, lane.y + 12);
         }
       }
     });
 
-    packets.forEach(p => { if (!crashed) p.update(dt); p.draw(ctx); });
+    // Message movement. Normally each message flows to Done and then loops, so
+    // the happy path stays alive on screen. After a crash is simulated it
+    // advances only as far as its lane's crash point, then freezes there — so
+    // the message and its verdict always sit at the same stage.
+    packets.forEach((p, li) => {
+      if (!crashed) {
+        p.update(dt);
+        if (p.done) { p.traveled = 0; p.done = false; p.trail.length = 0; }
+      } else {
+        const crashDist = LANES[li].crashX - 60;
+        if (p.traveled < crashDist) {
+          p.update(dt);
+          if (p.traveled > crashDist) p.traveled = crashDist;
+        }
+      }
+      p.draw(ctx);
+    });
 
     raf = requestAnimationFrame(draw);
   }
 
   raf = requestAnimationFrame(ts => { lastT = ts; draw(ts); });
 
-  tab.querySelector('#dlv-crash').addEventListener('click', () => { crashed = true; });
+  tab.querySelector('#dlv-crash').addEventListener('click', () => { crashed = true; spawnPackets(true); });
   tab.querySelector('#dlv-reset').addEventListener('click', () => { crashed = false; spawnPackets(); });
 
   return () => { if (raf) cancelAnimationFrame(raf); };

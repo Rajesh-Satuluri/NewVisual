@@ -10,6 +10,9 @@ import { createSelfExplain, initSelfExplain } from './components/self-explain.js
 import { QUIZ_BANK } from './data/quiz-bank.js';
 import { SELF_EXPLAIN } from './data/self-explain.js';
 import { record } from './data/progress-store.js';
+import { initCloudSync } from './components/cloudsync.js';
+import { initCloudSyncUI } from './components/cloudsync-ui.js';
+import { initIQEdits } from './components/iq-edits.js';
 
 // A module counts as "complete" only when its quiz is passed at this ratio —
 // mastery, not merely opening the page. Honest progress.
@@ -28,8 +31,10 @@ const PAGES = {
   glossary: `Reference &rsaquo; <strong>📖 Glossary</strong>`,
   cheatsheet: `Reference &rsaquo; <strong>📋 Cheat Sheet</strong>`,
   'master-map': `Reference &rsaquo; <strong>🗺️ Master Map</strong>`,
+  'mock-interview': `Practice &rsaquo; <strong>🎤 Mock Interview</strong>`,
   decisions: `Practice &rsaquo; <strong>🧭 Choose the Approach</strong>`,
   troubleshoot: `Practice &rsaquo; <strong>🔍 Troubleshooting Lab</strong>`,
+  'cdc-incidents': `Practice &rsaquo; <strong>🛠️ CDC Incident Lab</strong>`,
   answers: `Practice &rsaquo; <strong>🎯 Level Up Your Answer</strong>`,
   coding: `Practice &rsaquo; <strong>💻 Coding Dojo</strong>`,
   'incident-bank': `Reference &rsaquo; <strong>🚑 Incident Bank</strong>`,
@@ -58,8 +63,10 @@ const LOADERS = {
   'master-map': () => import('./modules/master-map.js'),
   decisions: () => import('./modules/decisions.js'),
   troubleshoot: () => import('./modules/troubleshoot.js'),
+  'cdc-incidents': () => import('./modules/cdc-incidents.js'),
   answers: () => import('./modules/answers.js'),
   coding: () => import('./modules/coding.js'),
+  'mock-interview': () => import('./modules/mock-interview.js'),
   'incident-bank': () => import('./modules/incident-bank.js'),
   dashboard: () => import('./modules/dashboard.js'),
   review: () => import('./modules/review.js'),
@@ -94,6 +101,9 @@ const LOADERS = {
   m28: () => import('./modules/m28-debezium-ops.js'),
   m29: () => import('./modules/m29-outbox-pattern.js'),
   m30: () => import('./modules/m30-lakehouse.js'),
+  m31: () => import('./modules/m31-cdc-capstone.js'),
+  m32: () => import('./modules/m32-debezium-internals.js'),
+  m33: () => import('./modules/m33-consumer-deep-dive.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
@@ -124,7 +134,7 @@ async function navigate(id) {
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
     if (mod) {
-      initTabs(canvas); initIQ(canvas); enhanceModule(id);
+      initTabs(canvas); initIQ(canvas); initIQEdits(canvas, id); enhanceModule(id);
       // Canvas visuals are opaque to screen readers; give them an accessible
       // name so AT announces something, while the module's prose carries detail.
       canvas.querySelectorAll('canvas:not([aria-label])').forEach(c => {
@@ -228,6 +238,10 @@ themeToggle.addEventListener('click', () => {
   root.setAttribute('data-theme', next);
   localStorage.setItem('kafka-theme', next);
 });
+
+// ── Cross-device cloud sync (optional; inert until configured + linked) ───────
+initCloudSyncUI();
+initCloudSync();
 
 // ── Tooltip ────────────────────────────────────────────────────────────────
 export const tooltip = {

@@ -1038,6 +1038,16 @@
 .dl-tab-label { font-size: .875rem; font-weight: 600; color: var(--text-primary); display: block; }
 .dl-tab-sub   { font-size: .6875rem; color: var(--text-muted); display: block; margin-top: .1rem; }
 .dl-method-tab.active .dl-tab-label { color: var(--tab-color, var(--snowflake)); }
+.dl-note {
+  margin-top: .75rem;
+  padding: .5rem .7rem;
+  font-size: .6875rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: rgba(var(--blue-rgb), .04);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
 
 /* Pipeline row */
 .dl-pipe-row {

@@ -9,8 +9,8 @@ reason; iterations extend.
 | Area | File(s) | Status |
 |---|---|---|
 | 22 learning modules | `modules/m01`–`m22` | Preserved; enriched (Passes 1–5) |
-| Interview Q&A per module | module `IQ` arrays + `components/module-shell.js` | Preserved |
-| Interview question bank | `data/iq-bank.js`, `data/tiered.js` | Preserved (to deepen, Iteration 5) |
+| Interview Q&A per module | module `IQ` arrays (single source) + `components/module-shell.js`; aggregated via `data/iq-aggregate.js`; user edits via `components/iq-overrides.js` (shared by module tab + Study Hub) | Preserved |
+| Tiered depth bank | `data/tiered.js` | Preserved (to deepen, Iteration 5) |
 | Quizzes | `data/quiz-bank.js`, `components/quiz.js` | Preserved |
 | Self-explain | `data/self-explain.js`, `components/self-explain.js` | Preserved |
 | Incident bank + investigation | `data/incidents.js`, `modules/incident-bank.js`, `components/investigation-flow.js` | Preserved (branching + scoring, Iteration 8) |
@@ -89,7 +89,8 @@ simulated is labelled "simulation", never presented as live.
 | Cluster / produce / offsets | Simulated (deterministic) | No network, no real broker |
 | Code execution | Not yet | Iteration 7: static validation, labelled |
 | Real Kafka cluster | Out of scope | Track 2 (needs backend) |
-| Accounts / cloud sync | Out of scope | Track 2; local-first + export/import instead |
+| Accounts | Out of scope | No login; identity is a shared "sync code" |
+| Cross-device cloud sync | **Real (opt-in)** | Supabase-backed; inert until `schema.sql` is run + a code is linked — see the Cross-device sync track below |
 
 ## CDC / Debezium / Lakehouse track (new groups, m23+)
 
@@ -174,3 +175,160 @@ plus a separate runnable Docker lab. Built and deployed per batch.
   dashboard GROUP_ORDER; quizzes + self-explain for m29/m30. Count now 30.
 - Verified: engine 33/33; Playwright both themes 0 console errors; nav groups
   6 + 2; home count = 30; dashboard shows both CDC groups. Baseline untouched.
+
+## Cross-device sync track (ported from the sibling tools — new groups, Batch S1+)
+
+Optional, opt-in cross-device sync of everything this tool stores, plus a local
+JSON backup. Ported from the blind75 / table-formats implementations and adapted
+to Kafka's storage model. Fully additive: no existing module was changed except
+two `init` calls added to `script.js`, and the app is byte-for-byte unchanged in
+behaviour until the backend is configured AND a sync code is linked.
+
+### Honesty ledger additions
+
+| Capability | This build | Notes |
+|---|---|---|
+| Cross-device sync | **Real**, opt-in | Supabase RPC (`kafka_get`/`kafka_put`); no login — a shared "sync code", stored only as its SHA-256 hash |
+| Until `schema.sql` is run + a code linked | **Inert** | No network call; everything stays local, per device (verified) |
+| Merge (who-wins-per-key) | **Deterministic, Node-tested** | `components/cloudsync.js`; 14 unit tests |
+| Local backup (export / import JSON) | **Real** | Works even with no backend configured |
+
+### Batch S1 — cloud sync engine + UI ✅
+
+- `supabase/schema.sql` — **the user runs this once** in the Supabase SQL Editor.
+  Own isolated `kafka_state` table + `kafka_get`/`kafka_put` SECURITY DEFINER
+  functions (≥8-char code guard); RLS on with no policies so the publishable key
+  has zero direct table access. Shares the project with the sibling tools without
+  colliding.
+- `supabase-config.js` — ESM `export const SUPABASE` (reuses the monorepo's
+  existing publishable key; safe to ship). Blank url/key ⇒ sync stays off.
+- `components/cloudsync.js` — ESM. **Pure, exported merge core** (`mergeAll`,
+  `mergeProgress`, `unionArrays`, `isSyncedKey`) + `initCloudSync()` and the
+  `cloud` singleton. Syncs every `kafka-*` / `kafka_*` key (the code itself lives
+  under `kafka:synccode`, outside the synced prefixes). Merge is per-key and
+  type-aware: `kafka-done` unions, `kafka-progress-v1` deep-merges by record `ts`
+  and never regresses a pass/correct, `kafka_quiz_*` takes the max, everything
+  else is a 3-way LWW against a common ancestor (honours deletions). A
+  transparent `localStorage` write observer (with an `applying` guard) means no
+  existing module had to call us; pulls on boot/focus/visibility/`storage`/15s/
+  reconnect; fires `kafka:cloud-refresh` + `kafka:progress` so open views repaint.
+- `components/cloudsync-ui.js` — ESM. A ☁ button in the header actions opens a
+  modal (generate/enter code, Link & sync, Sync now, Disconnect, live status) +
+  local Export/Import JSON. Styled entirely with the app's CSS tokens, correct in
+  both themes (data-theme, not prefers-color-scheme).
+- `index.html` — added `topbar-right` to `.header-actions` so the shared backup
+  button slots **inline** instead of as a floating pill. Bonus: this fixed a
+  pre-existing overlap where the floating pill sat on top of the theme toggle;
+  both it and the new sync button are now cleanly clickable.
+- `script.js` — two imports + `initCloudSyncUI()` / `initCloudSync()` at boot.
+- `components/cloudsync.test.mjs` — `node --test`, **14 tests** for the merge
+  rules (union, pass-never-lost, best=max, ts-wins, deletions, idempotence).
+- Verified: 14/14 merge tests; engine suite still 33/33; Playwright both themes
+  0 console errors, sync button present & clickable, modal opens/closes, export
+  present, and **no Supabase call while unlinked** (inert). Live DB round-trip is
+  NOT yet verifiable here — it needs `schema.sql` applied; until then sync is
+  correctly inert and never claims to be live.
+
+### Batch S2 — editable interview Q&A (synced) ✅
+
+- `components/iq-edits.js` — enhances each module's Interview Questions tab. Per
+  question it adds an ✎ Edit control; editing happens inside the expanded answer
+  (never fighting the open/close toggle), with Save / Cancel / Reset and an
+  "edited" badge. Both the question and the answer are editable in place.
+  Overrides are stored one key per question — `kafka_iqedit_<moduleId>_<index>`
+  → `{q?, a?}` — so cloudsync.js carries them automatically and concurrent edits
+  to different questions never collide. Originals are captured from the freshly
+  rendered (raw) DOM each mount, so Reset is always exact. Re-applies on mount and
+  on `kafka:cloud-refresh` (a single, leak-free listener), so an edit from another
+  device shows up live.
+- `script.js` — one import + `initIQEdits(canvas, id)` right after `initIQ`.
+- `enhancements.css` — `.iqe-*` block (edit button, badge, editor fields,
+  actions), theme-token based.
+- `data/iq-aggregate.js` — **fixed a pre-existing gap**: the Study-Hub aggregator
+  listed only m01–m22, so the CDC modules' interview questions never appeared in
+  the Study Hub. Added m23–m30 loaders; they now show up (aggregator already
+  defaults difficulty and preserves per-module index).
+- Scope note: editing is on the module IQ tabs (the canonical, index-stable
+  surface). The Study Hub stays a read-only aggregate pulled straight from the
+  modules; reflecting per-user edits there is a possible later nicety.
+- Verified: merge + engine suites still 47/47; Playwright both themes 0 console
+  errors — 3 edit controls on m23, editor opens, Save stores the override, badge
+  shows, the edit persists across a full page reload, Reset removes the key, and
+  the Study Hub now lists CDC (m23–m30) questions.
+
+### Batch S3 — audit + cleanups ✅
+
+- **SPEC 5 (filter stacked-listener bug): audited, not present.** The sibling
+  tool's bug was re-attaching a *delegated* listener to a persistent container on
+  every filtered re-render. The Kafka tool never does this:
+  - Study Hub (`modules/study.js`) — `apply()` sets `#study-results` innerHTML
+    then binds a click handler to each **freshly recreated** `.iq-question`; the
+    search/chip/select listeners are bound once to persistent controls.
+  - Search (`modules/search.js`) — results are `<a>` links; the input/chip
+    listeners are bound once.
+  - Nav filter (`components/nav.js`) — hides items; `renderNav` replaces the nav
+    wholesale and binds fresh listeners once.
+  Nothing to fix.
+- **SPEC 4 (editable code blocks): confirmed covered by sync.** The Coding Dojo
+  scratchpads already persist to `kafka_cd_pad_<id>` (`components/coding-problem.js`
+  reads on load, debounced `setItem` on input), so the transparent write observer
+  picks them up and they sync across devices — no invasive CodeViewer retrofit.
+- `components/cloudsync.test.mjs` — +2 tests (cd-pad as a generic synced key;
+  per-question iqedit keys never cross-collide). **16 merge tests total.**
+- Verified: merge suite 16/16 (engine still 33/33 → 49 total).
+
+### Cross-device sync track — summary of what shipped (S1–S3)
+
+| Spec (from the sibling tools) | Status in Kafka |
+|---|---|
+| 1 — Cross-device cloud sync engine | ✅ Supabase-backed, opt-in, Node-tested merge |
+| 2 — Sync UI (+ local JSON backup) | ✅ header ☁ button + modal; export/import |
+| 3 — Editable interview Q&A (synced) | ✅ per-question edit on every module tab + every "Level Up Your Answer" card |
+| 4 — Editable code blocks | ✅ as the valuable slice — Coding-Dojo pads sync; no CodeViewer retrofit |
+| 5 — Interview filter bug fix | ✅ audited — the bug does not exist in this tool |
+
+**Follow-up (editable "Level Up Your Answer"):** `components/tiered-edits.js` makes
+each tiered answer card editable in place (question, topic, all three tier bodies,
+and the "why the senior wins" note), with an "edited" badge, Save/Cancel/Reset, and
+Ctrl/Cmd+Enter / Esc. Overrides are one key per card — `kafka_taedit_<id>` — so the
+generic 3-way LWW merge carries them across devices; `answers.js` applies overrides
+at render and re-renders on `kafka:cloud-refresh`. Verified both themes, 0 console
+errors: edit → persists across reload → head badge + title update → reset clears.
+
+**User action still required for live sync:** run `supabase/schema.sql` once and
+link a sync code. Until then sync is inert and never claims to be live; the local
+export/import backup works regardless.
+
+### Batch 4 — End-to-End Capstone (m31) + CDC Incident Lab ✅
+
+- `modules/m31-cdc-capstone.js` — `#m31`, in the "CDC Integrations & Lakehouse"
+  group. Ties m23–m30 together on a single `CDCSim`. Three tabs: the whole
+  pipeline (theory + the four-markers recap), the **End-to-End Capstone**
+  interactive, and Interview Q&A (4). The capstone drives one order through
+  Postgres → WAL/slot → Debezium → Kafka → Silver → Gold with a live stage rail
+  and panels (source table, slot/WAL backlog, Bronze, Silver, Gold, and a
+  **reconciliation badge** comparing Silver to the source). Scenario buttons:
+  insert / advance / cancel, duplicate, out-of-order (stale), outage, restart,
+  WAL loss, snapshot & recover, additive schema evolution, reset. Reconciliation
+  turns amber on drift (e.g. source moves during an outage while Silver stalls)
+  and green again once the pipeline catches up (restart drains; snapshot rebuilds
+  after WAL loss).
+- `data/cdc-incidents.js` — 4 CDC production incidents (slot WAL growth; stuck
+  after a long outage / invalidated slot; missing deletes / ghost rows; duplicate
+  & out-of-order double-counting), same shape as `data/incidents.js`.
+- `modules/cdc-incidents.js` — `#cdc-incidents` PAGE in the Practice section;
+  reuses the shared `investigation-flow` component (records under the existing
+  `troubleshoot` progress category; the Troubleshooting Lab still counts only its
+  own ids, so no cross-inflation).
+- Wiring (additive): `nav.js` (m31 in the CDC group; `cdc-incidents` in Practice),
+  `script.js` (PAGES + LOADERS for both; m31 LOADER), `data/quiz-bank.js` (m31, 3
+  Q), `data/self-explain.js` (m31), `data/iq-aggregate.js` (m31). Home / dashboard
+  GROUP_ORDER + LEVEL/MINS already covered the group; search, review (SRS from
+  QUIZ_BANK), and the Study Hub auto-include m31. Count now 31.
+- `enhancements.css` — `.cap-*` block (pipeline chain, live rail + status dots,
+  grid, slot backlog bar, reconciliation badge), theme-token based.
+- Verified: merge + engine suites still 49/49; Playwright both themes 0 console
+  errors — capstone reconciliation transitions correctly (stream = reconciled,
+  outage+change = drift, restart = reconciled, WAL-loss→snapshot = reconciled),
+  IQ edit controls present on m31, all 4 incident scenarios solvable to outcome,
+  nav shows m31 + CDC Incident Lab, sidebar count = 31. Baseline untouched.

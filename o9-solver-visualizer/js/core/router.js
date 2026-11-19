@@ -122,11 +122,11 @@
     this.container.className = "module-container";
     this.container.innerHTML =
       '<div class="module-header animate-fade-in-up">' +
-        '<div class="module-eyebrow">o9 Solver Visualizer</div>' +
+        '<div class="module-eyebrow">o9 SCS Mastery · Roadmap</div>' +
         '<h1 class="module-title gradient-text">' + t + "</h1>" +
-        '<p class="module-subtitle">This module is on the build roadmap. The core ' +
-        "engine, routing, and design system are live — interactive content for this " +
-        "topic lands in an upcoming phase.</p>" +
+        '<p class="module-subtitle">This module is on the build roadmap. The mastery ' +
+        "shell — navigation, progress, search, and design system — is live; the " +
+        "interactive content for this topic lands in an upcoming iteration.</p>" +
       "</div>" +
       '<div class="callout tip animate-fade-in">' +
         '<span class="callout-icon">🚧</span>' +

@@ -21,6 +21,12 @@ export const IQ = [
     a: 'Four layers. <strong>Source:</strong> replication-slot lag in bytes (distance from <code>confirmed_flush_lsn</code> to the WAL head) and whether the slot is active — the disk-fill early warning. <strong>Connector:</strong> connector/task <em>state</em> (alert the moment a task is not RUNNING), restart count, and snapshot progress. <strong>End-to-end latency:</strong> <code>now − source.ts_ms</code> on emitted events — real replication lag, not just queue depth. <strong>Downstream:</strong> consumer lag on the CDC topics, and the <strong>dead-letter queue rate</strong> (poison records). The single most important proactive alert is <em>slot lag bytes</em>, because that\'s the one that takes the <em>source database</em> down — everything else degrades the pipeline, but a full WAL disk degrades production.',
     tip: 'Rank them: slot-lag-bytes first (it threatens the primary), then task-not-RUNNING, then end-to-end lag via source.ts_ms, then DLQ rate. Showing you know which alert protects the database vs the pipeline is the senior signal.',
   },
+  {
+    q: 'A low-traffic table\'s Debezium slot keeps growing WAL lag even though nothing changed. Why, and how do you fix it?',
+    a: 'The slot holds WAL for the whole database, not just your table, and it only advances when Debezium confirms an LSN. (1) If your captured table is quiet but other tables are busy, the WAL keeps growing while Debezium has nothing to emit, so it never confirms a newer LSN and the slot pins old WAL — the disk fills. (2) The fix is <strong>heartbeats</strong>: set <code>heartbeat.interval.ms</code> so Debezium periodically emits a heartbeat and advances the confirmed flush LSN even with no data changes. (3) <code>heartbeat.action.query</code> can write a tiny marker row to force WAL on an idle source. The tradeoff: heartbeats add a little traffic and a topic, but they keep the slot moving and protect the primary\'s disk.',
+    tip: 'The insight: slot lag reflects the confirmed LSN, not your table\'s traffic. heartbeat.interval.ms advances it on quiet tables — the standard fix for a slot pinning WAL on a busy database.',
+    difficulty: 'hard'
+  },
 ];
 
 export function mount(container) {
@@ -28,6 +34,10 @@ export function mount(container) {
     tag: 'M28 · Change Data Capture',
     title: 'Debezium Config & Operations',
     subtitle: 'The connector properties that matter, and running it for real — replication-slot WAL growth, outages, missing WAL, heartbeats, and what to monitor and alert on.',
+    definition: {
+      formal: "Operating Debezium in production means setting the connector properties that govern capture behavior and running it reliably — managing replication-slot WAL growth, surviving outages and missing WAL, using heartbeats, and monitoring and alerting on connector health.",
+      easy: "The real-world side of Debezium: which settings matter, and how to keep it alive — stopping the database journal from ballooning, recovering from outages, and watching the right alarms.",
+    },
     tabs: [
       { id: 'config', label: '⚙️ Configuration' },
       { id: 'ops', label: '🚨 Operations & Failure' },

@@ -6,8 +6,12 @@
 (function () {
   'use strict';
 
-  const LS_VISITED = 'cdwh-visited';
   const LS_TOUR    = 'cdwh-tour-done';
+  // Visited set is namespaced per platform so shared module ids (home, intro,
+  // architecture, lab-*, …) don't mark each other visited across platforms.
+  function _visitedKey() {
+    return 'cdwh-' + ((window.CDWH && window.CDWH.activePlatform) || 'snowflake') + '-visited';
+  }
 
   function flatNav() {
     return (window.CDWH.NAV_GROUPS || []).flatMap(g => g.items);
@@ -30,11 +34,11 @@
 
   /* ── Progress ──────────────────────────────────────────────── */
   function getVisited() {
-    try { return new Set(JSON.parse(localStorage.getItem(LS_VISITED) || '[]')); }
+    try { return new Set(JSON.parse(localStorage.getItem(_visitedKey()) || '[]')); }
     catch (_) { return new Set(); }
   }
   function saveVisited(set) {
-    try { localStorage.setItem(LS_VISITED, JSON.stringify([...set])); } catch (_) {}
+    try { localStorage.setItem(_visitedKey(), JSON.stringify([...set])); } catch (_) {}
   }
 
   let _meterFill, _meterLabel;

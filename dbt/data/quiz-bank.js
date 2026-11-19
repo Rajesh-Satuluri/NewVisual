@@ -415,4 +415,104 @@ export const QUIZ_BANK = {
       explanation: 'The SQL is valid, so nothing errors — but the grain quietly becomes one row per order-payment and sums double-count. A unique test on order_id catches it.',
     },
   ],
+  m34: [
+    {
+      q: 'Your BI tool and a data-science notebook both report "total revenue" but the numbers differ. How does the dbt Semantic Layer prevent this?',
+      options: ['It caches the dashboard', 'Both query one governed metric definition, and MetricFlow compiles the same SQL for each', 'It locks the warehouse', 'It emails a warning'],
+      answer: 1,
+      explanation: 'The metric is defined once in YAML; every tool asks the Semantic Layer for it and MetricFlow compiles identical SQL, so there is a single source of truth for the number.',
+    },
+    {
+      q: 'In a semantic model, what is the role of an entity?',
+      options: ['It stores the metric value', 'It is a join key that lets MetricFlow join semantic models on shared keys', 'It formats the output', 'It schedules the query'],
+      answer: 1,
+      explanation: 'Entities (primary/foreign/unique) are the join keys. Two models sharing an entity name let MetricFlow auto-join them, so you can slice one model by another model\'s dimension.',
+    },
+    {
+      q: 'A metric defined as numerator ÷ denominator of two measures is which metric type?',
+      options: ['simple', 'ratio', 'cumulative', 'derived'],
+      answer: 1,
+      explanation: 'A ratio metric divides one measure by another (e.g. revenue ÷ orders = average order value). simple wraps one measure; derived is an expression of other metrics; cumulative is a running total.',
+    },
+  ],
+  m35: [
+    {
+      q: 'In dbt Mesh, which access level is required for a model to be referenced from ANOTHER project?',
+      options: ['protected', 'private', 'public', 'exposed'],
+      answer: 2,
+      explanation: 'Only access: public lets a model be referenced across projects via ref(\'project\',\'model\'). protected is same-project only (the default); private is same-group only.',
+    },
+    {
+      q: 'What is the correct syntax for a cross-project reference to fct_orders in the platform project?',
+      options: ["ref('fct_orders')", "ref('platform.fct_orders')", "ref('platform', 'fct_orders')", "source('platform', 'fct_orders')"],
+      answer: 2,
+      explanation: 'A cross-project ref takes two arguments: the project name first, then the model name — ref(\'platform\', \'fct_orders\'). The one-arg form only resolves within the current project.',
+    },
+    {
+      q: 'Why attach a contract (contract: { enforced: true }) to a public model?',
+      options: ['It makes the model build faster', 'It pins the columns, types and constraints so a breaking change fails the build before it reaches downstream projects', 'It encrypts the data', 'It schedules the model'],
+      answer: 1,
+      explanation: 'A public model is an API other teams depend on. A contract enforces its declared shape at build time, so an incompatible change is caught before it silently breaks every consumer.',
+    },
+  ],
+  m36: [
+    {
+      q: 'What is the relationship between dbt Core and dbt Cloud?',
+      options: ['They are competing tools with different SQL dialects', 'dbt Cloud runs dbt Core under the hood and adds a managed platform around it', 'dbt Core is a paid version of dbt Cloud', 'dbt Cloud replaces dbt Core entirely'],
+      answer: 1,
+      explanation: 'dbt Cloud runs the same open-source dbt Core engine, hosted, and wraps a platform around it (scheduler, IDE, APIs, hosted Semantic Layer, Explorer, governance). Your project runs unchanged on both.',
+    },
+    {
+      q: 'Your team uses dbt Core. Which capability is NOT built in, so you must bring your own tool?',
+      options: ['Running models with ref()', 'Writing tests', 'A job scheduler / orchestration', 'Compiling Jinja'],
+      answer: 2,
+      explanation: 'dbt Core has no scheduler — you orchestrate it with cron, Airflow, Dagster, or a CI runner. Models, tests, ref(), and Jinja compilation are all core engine features.',
+    },
+    {
+      q: 'Defining metrics with MetricFlow works in dbt Core. What specifically requires dbt Cloud?',
+      options: ['Writing the metrics YAML', 'Querying metrics locally with the CLI', 'Serving metrics to BI tools over the JDBC/GraphQL Semantic Layer APIs', 'Using ref() in a metric'],
+      answer: 2,
+      explanation: 'You can define and query metrics in Core (dbt sl query). The hosted Semantic Layer — serving those metrics to BI tools over JDBC/GraphQL APIs — is the dbt Cloud feature.',
+    },
+  ],
+  m37: [
+    {
+      q: 'How do you add a dbt package like dbt_utils to your project?',
+      options: ['pip install dbt_utils', 'Declare it in packages.yml and run dbt deps', 'Copy its macros into your repo by hand', 'Enable it in dbt_project.yml'],
+      answer: 1,
+      explanation: 'You declare the package (and a pinned version) in packages.yml, then run dbt deps, which clones it into dbt_packages/. pip installs Python adapters, not dbt packages.',
+    },
+    {
+      q: 'You are refactoring fct_orders and must prove the output did not change. Which package helps?',
+      options: ['codegen', 'dbt_expectations', 'audit_helper', 'dbt_project_evaluator'],
+      answer: 2,
+      explanation: 'audit_helper (compare_relations / compare_queries) does a row-level diff between the old and new output. A perfect refactor returns zero differing rows.',
+    },
+    {
+      q: 'Why should you pin package versions in packages.yml?',
+      options: ['It makes dbt deps run faster', 'So a new package release cannot silently change your compiled SQL or tests', 'It is required by dbt Hub', 'To reduce the repo size'],
+      answer: 1,
+      explanation: 'A package is a dependency; an unpinned version means a new release can change your build without you touching anything. Pinning a range takes safe patches while blocking breaking majors.',
+    },
+  ],
+  m38: [
+    {
+      q: 'Where does the code in a dbt Python model actually run?',
+      options: ['On your laptop, inside dbt', 'On the warehouse Python runtime (Snowpark / PySpark / BigQuery)', 'In a separate Airflow worker', 'In the browser'],
+      answer: 1,
+      explanation: 'dbt orchestrates it, but the Python executes on the warehouse\'s own Python runtime — Snowpark on Snowflake, PySpark on Databricks, Dataproc on BigQuery — not locally and not inside dbt.',
+    },
+    {
+      q: 'Which task is the RIGHT reason to use a Python model instead of SQL?',
+      options: ['Revenue rollup by month', 'Pivoting categories to columns', 'Scoring customers with a trained scikit-learn model', 'Deduplicating exact duplicate rows'],
+      answer: 2,
+      explanation: 'ML inference needs a library SQL can\'t express — that is the canonical Python-model case. Rollups, pivots and dedupe are all cleaner and cheaper in SQL.',
+    },
+    {
+      q: 'Can a SQL model ref() a Python model?',
+      options: ['No, they are separate DAGs', 'Yes — a Python model\'s output is a table, and lineage/selection cross the language boundary', 'Only in dbt Cloud', 'Only if both are materialized as views'],
+      answer: 1,
+      explanation: 'Python and SQL models live in one DAG. A Python model outputs a table that downstream SQL models can ref(), and tests, lineage and state:modified+ all work across the boundary.',
+    },
+  ],
 };

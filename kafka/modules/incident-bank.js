@@ -4,6 +4,7 @@
 // Where the Lab makes you choose, the Bank shows the whole path. One shared
 // data source (incidents.js), no duplication.
 import { INCIDENTS } from '../data/incidents.js';
+import { initAccordion } from '../components/accordion.js';
 
 export function mount(container) {
   const state = { openId: INCIDENTS[0] ? INCIDENTS[0].id : null };
@@ -31,14 +32,14 @@ export function mount(container) {
         </div>
         <div class="ib-list">
           ${INCIDENTS.map(s => `
-            <div class="ca-card ib-card" data-id="${s.id}">
+            <div class="ca-card ib-card${s.id === state.openId ? ' open' : ''}" data-id="${s.id}">
               <button class="ca-card-head" aria-expanded="${s.id === state.openId}">
                 <span class="ca-card-icon">${s.icon}</span>
                 <span class="ca-card-title">${s.title}</span>
                 <span class="diff-badge diff-${s.difficulty}">${s.difficulty}</span>
                 <span class="q-chevron">▼</span>
               </button>
-              <div class="ca-card-body" ${s.id === state.openId ? '' : 'hidden'}>
+              <div class="ca-card-acc"><div class="ca-card-body">
                 <div class="inv-symptom"><div class="inv-symptom-head">🚨 Symptom</div><div class="inv-symptom-body">${s.symptom}</div></div>
                 <div class="ib-section-label">Investigation — in order</div>
                 <ol class="ib-steps">${checklist(s)}</ol>
@@ -46,17 +47,13 @@ export function mount(container) {
                 <div class="inv-block inv-res"><div class="inv-block-head">🔧 Resolution</div><div class="inv-block-body">${s.resolution}</div></div>
                 <div class="inv-block inv-prev"><div class="inv-block-head">🛡️ Prevention</div><div class="inv-block-body">${s.prevention}</div></div>
                 <div class="inv-block inv-say"><div class="inv-block-head">🎙️ Say it in an interview</div><div class="inv-block-body">${s.interviewAnswer}</div></div>
-              </div>
+              </div></div>
             </div>`).join('')}
         </div>
       </div>`;
 
-    container.querySelectorAll('.ib-card .ca-card-head').forEach(head => {
-      head.addEventListener('click', () => {
-        const id = head.closest('.ib-card').dataset.id;
-        state.openId = state.openId === id ? null : id;
-        render();
-      });
+    initAccordion(container.querySelector('.ib-list'), {
+      onToggle: (id, open) => { if (open) state.openId = id; else if (state.openId === id) state.openId = null; },
     });
   }
 
