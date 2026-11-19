@@ -256,7 +256,12 @@
    Original answers are plain text; EDITED answers are rich HTML and
    render with full typography below. Scoped to .iq-ans-html so the
    rest of the drill page is untouched. */
-.iq-ans-html { display:inline; }
+/* Answer body: indented under the question, with the "A" badge in the left
+   gutter (mirrors the "Q" badge) so it never runs into the answer text. */
+.iq-ans-body { position:relative; padding:10px 15px 14px 48px; font-size:14px; color:var(--text-secondary); line-height:1.72; }
+.iq-a .iq-ans-mark { position:absolute; left:15px; top:10px; margin:0; display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:6px; background:var(--green,#3fb950); color:#fff; font-size:11px; font-weight:800; }
+.iq-ans-html { display:block; }
 .iq-ans-html p { margin:0 0 10px; }
 .iq-ans-html p:last-child { margin-bottom:0; }
 .iq-ans-html code { font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace; font-size:12px; background:var(--bg-2);
