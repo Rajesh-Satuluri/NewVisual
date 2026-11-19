@@ -583,6 +583,14 @@
 <!-- Progress / signal store (recommendation engine) — right after the namespace -->
 <script src="js/core/progress.js"></script>
 
+<!-- Cross-device cloud sync (optional): config + local bridge + engine + UI.
+     Loads after progress.js (the bridge wraps it). Inert until the Supabase
+     url/anonKey in supabase-config.js are set and a sync code is linked. -->
+<script src="supabase-config.js"></script>
+<script src="js/core/cloud-store.js"></script>
+<script src="js/core/cloudsync.js"></script>
+<script src="js/core/cloudsync-ui.js"></script>
+
 <!-- Core engine / services -->
 <script src="js/core/animation-engine.js"></script>
 <script src="js/core/tooltip.js"></script>
