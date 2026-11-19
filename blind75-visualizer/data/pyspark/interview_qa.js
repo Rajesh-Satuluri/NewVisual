@@ -28,7 +28,8 @@ window.PYSPARK_QA = {
     "Data Skew & Broadcast Joins",
     "I/O, Formats & Data Quality",
     "Streaming, MLlib & Graph",
-    "Delta Lake, Lakehouse & Data Engineering"
+    "Delta Lake, Lakehouse & Data Engineering",
+    "Scenario-Based Questions"
   ],
 
   items: [
@@ -2217,6 +2218,182 @@ window.PYSPARK_QA = {
         "<li><b>On write</b> — a stage emitting far more output tasks than needed is the <b>small-file problem</b> in the making; coalesce/repartition before writing.</li>" +
         "</ul>",
       tip: "Give the heuristic: <b>\"tasks in the hundreds-of-ms-to-seconds range, ~2–3× core count.\"</b> Milliseconds everywhere = too many partitions; multi-minute tasks with spill = too few."
+    },
+
+    // ═══════════════ Scenario-Based Questions (2026-11) ═══════════════
+    {
+      id: "scenario-slow-stage",
+      group: "Scenario-Based Questions",
+      q: "Your Spark job is running very slowly and one stage takes far longer than the rest. How do you diagnose and fix it?",
+      difficulty: "Deep",
+      tags: ["scenario", "performance", "skew", "spark-ui", "tuning"],
+      a:
+        "<p><b>Diagnose with a method, don't guess.</b> A single stage dragging while the others fly is almost always <b>data skew</b>, but I confirm it in the Spark UI before touching any knob.</p>" +
+        "<ul>" +
+        "<li><b>1. Open the slow stage → Summary Metrics.</b> Compare the <b>Max</b> task duration (and Shuffle Read size) against the <b>75th percentile / Median</b>. A median of 2s and a max of 4min means a few tasks are doing almost all the work — textbook skew.</li>" +
+        "<li><b>2. Event Timeline.</b> You'll literally see most tasks finish early while one or two bars run on alone. Those straggler tasks pin the whole stage (a stage ends only when its <i>last</i> task does).</li>" +
+        "<li><b>3. Find the hot key.</b> Skew comes from one value owning a huge share of rows — a default/placeholder key, <code>NULL</code> that all hashes to one partition, or a mega-customer. A quick <code>groupBy(key).count().orderBy(desc)</code> exposes it.</li>" +
+        "</ul>" +
+        "<p><b>Then fix the actual cause:</b></p>" +
+        "<ul>" +
+        "<li><b>Skew join</b> → enable <b>AQE skew-join handling</b> (<code>spark.sql.adaptive.enabled</code> + <code>spark.sql.adaptive.skewJoin.enabled</code>) so Spark splits the big partition automatically; or <b>salt</b> the key manually (append a random suffix to spread the hot key across N partitions, replicate the small side N times).</li>" +
+        "<li><b>Small dimension</b> → <b>broadcast join</b> so the skewed side is never shuffled at all.</li>" +
+        "<li><b>NULL skew</b> → filter the nulls out before the join (or handle them separately) so they don't all collapse onto one task.</li>" +
+        "<li><b>Not skew?</b> → check partition count (<code>spark.sql.shuffle.partitions</code>), spill to disk (high GC / disk-spill metrics), and the small-files problem on read.</li>" +
+        "</ul>",
+      code:
+        "# Salting a skewed join key\n" +
+        "from pyspark.sql import functions as F\n\n" +
+        "N = 10  # salt buckets\n\n" +
+        "fact_salted = fact.withColumn('salt', (F.rand() * N).cast('int'))\n\n" +
+        "# replicate the small side across all salt buckets\n" +
+        "dim_salted = (dim\n" +
+        "    .withColumn('salt', F.explode(F.array([F.lit(i) for i in range(N)]))))\n\n" +
+        "joined = fact_salted.join(dim_salted, ['key', 'salt'], 'inner')\n\n" +
+        "# Or just let AQE do it:\n" +
+        "spark.conf.set('spark.sql.adaptive.enabled', 'true')\n" +
+        "spark.conf.set('spark.sql.adaptive.skewJoin.enabled', 'true')",
+      lang: "python",
+      tip: "Lead with the <b>method</b>, not the fix: <i>\"I'd open the slow stage, compare max vs. median task time to confirm skew, find the hot key, then either salt it or let AQE split it.\"</i> Showing you measure before tuning is what separates senior answers."
+    },
+    {
+      id: "scenario-big-small-join",
+      group: "Scenario-Based Questions",
+      q: "You need to join a 2 TB fact table with a 50 MB dimension table. How do you make it efficient?",
+      difficulty: "Core",
+      tags: ["scenario", "broadcast-join", "joins", "shuffle"],
+      a:
+        "<p><b>Broadcast the 50 MB side.</b> The whole trick is: never shuffle the 2 TB table. A normal join would trigger a <b>sort-merge join</b> — both sides hash-partitioned and shuffled across the network, which on 2 TB is brutal. A <b>broadcast (map-side) join</b> avoids that entirely.</p>" +
+        "<ul>" +
+        "<li><b>Mechanism</b> — the driver collects the 50 MB table, <b>torrent-broadcasts</b> a copy to every executor, and each executor builds a local hash table. The 2 TB fact table then streams through and probes that in-memory map <b>with zero shuffle</b>.</li>" +
+        "<li><b>How to trigger it</b> — wrap the small side in <code>broadcast()</code>, or let Spark do it automatically: any table under <code>spark.sql.autoBroadcastJoinThreshold</code> (default <b>10 MB</b>) is broadcast. 50 MB is above the default, so either raise the threshold or hint it explicitly.</li>" +
+        "<li><b>Confirm it worked</b> — the physical plan should show <code>BroadcastHashJoin</code>, not <code>SortMergeJoin</code>, and there's no <code>Exchange</code> on the fact side.</li>" +
+        "</ul>" +
+        "<p><b>Caveats:</b> broadcasting is bounded by driver and executor memory. Don't broadcast anything near a few hundred MB without care — the driver has to hold and ship it, and every executor holds a full copy, so an over-large broadcast causes driver OOM. AQE can also convert a join to broadcast at runtime once it sees the real size.</p>",
+      code:
+        "from pyspark.sql.functions import broadcast\n\n" +
+        "# Explicit hint — forces the 50 MB dim to be broadcast\n" +
+        "result = fact.join(broadcast(dim), 'dim_id', 'left')\n\n" +
+        "# Or raise the auto-broadcast threshold (e.g. to 64 MB)\n" +
+        "spark.conf.set('spark.sql.autoBroadcastJoinThreshold', 64 * 1024 * 1024)\n\n" +
+        "result.explain()   # expect BroadcastHashJoin, no Exchange on fact side",
+      lang: "python",
+      tip: "Say the magic words: <b>\"broadcast join so the big table is never shuffled.\"</b> Then mention the <b>10 MB default threshold</b> and the <b>driver-OOM caveat</b> — that shows you know when <i>not</i> to broadcast."
+    },
+    {
+      id: "scenario-oom",
+      group: "Scenario-Based Questions",
+      q: "Your job fails with OutOfMemoryError or 'executor lost'. Walk me through how you'd fix it.",
+      difficulty: "Deep",
+      tags: ["scenario", "oom", "memory", "tuning", "collect"],
+      a:
+        "<p><b>First: where is the OOM — driver or executor?</b> The fix is completely different, so I always locate it before changing config.</p>" +
+        "<ul>" +
+        "<li><b>Driver OOM</b> — almost always pulling too much data back to one JVM: <code>collect()</code>, <code>toPandas()</code>, or broadcasting a table that's too big. <b>Fix:</b> never collect a large result (write to storage instead), cap/shrink broadcasts, and bump <code>spark.driver.memory</code> only if the data genuinely must land on the driver.</li>" +
+        "<li><b>Executor OOM</b> — a single task is handling more data than fits. Causes and fixes:" +
+        "<ul>" +
+        "<li><b>Skew</b> — one partition is huge → salt the key or enable AQE skew join.</li>" +
+        "<li><b>Partitions too large</b> → increase <code>spark.sql.shuffle.partitions</code> so each task's slice shrinks.</li>" +
+        "<li><b>Wide aggregation</b> — <code>groupByKey</code> ships every value → switch to <code>reduceByKey</code>/<code>aggregateByKey</code> (map-side combine) so far less data lands per task.</li>" +
+        "<li><b>Overhead memory</b> — off-heap/shuffle buffers overflow → raise <code>spark.executor.memoryOverhead</code> (common cause of 'executor lost' / container killed by YARN).</li>" +
+        "</ul></li>" +
+        "</ul>" +
+        "<p><b>Also check the Executors tab:</b> high GC time or repeated executor loss often means the real issue is memory pressure from spill, not raw compute. Raising memory blindly is the last resort — fixing skew / partitioning / the aggregation pattern usually solves it more cheaply.</p>",
+      tip: "Open with the split: <b>\"Is it the driver or an executor?\"</b> Driver OOM → something collected everything to one node. Executor OOM → skew or too-big partitions. Diagnosing the location first is the senior move."
+    },
+    {
+      id: "scenario-small-files",
+      group: "Scenario-Based Questions",
+      q: "Millions of tiny files are landing in your input path and jobs are crawling. What's the problem and how do you fix it?",
+      difficulty: "Core",
+      tags: ["scenario", "small-files", "io", "compaction", "partitions"],
+      a:
+        "<p>This is the classic <b>small-files problem</b>. Spark (and the metastore/driver) pays a fixed cost <i>per file</i>: listing them, opening them, and scheduling roughly <b>one task per file</b>. A million 10 KB files means a million tiny tasks — the driver drowns in scheduling and metadata overhead while almost no real work happens per task.</p>" +
+        "<ul>" +
+        "<li><b>Why it hurts</b> — slow file listing on object stores (S3/ADLS list calls are expensive), huge task counts with millisecond durations, and heavy driver memory from tracking all the partitions/files.</li>" +
+        "</ul>" +
+        "<p><b>Fixes — on read:</b></p>" +
+        "<ul>" +
+        "<li>Let Spark pack many small files into fewer partitions with <code>spark.sql.files.maxPartitionBytes</code> (e.g. 128 MB) and <code>openCostInBytes</code>, so one task reads many files instead of one-per-file.</li>" +
+        "</ul>" +
+        "<p><b>Fixes — on write (prevent it at the source):</b></p>" +
+        "<ul>" +
+        "<li><code>coalesce()</code> or <code>repartition()</code> before writing to produce fewer, larger output files (aim for ~128–256 MB each).</li>" +
+        "<li>Run a periodic <b>compaction / bin-packing</b> job; on Delta Lake use <code>OPTIMIZE</code> (and <code>OPTIMIZE ... ZORDER BY</code>) to merge small files, or enable <b>auto-compaction / optimized writes</b>.</li>" +
+        "<li>Tune partition granularity — don't over-partition the write (e.g. by a high-cardinality column) or you re-create the problem.</li>" +
+        "</ul>",
+      code:
+        "# Read: coalesce many small files into 128 MB partitions\n" +
+        "spark.conf.set('spark.sql.files.maxPartitionBytes', 128 * 1024 * 1024)\n\n" +
+        "# Write: fewer, larger files\n" +
+        "(df.repartition(50)          # ~50 output files instead of thousands\n" +
+        "   .write.mode('overwrite')\n" +
+        "   .parquet('/out/path'))\n\n" +
+        "# Delta: compact existing small files\n" +
+        "# OPTIMIZE delta.`/out/path` ZORDER BY (customer_id)",
+      lang: "python",
+      tip: "Name it as <b>\"the small-files problem — roughly one task per file, so the overhead swamps the work.\"</b> Then split your fix into <b>read-side</b> (maxPartitionBytes) and <b>write-side</b> (coalesce + OPTIMIZE/compaction)."
+    },
+    {
+      id: "scenario-cdc-dedup",
+      group: "Scenario-Based Questions",
+      q: "A downstream team needs the deduplicated latest record per key from a CDC feed. How do you build it?",
+      difficulty: "Deep",
+      tags: ["scenario", "cdc", "dedup", "window", "merge", "delta"],
+      a:
+        "<p>CDC feeds contain multiple versions of the same primary key (insert, then updates). The goal is <b>one row per key — the most recent version</b>.</p>" +
+        "<p><b>Batch / full rebuild — window function:</b></p>" +
+        "<ul>" +
+        "<li>Partition by the primary key, order by the event timestamp (and a tiebreaker like an operation sequence number) descending, number the rows, and keep <code>rn = 1</code>.</li>" +
+        "<li>Prefer <code>row_number()</code> over <code>dropDuplicates()</code> here — <code>row_number()</code> lets you deterministically pick the <i>latest</i>; <code>dropDuplicates()</code> keeps an arbitrary row.</li>" +
+        "<li>Handle deletes: if the latest op is a <code>DELETE</code>, drop the key from the output.</li>" +
+        "</ul>" +
+        "<p><b>Incremental / streaming — Delta MERGE (upsert):</b></p>" +
+        "<ul>" +
+        "<li>De-dupe the incoming micro-batch to one row per key first (same window trick), then <b>MERGE</b> into the target on the key: update when matched, insert when not, delete when the op is a delete.</li>" +
+        "<li>Or consume <b>Delta Change Data Feed</b> to propagate only the changed rows downstream.</li>" +
+        "</ul>",
+      code:
+        "from pyspark.sql import Window\n" +
+        "from pyspark.sql import functions as F\n\n" +
+        "# Latest record per key\n" +
+        "w = Window.partitionBy('pk').orderBy(F.col('event_ts').desc(),\n" +
+        "                                     F.col('op_seq').desc())\n\n" +
+        "latest = (cdc_df\n" +
+        "    .withColumn('rn', F.row_number().over(w))\n" +
+        "    .filter(F.col('rn') == 1)\n" +
+        "    .filter(F.col('op') != 'DELETE')   # drop deleted keys\n" +
+        "    .drop('rn'))\n\n" +
+        "# Incremental upsert into a Delta table\n" +
+        "# target.alias('t').merge(latest.alias('s'), 't.pk = s.pk') \\\n" +
+        "#   .whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()",
+      lang: "python",
+      tip: "Two-part answer wins: <b>\"row_number() partitioned by key, ordered by timestamp desc, keep rn=1\"</b> for a rebuild, and <b>\"de-dupe the batch then Delta MERGE on the key\"</b> for incremental. Mention handling DELETEs — interviewers probe for it."
+    },
+    {
+      id: "scenario-groupbykey-vs-reducebykey",
+      group: "Scenario-Based Questions",
+      q: "groupByKey vs reduceByKey — when would choosing the wrong one actually hurt you?",
+      difficulty: "Core",
+      tags: ["scenario", "rdd", "shuffle", "reducebykey", "groupbykey"],
+      a:
+        "<p>Both group data by key across the cluster, but <b>how much they shuffle is wildly different</b>, and that's where the wrong choice bites.</p>" +
+        "<ul>" +
+        "<li><b><code>groupByKey</code></b> — ships <b>every single value</b> for a key across the network to one reducer, <i>then</i> combines. No map-side combine. If one key is hot (say 100M values), all of them land on one task → massive shuffle and <b>executor OOM</b>.</li>" +
+        "<li><b><code>reduceByKey</code> / <code>aggregateByKey</code></b> — do a <b>map-side combine first</b>: each partition pre-aggregates its own values locally, so only the partial results cross the network. Far less shuffle, far less memory, and resilient to hot keys.</li>" +
+        "</ul>" +
+        "<p><b>The rule:</b> for any associative/commutative aggregation (sum, count, max, averages via sum+count), always prefer <code>reduceByKey</code>/<code>aggregateByKey</code>. Reach for <code>groupByKey</code> only when you genuinely need the full list of values per key and can't express it as a reduce — and even then, consider whether the data volume per key is safe.</p>",
+      code:
+        "# BAD: ships all values, risks OOM on hot keys\n" +
+        "rdd.groupByKey().mapValues(lambda vs: sum(vs))\n\n" +
+        "# GOOD: map-side combine, only partial sums shuffle\n" +
+        "rdd.reduceByKey(lambda a, b: a + b)\n\n" +
+        "# Average without groupByKey: carry (sum, count)\n" +
+        "(rdd.mapValues(lambda v: (v, 1))\n" +
+        "    .reduceByKey(lambda a, b: (a[0] + b[0], a[1] + b[1]))\n" +
+        "    .mapValues(lambda sc: sc[0] / sc[1]))",
+      lang: "python",
+      tip: "The one-liner: <b>\"reduceByKey combines on the map side, groupByKey shuffles every value — so groupByKey OOMs on hot keys.\"</b> Showing the (sum, count) average trick proves you can avoid groupByKey even for averages."
     }
   ]
 };
