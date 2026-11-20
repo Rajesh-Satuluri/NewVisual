@@ -14,9 +14,16 @@ const P = {
   flush: '<path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 20h14"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  // ── glyphs placed on isometric forms (storage-engines visual language) ──
+  server: '<rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/><path d="M7 7.5h.01M7 16.5h.01"/>',
+  listOrdered: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4.3 4.8 5.6 4.3v4M4.2 14.4h2l-2 3.1h2.3"/>',
+  scroll: '<path d="M7 4h9a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7"/><path d="M7 4a2 2 0 0 0-2 2v2h4V6a2 2 0 0 0-2-2Z"/><path d="M9.5 9.5h6M9.5 13h6M9.5 16.5h3.5"/>',
+  file: '<path d="M6 3h7.5L19 8.5V21H6Z"/><path d="M13.5 3v5.5H19"/><path d="M9 13h7M9 16.5h7"/>',
+  app: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8.5 9.5 11 12l-2.5 2.5M13 14.5h3"/>',
 };
 
 export function icon(name, cls = '') {
   return `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 }
 export const ICON_NAMES = Object.keys(P);
+export const ICON_PATHS = P;
