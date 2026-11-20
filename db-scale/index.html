@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Database Internals — to scale</title>
+  <meta name="description" content="An interactive course on database internals: each idea is an animated diagram you step through — LSM-Trees, B+Trees, WAL, MVCC and more, from one write to a distributed store." />
+  <link rel="stylesheet" href="styles/tokens.css" />
+  <link rel="stylesheet" href="styles/app.css" />
+  <script>
+    // pre-paint: dark theme + layout mode, before first paint (no flash)
+    try { if (JSON.parse(localStorage.getItem('dbs:theme')) === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+    (function () {
+      var w = innerWidth, hgt = innerHeight;
+      document.documentElement.dataset.layout = w >= 1100 && hgt >= 560 ? 'desktop' : w >= 820 ? 'tablet' : 'stack';
+    })();
+  </script>
+</head>
+<body>
+  <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">◐</button>
+  <div id="app"></div>
+  <script type="module" src="src/app.js"></script>
+  <script>
+    document.getElementById('themeToggle').addEventListener('click', function () {
+      var dark = document.documentElement.dataset.theme === 'dark';
+      document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+      try { localStorage.setItem('dbs:theme', JSON.stringify(dark ? 'light' : 'dark')); } catch (e) {}
+    });
+  </script>
+  <noscript><p style="margin:15vh auto;max-width:40ch;font:15px system-ui;text-align:center">This interactive course needs JavaScript enabled.</p></noscript>
+</body>
+</html>
