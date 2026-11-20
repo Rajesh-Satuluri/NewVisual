@@ -2,18 +2,19 @@
    particle legend, in database vocabulary. */
 
 import { h } from '../engine/h.js';
+import { icon } from '../engine/icons.js';
 
-/* metric display config: key -> { label, fmt, good: 'low'|'high'|null } */
+/* metric display config: key -> { label, fmt, good: 'low'|'high'|null, ic } */
 export const METRICS = {
-  memtable:  { label: 'MemTable keys', fmt: v => v },
-  sstables:  { label: 'SSTables', fmt: v => v },
-  levels:    { label: 'Levels w/ data', fmt: v => v },
-  liveKeys:  { label: 'Live keys', fmt: v => v },
-  writeAmp:  { label: 'Write amp', fmt: v => v.toFixed(2) + '×', good: 'low' },
-  readAmp:   { label: 'Read amp', fmt: v => v + ' tbl', good: 'low' },
-  spaceAmp:  { label: 'Space amp', fmt: v => v.toFixed(2) + '×', good: 'low' },
-  flushes:   { label: 'Flushes', fmt: v => v },
-  compactions: { label: 'Compactions', fmt: v => v },
+  memtable:  { label: 'MemTable keys', fmt: v => v, ic: 'listOrdered' },
+  sstables:  { label: 'SSTables', fmt: v => v, ic: 'file' },
+  levels:    { label: 'Levels w/ data', fmt: v => v, ic: 'layers' },
+  liveKeys:  { label: 'Live keys', fmt: v => v, ic: 'key' },
+  writeAmp:  { label: 'Write amp', fmt: v => v.toFixed(2) + '×', good: 'low', ic: 'scale' },
+  readAmp:   { label: 'Read amp', fmt: v => v + ' tbl', good: 'low', ic: 'search' },
+  spaceAmp:  { label: 'Space amp', fmt: v => v.toFixed(2) + '×', good: 'low', ic: 'database' },
+  flushes:   { label: 'Flushes', fmt: v => v, ic: 'flush' },
+  compactions: { label: 'Compactions', fmt: v => v, ic: 'merge' },
 };
 
 export function renderHud(metrics, show, prev) {
@@ -28,8 +29,8 @@ export function renderHud(metrics, show, prev) {
       dir = better == null ? 'is-changed' : better ? 'is-good' : 'is-bad';
     }
     return h('div.hud__tile.' + (dir || 'is-flat'), [
+      h('div.hud__label', [h('span.hud__ic', { html: icon(cfg.ic || 'gauge') }), h('span', { text: cfg.label })]),
       h('div.hud__val', { text: cfg.fmt(val) }),
-      h('div.hud__label', { text: cfg.label }),
     ]);
   }).filter(Boolean));
 }

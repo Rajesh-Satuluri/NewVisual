@@ -20,6 +20,18 @@ const P = {
   scroll: '<path d="M7 4h9a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7"/><path d="M7 4a2 2 0 0 0-2 2v2h4V6a2 2 0 0 0-2-2Z"/><path d="M9.5 9.5h6M9.5 13h6M9.5 16.5h3.5"/>',
   file: '<path d="M6 3h7.5L19 8.5V21H6Z"/><path d="M13.5 3v5.5H19"/><path d="M9 13h7M9 16.5h7"/>',
   app: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8.5 9.5 11 12l-2.5 2.5M13 14.5h3"/>',
+  // ── top-bar + chrome glyphs ──
+  book: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5Z"/><path d="M5 19.5A1.5 1.5 0 0 1 6.5 18H19v3H6.5A1.5 1.5 0 0 1 5 19.5Z"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".6" fill="currentColor"/>',
+  sliders: '<path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2.3"/><circle cx="9" cy="16" r="2.3"/>',
+  grid: '<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.6"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.6"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.6"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.6"/>',
+  moon: '<path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
+  sun: '<circle cx="12" cy="12" r="4.3"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.1 5.1l1.6 1.6M17.3 17.3l1.6 1.6M18.9 5.1l-1.6 1.6M6.7 17.3l-1.6 1.6"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3.3 2.8 14.7 0 18M12 3c-2.8 3.3-2.8 14.7 0 18"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  folder: '<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2.2h8A1.5 1.5 0 0 1 20.5 9.7V18A1.5 1.5 0 0 1 19 19.5H4.5A1.5 1.5 0 0 1 3 18Z"/>',
+  bolt: '<path d="M13 2 4.5 13.5H10l-1 8.5L19 10.5h-5.5Z"/>',
+  scale: '<path d="M12 3v18M6 21h12M7 6h10M7 6 4 13h6ZM17 6l-3 7h6Z"/>',
 };
 
 export function icon(name, cls = '') {
