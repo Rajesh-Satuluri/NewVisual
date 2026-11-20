@@ -84,6 +84,17 @@ const LOADERS = {
   'performance': () => import('./modules/performance.js'),
   'config-ui': () => import('./modules/config-ui.js'),
   'deployment': () => import('./modules/deployment.js'),
+  'playground': () => import('./modules/playground.js'),
+  'sim-lab': () => import('./modules/sim-lab.js'),
+  'master-map': () => import('./modules/master-map.js'),
+  'cheatsheet': () => import('./modules/cheatsheet.js'),
+  'interview': () => import('./modules/interview.js'),
+  'mock-interview': () => import('./modules/mock-interview.js'),
+  'decisions': () => import('./modules/decisions.js'),
+  'rca-clinic': () => import('./modules/rca-clinic.js'),
+  'dashboard': () => import('./modules/dashboard.js'),
+  'review': () => import('./modules/review.js'),
+  'study': () => import('./modules/study.js'),
 };
 
 function comingSoon(mod, id) {
