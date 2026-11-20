@@ -20,6 +20,13 @@ export const METRICS = {
   tables:    { label: 'Tables', fmt: v => v, ic: 'grid' },
   rows:      { label: 'Rows', fmt: v => v.toLocaleString(), ic: 'listOrdered' },
   queries:   { label: 'Queries/s', fmt: v => v, ic: 'search' },
+  latency:    { label: 'p99 latency', fmt: v => v + ' ms', good: 'low', ic: 'clock' },
+  integrity:  { label: 'Integrity', fmt: v => v + '%', good: 'high', ic: 'check' },
+  relations:  { label: 'Relations', fmt: v => v, ic: 'layers' },
+  columns:    { label: 'Columns', fmt: v => v, ic: 'grid' },
+  constraints:{ label: 'Constraints', fmt: v => v, ic: 'key' },
+  ops:        { label: 'Operators', fmt: v => v, ic: 'merge' },
+  tiers:      { label: 'Tiers', fmt: v => v, ic: 'layers' },
 };
 
 export function renderHud(metrics, show, prev) {

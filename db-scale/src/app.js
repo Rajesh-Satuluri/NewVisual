@@ -7,16 +7,54 @@ import { onRoute, go } from './engine/router.js';
 import { createFlowSystem } from './engine/flows.js';
 import { renderLsmScene } from './db/lsm-scene.js';
 import { renderDbmsScene } from './db/dbms-scene.js';
+import { renderWhyDatabasesScene } from './db/why-databases-scene.js';
+import { renderDbmsArchitectureScene } from './db/dbms-architecture-scene.js';
+import { renderDataModelsScene } from './db/data-models-scene.js';
+import { renderRelationalModelScene } from './db/relational-model-scene.js';
+import { renderRelationalAlgebraScene } from './db/relational-algebra-scene.js';
+import { renderSqlRelationalAlgebraScene } from './db/sql-relational-algebra-scene.js';
+import { renderSchemaConstraintsScene } from './db/schema-constraints-scene.js';
+import { renderStorageHierarchyScene } from './db/storage-hierarchy-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
 import { dbmsLesson } from './content/dbms.js';
+import { whyDatabasesLesson } from './content/why-databases.js';
+import { dbmsArchitectureLesson } from './content/dbms-architecture.js';
+import { dataModelsLesson } from './content/data-models.js';
+import { relationalModelLesson } from './content/relational-model.js';
+import { relationalAlgebraLesson } from './content/relational-algebra.js';
+import { sqlRelationalAlgebraLesson } from './content/sql-relational-algebra.js';
+import { schemaConstraintsLesson } from './content/schema-constraints.js';
+import { storageHierarchyLesson } from './content/storage-hierarchy.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
-const LESSONS = { 'lsm-tree': lsmLesson, 'what-is-dbms': dbmsLesson };
+const LESSONS = {
+  'lsm-tree': lsmLesson,
+  'what-is-dbms': dbmsLesson,
+  'why-databases': whyDatabasesLesson,
+  'dbms-architecture': dbmsArchitectureLesson,
+  'data-models': dataModelsLesson,
+  'relational-model': relationalModelLesson,
+  'relational-algebra': relationalAlgebraLesson,
+  'sql-relational-algebra': sqlRelationalAlgebraLesson,
+  'schema-constraints': schemaConstraintsLesson,
+  'storage-hierarchy': storageHierarchyLesson,
+};
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
-const SCENES = { 'lsm-tree': renderLsmScene, 'what-is-dbms': renderDbmsScene };
+const SCENES = {
+  'lsm-tree': renderLsmScene,
+  'what-is-dbms': renderDbmsScene,
+  'why-databases': renderWhyDatabasesScene,
+  'dbms-architecture': renderDbmsArchitectureScene,
+  'data-models': renderDataModelsScene,
+  'relational-model': renderRelationalModelScene,
+  'relational-algebra': renderRelationalAlgebraScene,
+  'sql-relational-algebra': renderSqlRelationalAlgebraScene,
+  'schema-constraints': renderSchemaConstraintsScene,
+  'storage-hierarchy': renderStorageHierarchyScene,
+};
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
 const SECTION_ICON_COLORS = ['#c98a3e', '#2f8a43', '#6b4fbb', '#2a7a6b', '#c0392b', '#3b82c9', '#b5892b', '#7a8290', '#5a6b8c'];
