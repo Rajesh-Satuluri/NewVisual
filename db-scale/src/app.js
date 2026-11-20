@@ -14,6 +14,8 @@ import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
 const LESSONS = { 'lsm-tree': lsmLesson };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
+const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
+const SECTION_ICON_COLORS = ['#c98a3e', '#2f8a43', '#6b4fbb', '#2a7a6b', '#c0392b', '#3b82c9', '#b5892b', '#7a8290', '#5a6b8c'];
 const CALLOUT_ICON = { warn: 'alert', insight: 'gauge', tip: 'check' };
 const CHAPTER_LABEL = { setup: 'Setup', problem: 'Problem', solution: 'Solution', technique: 'How it works', tradeoff: 'Trade-off', recap: 'Recap', insight: 'Insight' };
 
@@ -52,11 +54,21 @@ function boot() {
 function renderTopbar() {
   return h('header.topbar', [
     h('div.topbar__brand', [h('span.brand__dot'), h('b', 'DB Internals'), h('span.brand__thin', 'to scale')]),
-    h('nav.tabs', TABS.map((t, i) => h('button.tab' + (i === 0 ? '.is-active' : ''), { text: t, title: i ? 'Coming soon' : '' }))),
+    h('nav.tabs', TABS.map((t, i) => h('button.tab' + (i === 0 ? '.is-active' : ''), { title: i ? 'Coming soon' : '' }, [
+      h('span.tab__ic', { html: icon(TAB_ICON[t]) }),
+      h('span', { text: t }),
+    ]))),
     h('div.topbar__right', [
-      h('div.search', [h('span.search__ic', { html: icon('search') }), h('span.search__ph', 'Search concepts…')]),
-      h('button.chip-btn', 'EN'),
-      h('button.chip-btn', { id: 'themeToggle2', text: '◐', title: 'Toggle theme' }),
+      h('div.search', [
+        h('span.search__ic', { html: icon('search') }),
+        h('span.search__ph', 'Search concepts…'),
+        h('kbd.search__kbd', '⌘K'),
+      ]),
+      h('button.chip-btn.chip-btn--lang', [h('span.chip-btn__ic', { html: icon('globe') }), h('span', 'EN'), h('span.chip-btn__caret', { html: icon('chevron') })]),
+      h('button.chip-btn.chip-btn--icon', { id: 'themeToggle2', title: 'Toggle theme', 'aria-label': 'Toggle theme' }, [
+        h('span.ic-moon', { html: icon('moon') }),
+        h('span.ic-sun', { html: icon('sun') }),
+      ]),
     ]),
   ]);
 }
@@ -81,6 +93,7 @@ function renderSidebar(activeSlug) {
       return h('div.section' + (open ? '.is-open' : ''), [
         h('button.section__head', { onClick: () => toggleSection(i) }, [
           h('span.section__caret', open ? '▾' : '▸'),
+          h('span.section__folder', { html: icon('folder'), style: { color: SECTION_ICON_COLORS[i % SECTION_ICON_COLORS.length] } }),
           h('span.section__n', { text: sec.n }),
           h('span.section__name', { text: sec.name }),
           h('span.section__count', { text: `${builtN}/${sec.items.length}` }),
@@ -115,10 +128,16 @@ function renderBuilt(L, step) {
 
   const header = h('div.ws-head', [
     h('div.breadcrumb', { text: `${L.group}  /  ${L.title}` }),
-    h('h1.ws-title', { text: L.title }),
-    h('p.ws-sub', { text: L.summary }),
-    h('div.badges', [
-      h('span.badge', `⏱ ${L.minutes} min`), h('span.badge', `▲ ${L.level}`), h('span.badge', `☰ ${L.steps.length} steps`),
+    h('div.ws-head__row', [
+      h('div.ws-head__main', [
+        h('h1.ws-title', { text: L.title }),
+        h('p.ws-sub', { text: L.summary }),
+      ]),
+      h('div.badges', [
+        h('span.badge', [h('span.badge__ic', { html: icon('clock') }), h('span', `${L.minutes} min`)]),
+        h('span.badge', [h('span.badge__ic', { html: icon('gauge') }), h('span', L.level)]),
+        h('span.badge.badge--steps', [h('span.badge__ic', { html: icon('listOrdered') }), h('span', `${L.steps.length} steps`)]),
+      ]),
     ]),
   ]);
 
@@ -178,13 +197,24 @@ function renderNarrative(L, step) {
     ]) : null,
     h('div.nav', [
       h('button.nav__btn', { disabled: step === 0, onClick: () => go({ lesson: L.id, step: step - 1 }) }, '← Back'),
-      h('button.nav__btn.nav__btn--primary', { disabled: step === L.steps.length - 1, onClick: () => go({ lesson: L.id, step: step + 1 }) }, 'Next →'),
+      (step === L.steps.length - 1
+        ? h('button.nav__btn.nav__btn--primary', { disabled: true }, 'Finish ✓')
+        : h('button.nav__btn.nav__btn--primary', { onClick: () => go({ lesson: L.id, step: step + 1 }) },
+          `Next: ${L.steps[step + 1].short} →`)),
+    ]),
+    h('div.nav-hint', [
+      h('kbd', '←'), h('kbd', '→'), h('span', 'step'),
+      h('span.nav-hint__dot', '·'), h('kbd', 'Home'), h('span', 'restart'),
     ]),
     h('div.youll', [
       h('div.youll__label', 'You will learn'),
-      ...L.goals.map(g => h('button.youll__item', { onClick: () => go({ lesson: L.id, step: g.step }) }, [
-        h('span.youll__box'), h('span', { html: g.text }),
-      ])),
+      ...L.goals.map(g => {
+        const done = step >= g.step;
+        return h('button.youll__item' + (done ? '.is-done' : ''), { onClick: () => go({ lesson: L.id, step: g.step }) }, [
+          h('span.youll__box' + (done ? '.is-checked' : ''), done ? { html: icon('check') } : {}),
+          h('span', { html: g.text }),
+        ]);
+      }),
     ]),
   ]));
 }
@@ -242,7 +272,8 @@ function renderPlaceholder(slug) {
 
 function wireTheme() {
   document.addEventListener('click', e => {
-    if (e.target && e.target.id === 'themeToggle2') {
+    const btn = e.target && e.target.closest && e.target.closest('#themeToggle2');
+    if (btn) {
       const dark = document.documentElement.dataset.theme === 'dark';
       document.documentElement.dataset.theme = dark ? 'light' : 'dark';
       try { localStorage.setItem('dbs:theme', JSON.stringify(dark ? 'light' : 'dark')); } catch {}
@@ -250,5 +281,19 @@ function wireTheme() {
   });
 }
 
+/* keyboard navigation through a lesson's steps (Designed-to-Scale parity) */
+function wireKeys() {
+  document.addEventListener('keydown', e => {
+    const tag = (e.target && e.target.tagName) || '';
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(tag) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const { slug, step } = store.get();
+    const L = LESSONS[slug]; if (!L) return;
+    if (e.key === 'ArrowRight' && step < L.steps.length - 1) { e.preventDefault(); go({ lesson: slug, step: step + 1 }); }
+    else if (e.key === 'ArrowLeft' && step > 0) { e.preventDefault(); go({ lesson: slug, step: step - 1 }); }
+    else if (e.key === 'Home' && step !== 0) { e.preventDefault(); go({ lesson: slug, step: 0 }); }
+  });
+}
+
 wireTheme();
+wireKeys();
 boot();
