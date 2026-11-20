@@ -25,6 +25,16 @@ import { renderQueryOptimizationScene } from './db/query-optimization-scene.js';
 import { renderCostBasedOptimizationScene } from './db/cost-based-optimization-scene.js';
 import { renderTableScanScene } from './db/table-scan-scene.js';
 import { renderIndexScanScene } from './db/index-scan-scene.js';
+import { renderNestedLoopJoinScene } from './db/nested-loop-join-scene.js';
+import { renderHashJoinScene } from './db/hash-join-scene.js';
+import { renderSortMergeJoinScene } from './db/sort-merge-join-scene.js';
+import { renderAggregationScene } from './db/aggregation-scene.js';
+import { renderQueryExecutionScene } from './db/query-execution-scene.js';
+import { renderQueryPlanComparatorScene } from './db/query-plan-comparator-scene.js';
+import { renderExplainAnalyzeScene } from './db/explain-analyze-scene.js';
+import { renderParallelQueryScene } from './db/parallel-query-scene.js';
+import { renderQueryStatisticsScene } from './db/query-statistics-scene.js';
+import { renderCostModelScene } from './db/cost-model-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -47,6 +57,16 @@ import { queryOptimizationLesson } from './content/query-optimization.js';
 import { costBasedOptimizationLesson } from './content/cost-based-optimization.js';
 import { tableScanLesson } from './content/table-scan.js';
 import { indexScanLesson } from './content/index-scan.js';
+import { nestedLoopJoinLesson } from './content/nested-loop-join.js';
+import { hashJoinLesson } from './content/hash-join.js';
+import { sortMergeJoinLesson } from './content/sort-merge-join.js';
+import { aggregationLesson } from './content/aggregation.js';
+import { queryExecutionLesson } from './content/query-execution.js';
+import { queryPlanComparatorLesson } from './content/query-plan-comparator.js';
+import { explainAnalyzeLesson } from './content/explain-analyze.js';
+import { parallelQueryLesson } from './content/parallel-query.js';
+import { queryStatisticsLesson } from './content/query-statistics.js';
+import { costModelLesson } from './content/cost-model.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -71,6 +91,16 @@ const LESSONS = {
   'cost-based-optimization': costBasedOptimizationLesson,
   'table-scan': tableScanLesson,
   'index-scan': indexScanLesson,
+  'nested-loop-join': nestedLoopJoinLesson,
+  'hash-join': hashJoinLesson,
+  'sort-merge-join': sortMergeJoinLesson,
+  'aggregation': aggregationLesson,
+  'query-execution': queryExecutionLesson,
+  'query-plan-comparator': queryPlanComparatorLesson,
+  'explain-analyze': explainAnalyzeLesson,
+  'parallel-query': parallelQueryLesson,
+  'query-statistics': queryStatisticsLesson,
+  'cost-model': costModelLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -94,6 +124,16 @@ const SCENES = {
   'cost-based-optimization': renderCostBasedOptimizationScene,
   'table-scan': renderTableScanScene,
   'index-scan': renderIndexScanScene,
+  'nested-loop-join': renderNestedLoopJoinScene,
+  'hash-join': renderHashJoinScene,
+  'sort-merge-join': renderSortMergeJoinScene,
+  'aggregation': renderAggregationScene,
+  'query-execution': renderQueryExecutionScene,
+  'query-plan-comparator': renderQueryPlanComparatorScene,
+  'explain-analyze': renderExplainAnalyzeScene,
+  'parallel-query': renderParallelQueryScene,
+  'query-statistics': renderQueryStatisticsScene,
+  'cost-model': renderCostModelScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
