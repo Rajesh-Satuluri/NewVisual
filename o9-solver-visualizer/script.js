@@ -80,6 +80,10 @@ const LOADERS = {
   'co-products': () => import('./modules/co-products.js'),
   'multi-step-routing': () => import('./modules/multi-step-routing.js'),
   'special-models': () => import('./modules/special-models.js'),
+  'optimization': () => import('./modules/optimization.js'),
+  'performance': () => import('./modules/performance.js'),
+  'config-ui': () => import('./modules/config-ui.js'),
+  'deployment': () => import('./modules/deployment.js'),
 };
 
 function comingSoon(mod, id) {
