@@ -1869,3 +1869,80 @@ body.cmdk-open { overflow: hidden; }
 .nav-level-beginner { background: #10B981; }
 .nav-level-core     { background: #818CF8; }
 .nav-level-advanced { background: #F59E0B; }
+
+/* ── Auxiliary pages (Playground / Practice / Review) ───────────────────────
+   Styling for the class names introduced by the aux pages, built on the same
+   design tokens so both themes work. */
+
+/* Playground / Scenario Lab */
+.pg-d { display:grid; grid-template-columns:repeat(3,1fr) auto; gap:8px; align-items:center;
+  padding:8px 10px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; margin-bottom:8px; }
+.sl-pick { display:flex; flex-direction:column; gap:6px; }
+.sl-pick .ctrl-btn { text-align:left; }
+
+/* Decision Drills + RCA Clinic (shared shape) */
+.dd-card, .rc-case { background:var(--bg2); border:1px solid var(--border); border-radius:12px;
+  padding:16px 18px; margin-bottom:14px; }
+.dd-opts, .rc-opts { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.dd-opt, .rc-opt { text-align:left; padding:10px 14px; border:1px solid var(--border); border-radius:8px;
+  background:var(--bg3); color:var(--text); font:inherit; font-size:13px; cursor:pointer; transition:.15s; }
+.dd-opt:hover, .rc-opt:hover { border-color:var(--accent); background:var(--accent-lo); }
+.dd-opt.correct, .rc-opt.correct { border-color:var(--green); background:rgba(16,185,129,0.15); }
+.dd-opt.wrong, .rc-opt.wrong { border-color:var(--red); background:rgba(239,68,68,0.13); }
+.dd-opt:disabled, .rc-opt:disabled { cursor:default; }
+.dd-explain, .rc-explain { margin-top:12px; padding:12px 14px; border-left:3px solid var(--accent);
+  background:var(--bg3); border-radius:0 8px 8px 0; font-size:12.5px; color:var(--text2); line-height:1.6; }
+
+/* Interview Q&A bank */
+.iv-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+.iv-group { margin-bottom:22px; }
+.iv-item { border:1px solid var(--border); border-radius:10px; background:var(--bg2); margin-bottom:10px; overflow:hidden; }
+.iv-q { padding:13px 16px; font-weight:600; font-size:13.5px; color:var(--text); cursor:pointer; display:flex; gap:10px; }
+.iv-q:hover { background:var(--accent-lo); }
+.iv-a { padding:0 16px; max-height:0; overflow:hidden; transition:max-height .25s ease, padding .25s ease; }
+.iv-a.open { max-height:1400px; padding:0 16px 14px; }
+.iv-a-body { font-size:12.5px; color:var(--text2); line-height:1.7; }
+.iv-tip { margin-top:10px; padding:8px 12px; border-left:3px solid var(--amber);
+  background:var(--bg3); border-radius:0 6px 6px 0; font-size:12px; color:var(--text); }
+
+/* Mock Interview */
+.mi-bar { height:6px; border-radius:3px; background:var(--bg3); overflow:hidden; margin:10px 0; }
+.mi-bar > span { display:block; height:100%; background:var(--accent); transition:width .3s ease; }
+.mi-controls { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+
+/* Review Center */
+.rv-topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;
+  font-size:12.5px; color:var(--text2); }
+.rv-progress-fill { height:6px; border-radius:3px; background:var(--accent); transition:width .3s ease; }
+.rv-reveal { margin-top:14px; }
+.rv-grade-hint { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+.rv-grade-label { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.rv-grade-name { font-size:11px; color:var(--text3); }
+.rv-done { text-align:center; padding:40px 20px; }
+.rv-done-icon { font-size:46px; margin-bottom:12px; }
+
+/* Dashboard */
+.dash-kpi { display:flex; flex-direction:column; gap:4px; }
+.dash-kpi-value { font-size:30px; font-weight:800; color:var(--text); line-height:1; }
+.dash-kpi-of { font-size:12px; color:var(--text3); }
+.dash-overall { margin:6px 0 20px; }
+.dash-overall-label { display:flex; justify-content:space-between; font-size:12.5px; color:var(--text2); margin-bottom:6px; }
+.dash-bar { height:10px; border-radius:5px; background:var(--bg3); overflow:hidden; }
+.dash-bar-fill { height:100%; background:var(--accent); transition:width .4s ease; }
+.dash-groups { display:flex; flex-direction:column; gap:10px; }
+.dash-group-row { display:grid; grid-template-columns:150px 1fr auto; gap:10px; align-items:center; }
+.dash-group-name { font-size:12.5px; color:var(--text); }
+.dash-group-bar { height:8px; border-radius:4px; background:var(--bg3); overflow:hidden; }
+.dash-group-bar > span { display:block; height:100%; background:var(--accent2); }
+.dash-group-count { font-size:11.5px; color:var(--text3); min-width:42px; text-align:right; }
+.dash-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+
+/* Study Hub */
+.study-next { border:1px solid var(--accent); background:var(--accent-lo); border-radius:12px; padding:18px 20px; margin-bottom:20px; }
+.study-path { display:flex; flex-direction:column; gap:4px; }
+.study-path-group { margin-top:14px; }
+.study-path-head { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin-bottom:6px; }
+.study-path-label { display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:7px; font-size:13px; color:var(--text); }
+.study-path-label:hover { background:var(--accent-lo); }
+.study-path-icon { width:18px; text-align:center; }
+.study-path-check { color:var(--green); }
