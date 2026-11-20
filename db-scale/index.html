@@ -17,16 +17,8 @@
   </script>
 </head>
 <body>
-  <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">◐</button>
   <div id="app"></div>
   <script type="module" src="src/app.js"></script>
-  <script>
-    document.getElementById('themeToggle').addEventListener('click', function () {
-      var dark = document.documentElement.dataset.theme === 'dark';
-      document.documentElement.dataset.theme = dark ? 'light' : 'dark';
-      try { localStorage.setItem('dbs:theme', JSON.stringify(dark ? 'light' : 'dark')); } catch (e) {}
-    });
-  </script>
   <noscript><p style="margin:15vh auto;max-width:40ch;font:15px system-ui;text-align:center">This interactive course needs JavaScript enabled.</p></noscript>
 </body>
 </html>

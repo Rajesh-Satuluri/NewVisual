@@ -1,145 +1,207 @@
-/* app.js — boot, layout, step navigation, and the live-lab host. */
-import { h, mount, clear } from './engine/h.js';
+/* app.js — the course shell: top bar · course tree · lesson workspace · narrative.
+   The LSM-Tree lesson is fully built; every other catalog concept is navigable
+   as a graceful "not built yet" placeholder so the whole curriculum validates. */
+import { h, mount } from './engine/h.js';
 import { createStore } from './engine/store.js';
-import { onRoute, go, parseHash } from './engine/router.js';
+import { onRoute, go } from './engine/router.js';
 import { createFlowSystem } from './engine/flows.js';
 import { renderLsmScene } from './db/lsm-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
 import { createLsm } from './kernels/lsm.mjs';
+import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
-const LESSONS = [lsmLesson];
-const byId = id => LESSONS.find(l => l.id === id) || LESSONS[0];
-
+const LESSONS = { 'lsm-tree': lsmLesson };
+const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const CALLOUT_ICON = { warn: 'alert', insight: 'gauge', tip: 'check' };
 const CHAPTER_LABEL = { setup: 'Setup', problem: 'Problem', solution: 'Solution', technique: 'How it works', tradeoff: 'Trade-off', recap: 'Recap', insight: 'Insight' };
 
-const store = createStore({ lesson: lsmLesson.id, step: 0 });
-let flows = null;          // current flow system
+// section index that contains a given slug (for auto-expand)
+function sectionOf(slug) {
+  for (let i = 0; i < CATALOG.length; i++) if (CATALOG[i].items.some(it => it.slug === slug)) return i;
+  return 0;
+}
+function catalogItem(slug) {
+  for (const s of CATALOG) { const it = s.items.find(i => i.slug === slug); if (it) return { ...it, section: s }; }
+  return null;
+}
+
+const store = createStore({ slug: 'lsm-tree', step: 0, expanded: new Set([sectionOf('lsm-tree')]) });
+let flows = null;
 
 function boot() {
   const app = document.getElementById('app');
-  mount(app, h('div.layout', [
-    h('aside.sidebar', { id: 'sidebar' }),
-    h('main.stage-wrap', [
-      h('div.stage', { id: 'stage' }),
-      h('div.hud-row', { id: 'hudrow' }),
+  mount(app, h('div.shell', [
+    renderTopbar(),
+    h('div.layout', [
+      h('aside.sidebar', { id: 'sidebar' }),
+      h('main.workspace', { id: 'workspace' }),
+      h('section.rail', { id: 'rail' }),
     ]),
-    h('section.rail', { id: 'rail' }),
   ]));
   onRoute(({ lesson, step }) => {
-    const L = byId(lesson || store.get().lesson);
-    const s = Math.min(Math.max(0, step || 0), L.steps.length - 1);
-    store.set({ lesson: L.id, step: s });
+    const slug = lesson || store.get().slug;
+    const exp = store.get().expanded; exp.add(sectionOf(slug));
+    store.set({ slug, step: step || 0, expanded: exp });
     render();
   });
 }
 
-function render() {
-  const { lesson, step } = store.get();
-  const L = byId(lesson);
-  renderSidebar(L, step);
-  renderStage(L, step);
-  renderRail(L, step);
+/* ── Top bar ── */
+function renderTopbar() {
+  return h('header.topbar', [
+    h('div.topbar__brand', [h('span.brand__dot'), h('b', 'DB Internals'), h('span.brand__thin', 'to scale')]),
+    h('nav.tabs', TABS.map((t, i) => h('button.tab' + (i === 0 ? '.is-active' : ''), { text: t, title: i ? 'Coming soon' : '' }))),
+    h('div.topbar__right', [
+      h('div.search', [h('span.search__ic', { html: icon('search') }), h('span.search__ph', 'Search concepts…')]),
+      h('button.chip-btn', 'EN'),
+      h('button.chip-btn', { id: 'themeToggle2', text: '◐', title: 'Toggle theme' }),
+    ]),
+  ]);
 }
 
-/* ── Sidebar: lesson header + goals + step list grouped by chapter ── */
-function renderSidebar(L, step) {
+function render() {
+  const { slug, step } = store.get();
+  const lesson = LESSONS[slug];
+  renderSidebar(slug);
+  if (lesson) { renderBuilt(lesson, step); }
+  else { renderPlaceholder(slug); }
+}
+
+/* ── Course tree (full catalog) ── */
+function renderSidebar(activeSlug) {
   const host = document.getElementById('sidebar');
-  mount(host, h('div', [
-    h('div.brand', [h('span.brand__dot'), h('span', { text: 'DB Internals · to scale' })]),
-    h('div.lesson-head', [
-      h('div.lesson-head__group', { text: L.group }),
-      h('h1.lesson-head__title', { text: L.title }),
-      h('p.lesson-head__summary', { text: L.summary }),
-      h('div.lesson-head__meta', { text: `${L.level} · ${L.minutes} min · ${L.steps.length} steps` }),
-    ]),
-    h('div.goals', [
-      h('div.goals__label', { text: 'You will learn' }),
-      ...L.goals.map(g => h('button.goal', { onClick: () => go({ lesson: L.id, step: g.step }) }, [
-        h('span.goal__bullet'), h('span', { html: g.text }),
-      ])),
-    ]),
-    h('div.steplist', L.steps.map((st, i) =>
-      h('button.steprow' + (i === step ? '.is-active' : ''), { onClick: () => go({ lesson: L.id, step: i }) }, [
-        h('span.steprow__n', { text: String(i + 1) }),
-        h('span.steprow__body', [
-          h('span.steprow__chapter.chap--' + st.chapter, { text: CHAPTER_LABEL[st.chapter] || st.chapter }),
-          h('span.steprow__short', { text: st.short }),
+  const { expanded } = store.get();
+  mount(host, h('div.course', [
+    h('div.course__head', [h('span', { html: icon('layers') }), h('b', 'Course'), h('span.course__count', `${TOTAL} concepts`)]),
+    h('div.sections', CATALOG.map((sec, i) => {
+      const open = expanded.has(i);
+      const builtN = sec.items.filter(x => x.built).length;
+      return h('div.section' + (open ? '.is-open' : ''), [
+        h('button.section__head', { onClick: () => toggleSection(i) }, [
+          h('span.section__caret', open ? '▾' : '▸'),
+          h('span.section__n', { text: sec.n }),
+          h('span.section__name', { text: sec.name }),
+          h('span.section__count', { text: `${builtN}/${sec.items.length}` }),
         ]),
-      ]))),
+        open ? h('div.items', sec.items.map(it =>
+          h('button.item' + (it.slug === activeSlug ? '.is-active' : '') + (it.built ? '.is-built' : ''),
+            { onClick: () => go({ lesson: it.slug, step: 0 }) }, [
+            h('span.item__icon', { text: it.built ? '●' : '○' }),
+            h('span.item__title', { text: it.title }),
+            it.built ? h('span.item__badge', 'live') : null,
+          ])) ) : null,
+      ]);
+    })),
+    h('div.progress', [
+      h('div.progress__bar', [h('div.progress__fill', { style: { width: (BUILT_COUNT / TOTAL * 100).toFixed(1) + '%' } })]),
+      h('div.progress__txt', `${BUILT_COUNT} / ${TOTAL} built`),
+    ]),
   ]));
 }
+function toggleSection(i) {
+  const exp = store.get().expanded;
+  exp.has(i) ? exp.delete(i) : exp.add(i);
+  store.set({ expanded: exp }); renderSidebar(store.get().slug);
+}
 
-/* ── Stage: the scene + HUD + legend ── */
-function renderStage(L, step) {
+/* ── Built lesson workspace ── */
+function renderBuilt(L, step) {
+  step = Math.min(Math.max(0, step), L.steps.length - 1);
   const st = L.steps[step];
-  const stage = document.getElementById('stage');
-  const hudrow = document.getElementById('hudrow');
+  const ws = document.getElementById('workspace');
   if (flows) { flows.clear(); flows = null; }
 
-  if (st.scene && st.scene.lab) { renderLab(L, step, stage, hudrow); return; }
+  const header = h('div.ws-head', [
+    h('div.breadcrumb', { text: `${L.group}  /  ${L.title}` }),
+    h('h1.ws-title', { text: L.title }),
+    h('p.ws-sub', { text: L.summary }),
+    h('div.badges', [
+      h('span.badge', `⏱ ${L.minutes} min`), h('span.badge', `▲ ${L.level}`), h('span.badge', `☰ ${L.steps.length} steps`),
+    ]),
+  ]);
 
-  const { svg, layer, rail, note } = renderLsmScene(st.scene, {
-    hiKey: st.scene.hiKey, pulse: st.scene.pulse, probe: st.probe || [],
-  });
-  mount(stage, h('div.scene-box', [svg, h('div.scene-note', { text: note })]));
+  // scene
+  let sceneBox, legendEl;
+  if (st.scene && st.scene.lab) { sceneBox = h('div', { id: 'labmount' }); }
+  else {
+    const r = renderLsmScene(st.scene, { hiKey: st.scene.hiKey, pulse: st.scene.pulse, probe: st.probe || [] });
+    sceneBox = h('div.scene-box', [r.svg, h('div.scene-note', { text: r.note })]);
+    flows = createFlowSystem(r.layer);
+    const wr = r.rail('write'); if (wr) flows.add({ path: wr, kind: 'write', speed: 160, size: 5 });
+    if (st.scene.pulse === 'flush') { const f = r.rail('flush'); if (f) flows.add({ path: f, kind: 'flush', speed: 120, size: 6 }); }
+    legendEl = renderLegend(L.legend);
+  }
 
-  // animate the write rail (client → WAL → MemTable) for life
-  flows = createFlowSystem(layer);
-  const writeRail = rail('write');
-  if (writeRail) { flows.add({ path: writeRail, kind: 'write', speed: 160, size: 5 }); }
-  if (st.scene.pulse === 'flush') { const r = rail('flush'); if (r) flows.add({ path: r, kind: 'flush', speed: 120, size: 6 }); }
-
-  // HUD — compare against the PREVIOUS step's metrics (deterministic, order-independent)
-  const prev = step > 0 ? L.steps[step - 1].metrics : null;
-  mount(hudrow, h('div', [
-    renderHud(st.metrics || {}, L.metrics, prev),
-    renderLegend(L.legend),
+  mount(ws, h('div', [
+    header,
+    st.metrics ? h('div.hud-row', [renderHud(st.metrics, L.metrics, step > 0 ? L.steps[step - 1].metrics : null)]) : h('div'),
+    sceneBox,
+    legendEl || h('div'),
+    renderStepRail(L, step),
   ]));
+
+  if (st.scene && st.scene.lab) mountLab(document.getElementById('labmount'), L, step);
+  renderNarrative(L, step);
 }
 
-/* ── Rail: prose, callout, changes, prev/next ── */
-function renderRail(L, step) {
+/* horizontal step scrubber ("IN THIS LESSON") */
+function renderStepRail(L, step) {
+  return h('div.steprail', [
+    h('div.steprail__head', [h('span', 'In this lesson'), h('span.steprail__count', `Step ${step + 1} of ${L.steps.length}`)]),
+    h('div.steprail__track', L.steps.map((s, i) =>
+      h('button.srnode' + (i === step ? '.is-active' : '') + (i < step ? '.is-done' : ''),
+        { onClick: () => go({ lesson: L.id, step: i }) }, [
+        h('span.srnode__dot', { text: String(i + 1) }),
+        h('span.srnode__label', { text: s.short }),
+      ])),
+    ),
+  ]);
+}
+
+/* ── Narrative rail ── */
+function renderNarrative(L, step) {
   const st = L.steps[step];
-  const host = document.getElementById('rail');
-  mount(host, h('div.rail__inner', [
-    h('div.rail__chapter.chap--' + st.chapter, { text: CHAPTER_LABEL[st.chapter] || st.chapter }),
+  mount(document.getElementById('rail'), h('div.rail__inner', [
+    h('div.rail__top', [
+      h('span.rail__stepno', { text: `STEP ${step + 1} / ${L.steps.length}` }),
+      h('span.rail__chaptag.chap--' + st.chapter, { text: (CHAPTER_LABEL[st.chapter] || st.chapter).toUpperCase() }),
+    ]),
     h('h2.rail__title', { text: st.title }),
     h('div.rail__body', st.body.map(p => h('p', { html: p }))),
     st.changes ? h('ul.changes', st.changes.map(c => {
-      const sign = c[0]; const tone = sign === '+' ? 'add' : sign === '-' ? 'del' : 'mod';
-      return h('li.change--' + tone, { html: c });
+      const t = c[0] === '+' ? 'add' : c[0] === '-' ? 'del' : 'mod'; return h('li.change--' + t, { html: c });
     })) : null,
     st.callout ? h('div.callout.callout--' + st.callout.kind, [
-      h('span.callout__icon', { html: icon(CALLOUT_ICON[st.callout.kind] || 'check') }),
-      h('span', { html: st.callout.text }),
+      h('span.callout__icon', { html: icon(CALLOUT_ICON[st.callout.kind] || 'check') }), h('span', { html: st.callout.text }),
     ]) : null,
     h('div.nav', [
-      h('button.nav__btn', { disabled: step === 0, onClick: () => go({ lesson: L.id, step: step - 1 }) }, '← Prev'),
-      h('span.nav__count', { text: `${step + 1} / ${L.steps.length}` }),
+      h('button.nav__btn', { disabled: step === 0, onClick: () => go({ lesson: L.id, step: step - 1 }) }, '← Back'),
       h('button.nav__btn.nav__btn--primary', { disabled: step === L.steps.length - 1, onClick: () => go({ lesson: L.id, step: step + 1 }) }, 'Next →'),
+    ]),
+    h('div.youll', [
+      h('div.youll__label', 'You will learn'),
+      ...L.goals.map(g => h('button.youll__item', { onClick: () => go({ lesson: L.id, step: g.step }) }, [
+        h('span.youll__box'), h('span', { html: g.text }),
+      ])),
     ]),
   ]));
 }
 
-/* ── Live lab: real LSM kernel through the same renderer ── */
-function renderLab(L, step, stage, hudrow) {
+/* ── Live lab ── */
+function mountLab(host, L, step) {
   let kernel = createLsm({ memtableLimit: 4, fanout: 4 });
   [[12, 100], [42, 7], [88, 3], [7, 1]].forEach(([k, v]) => kernel.dispatch({ type: 'put', key: k, value: v }));
   let nextKey = 20;
-
   function paint() {
+    if (flows) flows.clear();
     const snap = kernel.snapshot();
-    const { svg, layer, rail } = renderLsmScene(snap, {});
-    mount(stage, h('div.scene-box', [svg, h('div.scene-note', { text: snap.note })]));
-    flows = createFlowSystem(layer);
-    const wr = rail('write'); if (wr) flows.add({ path: wr, kind: 'write', speed: 160, size: 5 });
-
+    const r = renderLsmScene(snap, {});
     const m = kernel.metrics();
-    mount(hudrow, h('div', [
-      renderHud(m, ['memtable', 'sstables', 'readAmp', 'writeAmp'], null),
+    mount(host, h('div', [
+      h('div.hud-row', [renderHud(m, ['memtable', 'sstables', 'readAmp', 'writeAmp'], null)]),
+      h('div.scene-box', [r.svg, h('div.scene-note', { text: snap.note })]),
       h('div.lab-controls', [
         h('button.lab-btn', { onClick: () => { kernel.dispatch({ type: 'put', key: nextKey++, value: 1 }); paint(); } }, '+ Put key'),
         h('button.lab-btn', { onClick: () => { kernel.dispatch({ type: 'delete', key: 12 }); paint(); } }, 'Delete 12'),
@@ -148,9 +210,45 @@ function renderLab(L, step, stage, hudrow) {
         h('button.lab-btn.lab-btn--ghost', { onClick: () => { kernel.reset(); nextKey = 20; paint(); } }, 'Reset'),
       ]),
     ]));
+    flows = createFlowSystem(r.layer);
+    const wr = r.rail('write'); if (wr) flows.add({ path: wr, kind: 'write', speed: 160, size: 5 });
   }
-  if (flows) { flows.clear(); }
   paint();
 }
 
+/* ── Placeholder for not-yet-built concepts ── */
+function renderPlaceholder(slug) {
+  if (flows) { flows.clear(); flows = null; }
+  const it = catalogItem(slug) || { title: slug, section: { name: '' } };
+  mount(document.getElementById('workspace'), h('div', [
+    h('div.ws-head', [
+      h('div.breadcrumb', { text: `${it.section.name}  /  ${it.title}` }),
+      h('h1.ws-title', { text: it.title }),
+      h('p.ws-sub', 'This lesson is on the roadmap — the content exists in db-lab; the Designed-to-Scale rebuild is pending.'),
+    ]),
+    h('div.placeholder', [
+      h('div.placeholder__icon', { text: it.icon || '◇' }),
+      h('div.placeholder__title', 'Not built yet'),
+      h('div.placeholder__sub', `“${it.title}” will become a guided, animated lesson like LSM-Tree.`),
+      h('button.placeholder__cta', { onClick: () => go({ lesson: 'lsm-tree', step: 0 }) }, 'Open the LSM-Tree lesson →'),
+    ]),
+  ]));
+  mount(document.getElementById('rail'), h('div.rail__inner', [
+    h('div.rail__top', [h('span.rail__stepno', 'PREVIEW')]),
+    h('h2.rail__title', { text: it.title }),
+    h('p.rail__muted', 'Pick a section on the left to browse the full curriculum. Lessons marked “live” are built; the rest are placeholders for now.'),
+  ]));
+}
+
+function wireTheme() {
+  document.addEventListener('click', e => {
+    if (e.target && e.target.id === 'themeToggle2') {
+      const dark = document.documentElement.dataset.theme === 'dark';
+      document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+      try { localStorage.setItem('dbs:theme', JSON.stringify(dark ? 'light' : 'dark')); } catch {}
+    }
+  });
+}
+
+wireTheme();
 boot();
