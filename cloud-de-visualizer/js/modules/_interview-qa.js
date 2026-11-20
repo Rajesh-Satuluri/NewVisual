@@ -480,10 +480,33 @@
     if (!_refreshHooked) {
       _refreshHooked = true;
       window.addEventListener('cde:cloud-refresh', () => {
-        if (_current && _current.container && document.body.contains(_current.container) &&
-            !_current.container.querySelector('.iqe-editing')) {
-          render(_current.container, _current.format, _current.topic);
-        }
+        const c = _current && _current.container;
+        // Only re-render the live, mounted drill, and never while the reader is
+        // mid-edit (that would discard their in-progress text).
+        if (!c || !document.body.contains(c) || c.querySelector('.iqe-editing')) return;
+        // A background sync must stay invisible to someone reading an answer:
+        // capture which items are open, the toggle label and the scroll offset,
+        // re-render, then restore — so an expanded dropdown never snaps shut.
+        const openIdx = [];
+        c.querySelectorAll('.iq-item.open').forEach(it => {
+          const di = it.getAttribute('data-i');
+          if (di != null) openIdx.push(di);
+        });
+        const scroller = c.querySelector('.iq');
+        const scrollTop = scroller ? scroller.scrollTop : 0;
+        const toggleWasCollapse = (() => {
+          const t = c.querySelector('.iq-toggle');
+          return !!(t && /Collapse/i.test(t.textContent || ''));
+        })();
+        render(_current.container, _current.format, _current.topic);
+        openIdx.forEach(di => {
+          const it = c.querySelector('.iq-item[data-i="' + di + '"]');
+          if (it) it.classList.add('open');
+        });
+        const newToggle = c.querySelector('.iq-toggle');
+        if (newToggle && toggleWasCollapse) newToggle.textContent = 'Collapse all';
+        const newScroller = c.querySelector('.iq');
+        if (newScroller) newScroller.scrollTop = scrollTop;
       });
     }
 
