@@ -121,9 +121,9 @@ button { font-family: inherit; }
 .pill--sst rect { fill: color-mix(in srgb, var(--violet-bg) 70%, var(--surface)); }
 
 /* routed connectors + arrow */
-.iso-edge { fill: none; stroke: var(--iso-line); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
-.iso-edge.is-dashed { stroke-dasharray: 7 7; opacity: .7; }
-.arrow-fill { fill: var(--iso-line); }
+.iso-edge { fill: none; stroke: var(--iso-conn); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.iso-edge.is-dashed { stroke-dasharray: 7 7; opacity: .8; }
+.arrow-fill { fill: var(--iso-conn); }
 
 /* dashed logical regions */
 .iso-region rect { fill: none; stroke: var(--line-2); stroke-width: 1.5; stroke-dasharray: 6 6; opacity: .7; }
