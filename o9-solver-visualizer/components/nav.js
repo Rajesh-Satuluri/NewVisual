@@ -53,10 +53,10 @@ export const MODULES = [
   { id:'special-models',   label:'Special Cases',            icon:'✨', group:'Models Supported', level:'Advanced', prereq:'Most of Models Supported', desc:'Alt-resource consolidation, campaign/batch, PSP, soft quarantine, holidays, transition & substitution' },
 
   // ── Optimization & Ops ──────────────────────────────────────────────────────
-  { id:'optimization',     label:'Optimization Passes',      icon:'🚀', group:'Optimization & Ops', desc:'ORL passes, WIP sweep, material reallocation, multipass' },
-  { id:'performance',      label:'Performance & Scale',      icon:'📈', group:'Optimization & Ops', desc:'Telescopic buckets, segmentation / parallelism, memoization' },
-  { id:'config-ui',        label:'Solver Config UI',         icon:'🛠️', group:'Optimization & Ops', desc:'How a solver instance is configured — inputs, outputs, parameters' },
-  { id:'deployment',       label:'Remote · Retail · ML',     icon:'🌐', group:'Optimization & Ops', desc:'Remote SCS, Retail SCS and the ML flow' },
+  { id:'optimization',     label:'Optimization Passes',      icon:'🚀', group:'Optimization & Ops', level:'Advanced', prereq:'Objective / Rank List; How It Solves', desc:'ORL passes, WIP sweep, material reallocation, multipass' },
+  { id:'performance',      label:'Performance & Scale',      icon:'📈', group:'Optimization & Ops', level:'Core', prereq:'Planning Horizon', desc:'Telescopic buckets, segmentation / parallelism, memoization' },
+  { id:'config-ui',        label:'Solver Config UI',         icon:'🛠️', group:'Optimization & Ops', level:'Core', prereq:'Solver Inputs; Invocation', desc:'How a solver instance is configured — inputs, outputs, parameters' },
+  { id:'deployment',       label:'Remote · Retail · ML',     icon:'🌐', group:'Optimization & Ops', level:'Advanced', prereq:'Invocation', desc:'Remote SCS, Retail SCS and the ML flow' },
 ];
 
 const GROUP_ORDER = ['Foundations','Network & Data Model','Solver Inputs','How It Solves','Outputs & Diagnostics','Invocation','Models Supported','Optimization & Ops'];
