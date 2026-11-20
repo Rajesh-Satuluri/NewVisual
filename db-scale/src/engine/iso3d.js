@@ -1,149 +1,202 @@
-/* iso3d.js — the polished isometric vocabulary, reverse-engineered from the
-   "Designed to Scale" renderer: gradient-shaded faces, rounded corners, a soft
-   blurred white sheen, blurred ground shadows, glossy cylinders with a sheen +
-   rim highlight, and a faded iso grid. Everything is plain SVG strings.
+/* iso3d.js — the "Designed to Scale" isometric visual vocabulary, rebuilt to
+   match the original Storage-Engines renderer (designed-to-scale.vercel.app).
 
-   Geometry: a 2:1 isometric basis. Each form is anchored by the BACK-TOP corner
-   of its top face in screen space (ax,ay); w = width along iso-x, d = depth along
-   iso-y, h = vertical height (all screen px). */
+   The signature form is a ROUNDED ISOMETRIC CUBE: a 2:1 iso prism with every
+   outer corner rounded (a rounded hexagon silhouette), three-tone face shading
+   (top lightest → left → right darkest), a crisp near-black warm outline with
+   round joins, a soft blurred ground shadow, an icon glyph on the top face and
+   a label on the body. Palette sampled pixel-exact from the original.
 
-const UX = 0.866, UY = 0.5;                 // iso basis (down-right / down-left)
-const A = (n) => Math.round(n * 100) / 100;
+   Exports: iso3dDefs(), isoCube(), isoTile(), pill(), edge(), region(),
+   isoGrid(), PAL, ISO. */
 
-/* pastel material gradients — copied from the original palette (vr) */
-export const MATS = {
-  blue:   { top: ['#dfebf9', '#cde0f5'], side: ['#bcd3ef', '#a9c5e8'] },
-  green:  { top: ['#e2f2d7', '#d1e9c2'], side: ['#c3e1b2', '#b3d79f'] },
-  yellow: { top: ['#fff3d6', '#fee7b8'], side: ['#fcdb9c', '#f6cd82'] },
-  orange: { top: ['#fee6cc', '#fcd4ad'], side: ['#f9c697', '#f3b47f'] },
-  purple: { top: ['#f2eaf9', '#e6dbf4'], side: ['#d9cbef', '#cbbae6'] },
-  store:  { top: ['#f6f1fa', '#ece4f4'], side: ['#e2d8ee', '#d6c9e6'] },
-  slab:   { top: ['#f7f0e7', '#f0e7dc'], side: ['#ece2d5', '#e3d7c8'] },
-  teal:   { top: ['#d8f2ec', '#c3e9df'], side: ['#a9ddd0', '#92d0c0'] },
+import { ICON_PATHS } from './icons.js';
+
+/* ── geometry helpers ─────────────────────────────────────────────────── */
+const A = (n) => Math.round(n * 100) / 100;          // trim float noise
+const V = (x, y) => ({ x, y });
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+
+const OUTLINE = '#26211b';   // sampled ~#211e1b, warmed a touch
+let _uid = 0;
+
+/* face fills, sampled from the original scene (top / left / right) */
+export const PAL = {
+  blue:  { t: '#e3ecf8', l: '#afc8e8', r: '#a1bbd9' },   // App / client
+  green: { t: '#e2f0d7', l: '#b3d6a1', r: '#a5ca92' },   // MemTable (in RAM)
+  amber: { t: '#fcf0d4', l: '#f3cd86', r: '#e8bf76' },   // Log / WAL
+  lilac: { t: '#ece4f6', l: '#d2c4ec', r: '#c5b6e3' },   // SSTable (on disk)
+  rose:  { t: '#f7e2df', l: '#e7b2ab', r: '#de9f97' },   // probed / hot
+  slate: { t: '#eaeef3', l: '#c3ccd7', r: '#b5bfcc' },   // neutral
 };
 
-/* the <defs> block: one gradient pair per material + sheen + blur filters + grid fade */
-export function iso3dDefs() {
-  let g = '';
-  for (const [m, c] of Object.entries(MATS)) {
-    g += `<linearGradient id="g-${m}-top" x1="0" y1="0" x2="0.35" y2="1">
-        <stop offset="0" stop-color="${c.top[0]}"/><stop offset="1" stop-color="${c.top[1]}"/></linearGradient>
-      <linearGradient id="g-${m}-side" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="${c.side[0]}"/><stop offset="1" stop-color="${c.side[1]}"/></linearGradient>`;
-  }
-  return `<defs>
-    ${g}
-    <linearGradient id="cyl-sheen" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
-      <stop offset=".3" stop-color="#fff" stop-opacity=".40"/>
-      <stop offset=".55" stop-color="#fff" stop-opacity=".06"/>
-      <stop offset="1" stop-color="#4b2f6b" stop-opacity=".08"/>
-    </linearGradient>
-    <radialGradient id="grid-fade" cx="50%" cy="46%" r="62%">
-      <stop offset="0" stop-color="#fff" stop-opacity="1"/>
-      <stop offset=".6" stop-color="#fff" stop-opacity=".55"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </radialGradient>
-    <mask id="grid-mask"><rect x="-200" y="-200" width="3000" height="3000" fill="url(#grid-fade)"/></mask>
-    <filter id="blur-sm" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter>
-    <filter id="blur-md" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
-    <filter id="blur-lg" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="7"/></filter>
-    <filter id="iso-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
-    <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 0L10 5L0 10z" class="arrowhead"/>
-    </marker>
-  </defs>`;
-}
-
-/* a closed path through pts with each corner rounded by radius r */
-function roundedPoly(pts, r) {
-  const n = pts.length, P = (p) => A(p[0]) + ' ' + A(p[1]);
-  const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
-  const len = (v) => Math.hypot(v[0], v[1]) || 1;
-  const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
-  const mul = (v, s) => [v[0] * s, v[1] * s];
-  let d = '';
+/* closed rounded path through polygon points (corner-cutting with quadratics) */
+function rpath(pts, r) {
+  const n = pts.length; let d = '';
   for (let i = 0; i < n; i++) {
     const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n];
-    const v1 = sub(p0, p1), v2 = sub(p2, p1);
-    const a = Math.min(r, len(v1) / 2, len(v2) / 2);
-    const c1 = add(p1, mul(v1, a / len(v1))), c2 = add(p1, mul(v2, a / len(v2)));
-    d += (i === 0 ? 'M' + P(c1) : 'L' + P(c1)) + 'Q' + P(p1) + ' ' + P(c2);
+    const d1 = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1;
+    const d2 = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
+    const rr = Math.min(r, d1 / 2, d2 / 2);
+    const a = V(p1.x + (p0.x - p1.x) / d1 * rr, p1.y + (p0.y - p1.y) / d1 * rr);
+    const b = V(p1.x + (p2.x - p1.x) / d2 * rr, p1.y + (p2.y - p1.y) / d2 * rr);
+    d += (i === 0 ? `M${A(a.x)} ${A(a.y)}` : `L${A(a.x)} ${A(a.y)}`);
+    d += ` Q${A(p1.x)} ${A(p1.y)} ${A(b.x)} ${A(b.y)}`;
   }
   return d + 'Z';
 }
-const poly = (pts) => 'M' + pts.map(p => A(p[0]) + ' ' + A(p[1])).join('L') + 'Z';
 
-/* corners of a prism from its back-top anchor */
-function corners(ax, ay, w, d, h) {
-  const Tb = [ax, ay];
-  const Tr = [ax + w * UX, ay + w * UY];
-  const Tf = [ax + (w - d) * UX, ay + (w + d) * UY];
-  const Tl = [ax - d * UX, ay + d * UY];
+/* open rounded polyline (for routed connectors) */
+function rpolyline(pts, r) {
+  if (pts.length < 2) return '';
+  let d = `M${A(pts[0].x)} ${A(pts[0].y)}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+    const d1 = Math.hypot(p1.x - p0.x, p1.y - p0.y) || 1;
+    const d2 = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
+    const rr = Math.min(r, d1 / 2, d2 / 2);
+    const a = V(p1.x + (p0.x - p1.x) / d1 * rr, p1.y + (p0.y - p1.y) / d1 * rr);
+    const b = V(p1.x + (p2.x - p1.x) / d2 * rr, p1.y + (p2.y - p1.y) / d2 * rr);
+    d += ` L${A(a.x)} ${A(a.y)} Q${A(p1.x)} ${A(p1.y)} ${A(b.x)} ${A(b.y)}`;
+  }
+  const e = pts[pts.length - 1];
+  d += ` L${A(e.x)} ${A(e.y)}`;
+  return d;
+}
+
+/* a nested, upright SVG icon centred on (cx,cy) — stroke uses currentColor */
+function iconSvg(name, cx, cy, size, cls = 'iso-ic') {
+  const p = ICON_PATHS[name] || '';
+  return `<svg class="${cls}" x="${A(cx - size / 2)}" y="${A(cy - size / 2)}" width="${A(size)}" height="${A(size)}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+
+/* ── defs: shadow blur, halo glow, arrow marker, grid fade ─────────────── */
+export function iso3dDefs() {
+  return `<defs>
+    <filter id="iso-shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5"/>
+    </filter>
+    <filter id="iso-halo" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.2" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="arrow-fill" d="M1 1 L9 5 L1 9 Z"/>
+    </marker>
+    <radialGradient id="grid-fade" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="62%" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="grid-mask"><rect x="-4000" y="-4000" width="8000" height="8000" fill="url(#grid-fade)"/></mask>
+  </defs>`;
+}
+
+/* ── the rounded isometric cube ────────────────────────────────────────── *
+ * cx,cy  = centre of the TOP rhombus;  rx = half-width;  bodyH = prism height
+ * opts: { icon, label, sub, halo, ghost, pulse, r }
+ * returns { shadow, halo, g, top, front, base, verts }                      */
+export function isoCube(cx, cy, rx, bodyH, matName, opts = {}) {
+  const m = PAL[matName] || PAL.slate;
+  const ry = rx * 0.5;
+  const uid = 'cb' + (_uid++);
+  const r = opts.r != null ? opts.r : Math.min(16, rx * 0.16);
+
+  const N = V(cx, cy - ry), E = V(cx + rx, cy), S = V(cx, cy + ry), W = V(cx - rx, cy);
+  const Eb = V(cx + rx, cy + bodyH), Sb = V(cx, cy + ry + bodyH), Wb = V(cx - rx, cy + bodyH);
+  const sil = [N, E, Eb, Sb, Wb, W];
+  const topf = [N, E, S, W], leftf = [W, S, Sb, Wb], rightf = [E, Eb, Sb, S];
+  const poly = pts => pts.map(p => `${A(p.x)},${A(p.y)}`).join(' ');
+  const clip = rpath(sil, r);
+
+  const shY = cy + bodyH + ry * 0.58;
+  const shadow = `<ellipse class="iso-shadow" cx="${A(cx)}" cy="${A(shY)}" rx="${A(rx * 1.0)}" ry="${A(ry * 0.52)}" filter="url(#iso-shadow)"/>`;
+  const halo = opts.halo
+    ? `<ellipse class="iso-halo halo--${matName}" cx="${A(cx)}" cy="${A(cy + bodyH * 0.42)}" rx="${A(rx * 1.12)}" ry="${A((ry + bodyH) * 0.62)}" filter="url(#iso-halo)"/>`
+    : '';
+
+  const faces = `<g clip-path="url(#${uid})">
+      <polygon points="${poly(leftf)}" fill="${m.l}"/>
+      <polygon points="${poly(rightf)}" fill="${m.r}"/>
+      <polygon points="${poly(topf)}" fill="${m.t}"/>
+      <polygon points="${poly([N, E, S, W])}" fill="#fff" opacity=".10"/>
+    </g>`;
+  const seam = `<path class="iso-seam" d="M${A(W.x)} ${A(W.y)} L${A(S.x)} ${A(S.y)} L${A(E.x)} ${A(E.y)} M${A(S.x)} ${A(S.y)} L${A(Sb.x)} ${A(Sb.y)}"/>`;
+  const outline = `<path class="iso-outline" d="${clip}"/>`;
+
+  const glyph = opts.icon ? iconSvg(opts.icon, cx, cy - ry * 0.02, opts.iconSize || Math.min(30, rx * 0.44)) : '';
+
+  const lblY = cy + ry + bodyH * (opts.sub ? 0.34 : 0.52);
+  let label = '';
+  if (opts.label) {
+    label = `<text class="iso-label" x="${A(cx)}" y="${A(lblY)}" text-anchor="middle">${esc(opts.label)}</text>`;
+    if (opts.sub) label += `<text class="iso-sub" x="${A(cx)}" y="${A(lblY + 15)}" text-anchor="middle">${esc(opts.sub)}</text>`;
+  }
+
+  const cls = 'iso-cube' + (opts.ghost ? ' is-ghost' : '') + (opts.pulse ? ' is-pulse' : '');
+  const g = `<g class="${cls}"><defs><clipPath id="${uid}"><path d="${clip}"/></clipPath></defs>${faces}${seam}${outline}${glyph}${label}</g>`;
+
   return {
-    Tb, Tr, Tf, Tl,
-    Br: [Tr[0], Tr[1] + h], Bf: [Tf[0], Tf[1] + h], Bl: [Tl[0], Tl[1] + h],
-    topMid: [ax + (w - d) / 2 * UX, ay + (w + d) / 2 * UY],
-    botMid: [ax + (w - d) / 2 * UX, Tf[1] + h],
-    frontY: Tf[1] + h,
+    shadow, halo, g,
+    top: [cx, cy], front: [cx, lblY], base: [cx, cy + ry + bodyH],
+    verts: { N, E, S, W, Eb, Sb, Wb }, rx, ry, bodyH,
   };
 }
 
-/* a gradient 3D box. opts: { r:cornerRadius, pulse } → returns { shadow, body, topMid, frontY } */
-export function isoBox(ax, ay, w, d, h, mat, opts = {}) {
-  const c = corners(ax, ay, w, d, h);
-  const r = opts.r == null ? 7 : opts.r;
-  const { Tb, Tr, Tf, Tl, Br, Bf, Bl, topMid } = c;
-  const sil = roundedPoly([Tb, Tr, Br, Bf, Bl, Tl], r);          // outer silhouette (side gradient)
-  const top = roundedPoly([Tb, Tr, Tf, Tl], r);                  // top face (top gradient)
-  const right = poly([Tr, Tf, Bf, Br]);                          // right face (subtle shade)
-  const sheen = roundedPoly([Tb, Tr, Tf, Tl].map(p => [p[0], p[1] - 2.5]), r);
-  const rim = `M${A(Tl[0])} ${A(Tl[1])}L${A(Tb[0])} ${A(Tb[1])}L${A(Tr[0])} ${A(Tr[1])}`;
-  const shadow = `<ellipse cx="${A(c.botMid[0])}" cy="${A(c.frontY + 4)}" rx="${A((w + d) * UX * .5 + 4)}" ry="${A((w + d) * UY * .42 + 3)}" fill="#2a2016" opacity=".12" filter="url(#blur-md)"/>`;
-  const body = `<g class="iso-box ${opts.pulse ? 'is-pulse' : ''}">
-      <path d="${sil}" fill="url(#g-${mat}-side)"/>
-      <path d="${right}" fill="#2a1c0c" opacity=".06"/>
-      <path d="${top}" fill="url(#g-${mat}-top)"/>
-      <path d="${sheen}" fill="#fff" opacity=".22" filter="url(#blur-sm)"/>
-      <path d="${rim}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
-      <path d="${top}" fill="none" stroke="#5a4a63" stroke-opacity=".18" stroke-width="1"/>
-    </g>`;
-  return { shadow, body, topMid, frontY: c.frontY, corners: c };
+/* a flat SSTable tile — a short, wide rounded cube, no icon/label */
+export function isoTile(cx, cy, rx, matName, opts = {}) {
+  return isoCube(cx, cy, rx, opts.h != null ? opts.h : rx * 0.34, matName, {
+    r: opts.r != null ? opts.r : Math.min(11, rx * 0.2),
+    ghost: opts.ghost, pulse: opts.pulse, halo: opts.halo,
+  });
 }
 
-/* a glossy cylinder (database/store). center = top-ellipse centre (cx,cy), rx = horizontal radius,
-   h = body height. opts: { fill:0..1 level, fillColor:[fill,stroke], pulse } */
-export function isoCyl(cx, cy, rx, h, mat, opts = {}) {
-  const ry = rx * UY;                       // 2:1
-  const topY = cy, botY = cy + h;
-  const side = `M${A(cx - rx)} ${A(topY)} V${A(botY)} A${A(rx)} ${A(ry)} 0 0 0 ${A(cx + rx)} ${A(botY)} V${A(topY)}`;
-  let fillStr = '';
-  if (opts.fill > 0.004) {
-    const fy = botY - Math.min(1, opts.fill) * h;
-    const [fc, sc] = opts.fillColor || ['#cfe8c0', '#5fa95a'];
-    const fillPath = `M${A(cx - rx)} ${A(fy)} A${A(rx)} ${A(ry)} 0 0 0 ${A(cx + rx)} ${A(fy)} V${A(botY)} A${A(rx)} ${A(ry)} 0 0 1 ${A(cx - rx)} ${A(botY)} Z`;
-    const line = `M${A(cx - rx + 1)} ${A(fy)} A${A(rx - 1)} ${A(ry - .5)} 0 0 0 ${A(cx + rx - 1)} ${A(fy)}`;
-    fillStr = `<path d="${fillPath}" fill="${fc}" opacity=".92"/>${opts.fill < .995 ? `<path d="${line}" fill="none" stroke="${sc}" stroke-width="1.6" stroke-linecap="round"/>` : ''}`;
+/* ── rounded pill badge with optional icon ─────────────────────────────── */
+export function pill(cx, cy, text, opts = {}) {
+  const h = 30, padX = 13, iconW = opts.icon ? 20 : 0;
+  const w = Math.max(opts.w || 0, text.length * 7.3 + iconW + padX * 2);
+  const x = cx - w / 2, y = cy - h / 2;
+  const ic = opts.icon ? iconSvg(opts.icon, x + padX + 7, cy, 15, 'iso-pill__ic') : '';
+  const tx = x + padX + iconW;
+  return `<g class="iso-pill ${opts.cls || ''}">
+    <rect x="${A(x)}" y="${A(y)}" width="${A(w)}" height="${h}" rx="${h / 2}"/>
+    ${ic}
+    <text class="iso-pill__t" x="${A(tx)}" y="${A(cy + 4.5)}">${esc(text)}</text>
+  </g>`;
+}
+
+/* ── routed connector edge (thick, rounded elbows, optional arrow/dash) ─── */
+export function edge(pts, opts = {}) {
+  const d = rpolyline(pts, opts.r || 16);
+  const cls = 'iso-edge' + (opts.dashed ? ' is-dashed' : '') + (opts.cls ? ' ' + opts.cls : '');
+  const marker = opts.arrow ? ' marker-end="url(#arrow)"' : '';
+  return { guide: `<path class="${cls}" d="${d}"${marker}/>`, d };
+}
+
+/* ── dashed logical region with an optional (rotatable) label ───────────── */
+export function region(x, y, w, h, label, opts = {}) {
+  const r = opts.r || 20;
+  let t = '';
+  if (label) {
+    const cxm = x + w / 2, cym = y + h / 2, rot = opts.rot || 0;
+    t = `<text class="iso-region__t" x="${A(cxm)}" y="${A(cym)}" text-anchor="middle" transform="rotate(${rot} ${A(cxm)} ${A(cym)})">${esc(label)}</text>`;
   }
-  const shadow = `<ellipse cx="${A(cx)}" cy="${A(botY + 5)}" rx="${A(rx + 2)}" ry="${A(ry + 1)}" fill="#2a2016" opacity=".15" filter="url(#blur-md)"/>`;
-  const body = `<g class="iso-cyl ${opts.pulse ? 'is-pulse' : ''}">
-      <path d="${side}" fill="url(#g-${mat}-side)"/>
-      ${fillStr}
-      <path d="${side}" fill="url(#cyl-sheen)"/>
-      <ellipse cx="${A(cx)}" cy="${A(topY)}" rx="${A(rx)}" ry="${A(ry)}" fill="url(#g-${mat}-top)"/>
-      <path d="M${A(cx - rx + 3)} ${A(topY + 2)} A${A(rx - 3)} ${A(ry - 1.5)} 0 0 0 ${A(cx + rx - 3)} ${A(topY + 2)}" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.4"/>
-      <ellipse cx="${A(cx)}" cy="${A(topY)}" rx="${A(rx)}" ry="${A(ry)}" fill="none" stroke="#5a4a63" stroke-opacity=".2" stroke-width="1"/>
-    </g>`;
-  return { shadow, body, topMid: [cx, topY], frontY: botY };
+  return `<g class="iso-region"><rect x="${A(x)}" y="${A(y)}" width="${A(w)}" height="${A(h)}" rx="${r}"/>${t}</g>`;
 }
 
-/* a faint iso grid on the floor plane, masked to fade at the edges */
+/* ── faint isometric ground grid, radially faded at the edges ──────────── */
 export function isoGrid(cx, cy, cols, rows, cell) {
-  const p = (gx, gy) => [cx + (gx - gy) * cell * UX, cy + (gx + gy) * cell * UY];
+  const UX = 0.866, UY = 0.5;
   let lines = '';
-  for (let i = 0; i <= cols; i++) { const a = p(i, 0), b = p(i, rows); lines += `<line x1="${A(a[0])}" y1="${A(a[1])}" x2="${A(b[0])}" y2="${A(b[1])}"/>`; }
-  for (let j = 0; j <= rows; j++) { const a = p(0, j), b = p(cols, j); lines += `<line x1="${A(a[0])}" y1="${A(a[1])}" x2="${A(b[0])}" y2="${A(b[1])}"/>`; }
+  const w = cols * cell, hgt = rows * cell;
+  for (let i = -rows; i <= rows; i++) {
+    const oy = i * cell;
+    lines += `<line x1="${A(cx - w * UX)}" y1="${A(cy + oy - w * UY)}" x2="${A(cx + w * UX)}" y2="${A(cy + oy + w * UY)}"/>`;
+  }
+  for (let i = -cols; i <= cols; i++) {
+    const ox = i * cell;
+    lines += `<line x1="${A(cx + ox * UX)}" y1="${A(cy - ox * UY - hgt * UY)}" x2="${A(cx + ox * UX)}" y2="${A(cy - ox * UY + hgt * UY)}"/>`;
+  }
   return `<g class="iso-grid" mask="url(#grid-mask)">${lines}</g>`;
 }
 
-export const ISO = { UX, UY, A };
+export const ISO = { A, V };

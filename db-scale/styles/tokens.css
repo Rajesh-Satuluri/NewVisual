@@ -12,7 +12,11 @@
   --accent: #2a7a6b;          /* teal — the brand */
   --accent-ink: #e9fff8;
   --iso-grid: rgba(120,105,80,.14);  /* faint ground grid in the scene */
-  --scene-bg: radial-gradient(130% 95% at 50% 18%, #fffefb 0%, #f6efe2 62%, #efe6d4 100%);
+  --iso-line: #26211b;               /* near-black warm outline on iso forms */
+  --iso-ink: #2a241d;                /* label/icon ink on pastel faces */
+  --iso-ink-2: #574f40;
+  --iso-shadow: rgba(40,30,12,.17);  /* soft ground shadow under forms */
+  --scene-bg: radial-gradient(130% 95% at 50% 18%, #fbf5ea 0%, #f7efe3 60%, #f1e8d7 100%);
 
   --green: #2f8a43; --green-bg: #e7f3e5;
   --red: #c0392b;   --red-bg: #f6e4e1;
@@ -42,6 +46,10 @@
   --violet: #9d86e6; --violet-bg: #272038;
   --gray: #7e7768;
   --iso-grid: rgba(150,170,180,.10);
+  --iso-line: #1b1813;
+  --iso-ink: #2a241d;
+  --iso-ink-2: #5f5848;
+  --iso-shadow: rgba(0,0,0,.42);
   --scene-bg: radial-gradient(130% 95% at 50% 18%, #262a31 0%, #1d2026 62%, #171a1f 100%);
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
 }
@@ -52,6 +60,7 @@
     --green:#4fc06a; --green-bg:#1c3222; --red:#e26457; --red-bg:#3a211e;
     --amber:#e0a94a; --amber-bg:#382e1a; --violet:#9d86e6; --violet-bg:#272038; --gray:#7e7768;
     --iso-grid:rgba(150,170,180,.10);
+    --iso-line:#1b1813; --iso-ink:#2a241d; --iso-ink-2:#5f5848; --iso-shadow:rgba(0,0,0,.42);
     --scene-bg:radial-gradient(130% 95% at 50% 18%, #262a31 0%, #1d2026 62%, #171a1f 100%);
     --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
   }
