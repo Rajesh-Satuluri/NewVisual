@@ -10,7 +10,7 @@ export const CATALOG = [
         "slug": "what-is-dbms",
         "title": "What is a DBMS?",
         "icon": "🗄️",
-        "built": false
+        "built": true
       },
       {
         "slug": "why-databases",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 1;
+export const BUILT_COUNT = 2;

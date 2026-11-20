@@ -6,13 +6,17 @@ import { createStore } from './engine/store.js';
 import { onRoute, go } from './engine/router.js';
 import { createFlowSystem } from './engine/flows.js';
 import { renderLsmScene } from './db/lsm-scene.js';
+import { renderDbmsScene } from './db/dbms-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
+import { dbmsLesson } from './content/dbms.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
-const LESSONS = { 'lsm-tree': lsmLesson };
+const LESSONS = { 'lsm-tree': lsmLesson, 'what-is-dbms': dbmsLesson };
+// per-lesson scene renderer (all share the iso3d visual vocabulary)
+const SCENES = { 'lsm-tree': renderLsmScene, 'what-is-dbms': renderDbmsScene };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
 const SECTION_ICON_COLORS = ['#c98a3e', '#2f8a43', '#6b4fbb', '#2a7a6b', '#c0392b', '#3b82c9', '#b5892b', '#7a8290', '#5a6b8c'];
@@ -145,11 +149,11 @@ function renderBuilt(L, step) {
   let sceneBox, legendEl;
   if (st.scene && st.scene.lab) { sceneBox = h('div', { id: 'labmount' }); }
   else {
-    const r = renderLsmScene(st.scene, { hiKey: st.scene.hiKey, pulse: st.scene.pulse, probe: st.probe || [] });
+    const renderScene = SCENES[L.id] || renderLsmScene;
+    const r = renderScene(st.scene, { hiKey: st.scene.hiKey, pulse: st.scene.pulse, probe: st.probe || [] });
     sceneBox = h('div.scene-box', [r.svg, h('div.scene-note', { text: r.note })]);
     flows = createFlowSystem(r.layer);
-    const wr = r.rail('write'); if (wr) flows.add({ path: wr, kind: 'write', speed: 160, size: 5 });
-    if (st.scene.pulse === 'flush') { const f = r.rail('flush'); if (f) flows.add({ path: f, kind: 'flush', speed: 120, size: 6 }); }
+    (r.flows || []).forEach(f => { const p = r.rail(f.id); if (p) flows.add({ path: p, kind: f.kind, speed: f.speed, size: f.size }); });
     legendEl = renderLegend(L.legend);
   }
 
