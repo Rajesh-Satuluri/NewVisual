@@ -130,61 +130,61 @@ export const CATALOG = [
         "slug": "nested-loop-join",
         "title": "Nested Loop Join",
         "icon": "🔁",
-        "built": false
+        "built": true
       },
       {
         "slug": "hash-join",
         "title": "Join Algorithms",
         "icon": "🔗",
-        "built": false
+        "built": true
       },
       {
         "slug": "sort-merge-join",
         "title": "Sort-Merge Join",
         "icon": "🔀",
-        "built": false
+        "built": true
       },
       {
         "slug": "aggregation",
         "title": "Aggregation",
         "icon": "📈",
-        "built": false
+        "built": true
       },
       {
         "slug": "query-execution",
         "title": "Query Execution",
         "icon": "▶️",
-        "built": false
+        "built": true
       },
       {
         "slug": "query-plan-comparator",
         "title": "Query Plan Comparator",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "explain-analyze",
         "title": "EXPLAIN ANALYZE",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "parallel-query",
         "title": "Parallel Query",
         "icon": "⚡",
-        "built": false
+        "built": true
       },
       {
         "slug": "query-statistics",
         "title": "Query Statistics",
         "icon": "📈",
-        "built": false
+        "built": true
       },
       {
         "slug": "cost-model",
         "title": "Cost Model",
         "icon": "💰",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 20;
+export const BUILT_COUNT = 30;

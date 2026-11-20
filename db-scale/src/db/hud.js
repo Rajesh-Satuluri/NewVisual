@@ -33,6 +33,9 @@ export const METRICS = {
   cost:       { label: 'Est. cost', fmt: v => v.toLocaleString(), good: 'low', ic: 'gauge' },
   plans:      { label: 'Plans tried', fmt: v => v, ic: 'target' },
   pages:      { label: 'Pages read', fmt: v => v.toLocaleString(), good: 'low', ic: 'file' },
+  workers:    { label: 'Workers', fmt: v => v, ic: 'server' },
+  groups:     { label: 'Groups', fmt: v => v, ic: 'layers' },
+  memory:     { label: 'Memory', fmt: v => v + ' MB', good: 'low', ic: 'database' },
 };
 
 export function renderHud(metrics, show, prev) {
