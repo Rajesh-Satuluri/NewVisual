@@ -15,6 +15,11 @@ export const METRICS = {
   spaceAmp:  { label: 'Space amp', fmt: v => v.toFixed(2) + '×', good: 'low', ic: 'database' },
   flushes:   { label: 'Flushes', fmt: v => v, ic: 'flush' },
   compactions: { label: 'Compactions', fmt: v => v, ic: 'merge' },
+  // ── DBMS foundations ──
+  clients:   { label: 'Clients', fmt: v => v, ic: 'server' },
+  tables:    { label: 'Tables', fmt: v => v, ic: 'grid' },
+  rows:      { label: 'Rows', fmt: v => v.toLocaleString(), ic: 'listOrdered' },
+  queries:   { label: 'Queries/s', fmt: v => v, ic: 'search' },
 };
 
 export function renderHud(metrics, show, prev) {

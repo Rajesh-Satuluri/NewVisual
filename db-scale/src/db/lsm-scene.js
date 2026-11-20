@@ -147,10 +147,13 @@ export function renderLsmScene(snap, opts = {}) {
   const wrap = document.createElement('div');
   wrap.innerHTML = svgStr;
   const svg = wrap.querySelector('svg');
+  const flows = [{ id: 'write', kind: 'write', speed: 160, size: 5 }];
+  if (pulse === 'flush') flows.push({ id: 'flush', kind: 'flush', speed: 120, size: 6 });
   return {
     svg,
     layer: svg.querySelector('.flow-layer'),
     rail: (id) => svg.querySelector('#rail-' + id),
+    flows,
     note: snap.note || '',
   };
 }
