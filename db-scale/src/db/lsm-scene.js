@@ -51,25 +51,26 @@ export function renderLsmScene(snap, opts = {}) {
   const grid = isoGrid(VW / 2, 250, 30, 20, 30);
 
   /* ── RAM band: Client · MemTable · WAL ────────────────────────────────── */
-  const client = isoCube(180, 162, 70, 58, 'blue', {
+  const client = isoCube(180, 150, 68, 78, 'blue', {
     icon: 'server', label: 'Client', sub: 'PUT · GET · DEL', pulse: pulse === 'write',
   });
-  const memx = isoCube(470, 138, 76, 64, 'green', {
+  const memx = isoCube(472, 126, 76, 84, 'green', {
     icon: 'listOrdered', label: 'MemTable', sub: `sorted · ${mem.length} key${mem.length === 1 ? '' : 's'}`,
     halo: true, pulse: pulse === 'flush' || pulse === 'write',
   });
-  const wal = isoCube(686, 206, 60, 54, 'amber', {
+  const wal = isoCube(700, 196, 58, 72, 'amber', {
     icon: 'scroll', label: 'WAL', sub: `${walN} rec${walN === 1 ? '' : 's'}`, pulse: pulse === 'write',
   });
 
-  // WAL append-only region sits behind the WAL cube, log growing to the right
-  const rgX = 616, rgY = 236, rgW = 346, rgH = 118;
+  // WAL append-only region sits behind the WAL cube (at its left edge), log
+  // growing to the right so the label clears the cube
+  const rgX = 650, rgY = 250, rgW = 338, rgH = 116;
   badges.push(region(rgX, rgY, rgW, rgH, 'LOG · APPEND-ONLY', { rot: 7 }));
 
   [client, memx, wal].forEach(c => { shadows.push(c.shadow); if (c.halo) halos.push(c.halo); solids.push(c.g); });
 
-  // memtable key chips just under the cube
-  overlays.push(chipStrip(memx.base[0], memx.base[1] + 20, mem, { hiKey, w: 260 }));
+  // memtable key chips just under the cube (only when it actually holds keys)
+  if (mem.length) overlays.push(chipStrip(memx.base[0], memx.base[1] + 20, mem, { hiKey, w: 260 }));
 
   // record dots trailing along the lower edge of the append-only region
   let recDots = '';
@@ -120,8 +121,9 @@ export function renderLsmScene(snap, opts = {}) {
     V(memx.verts.W.x - 6, memx.verts.W.y),
   ];
   const writeEdge = edge(wPts, { arrow: true, cls: 'edge--write' });
-  // MemTable → WAL  (durability)
-  const dPts = [V(memx.base[0] + 24, memx.base[1] - 6), V((memx.base[0] + wal.top[0]) / 2 + 30, wal.top[1] - 36), V(wal.top[0], wal.top[1] - 2)];
+  // MemTable → WAL  (durability) — leaves the MemTable's right-bottom corner so
+  // it passes to the right of the body label, then curves down into the WAL
+  const dPts = [V(memx.verts.Eb.x - 4, memx.verts.Eb.y - 10), V((memx.verts.Eb.x + wal.verts.N.x) / 2 + 8, memx.verts.Eb.y + 2), V(wal.verts.N.x, wal.verts.N.y + 2)];
   const walEdge = edge(dPts, { arrow: true, cls: 'edge--wal' });
   // MemTable → L0  (flush) — exits the left-bottom corner so it clears the chips
   const fPts = [V(memx.verts.Wb.x + 6, memx.verts.Wb.y), V(memx.verts.Wb.x - 60, (memx.verts.Wb.y + l0Tile.top[1]) / 2 + 30), V(l0Tile.top[0] + 26, l0Tile.top[1] - 4)];

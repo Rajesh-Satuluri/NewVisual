@@ -125,19 +125,24 @@ export function isoCube(cx, cy, rx, bodyH, matName, opts = {}) {
 
   const glyph = opts.icon ? iconSvg(opts.icon, cx, cy - ry * 0.02, opts.iconSize || Math.min(30, rx * 0.44)) : '';
 
-  const lblY = cy + ry + bodyH * (opts.sub ? 0.34 : 0.52);
+  // the front is full-width only between the top rhombus (cy+ry) and the bottom
+  // corners (cy+bodyH); below that it tapers to a point. Centre the label block
+  // inside that band so text never crosses the tapering edges.
+  const bandMid = cy + (ry + bodyH) / 2;
+  const lblY = opts.sub ? bandMid - 3 : bandMid + 5;
   let label = '';
   if (opts.label) {
     label = `<text class="iso-label" x="${A(cx)}" y="${A(lblY)}" text-anchor="middle">${esc(opts.label)}</text>`;
-    if (opts.sub) label += `<text class="iso-sub" x="${A(cx)}" y="${A(lblY + 15)}" text-anchor="middle">${esc(opts.sub)}</text>`;
+    if (opts.sub) label += `<text class="iso-sub" x="${A(cx)}" y="${A(lblY + 16)}" text-anchor="middle">${esc(opts.sub)}</text>`;
   }
+  const bodyMid = bandMid;
 
   const cls = 'iso-cube' + (opts.ghost ? ' is-ghost' : '') + (opts.pulse ? ' is-pulse' : '');
   const g = `<g class="${cls}"><defs><clipPath id="${uid}"><path d="${clip}"/></clipPath></defs>${faces}${seam}${outline}${glyph}${label}</g>`;
 
   return {
     shadow, halo, g,
-    top: [cx, cy], front: [cx, lblY], base: [cx, cy + ry + bodyH],
+    top: [cx, cy], front: [cx, bodyMid], base: [cx, cy + ry + bodyH],
     verts: { N, E, S, W, Eb, Sb, Wb }, rx, ry, bodyH,
   };
 }
