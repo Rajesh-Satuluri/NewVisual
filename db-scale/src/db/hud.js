@@ -27,6 +27,12 @@ export const METRICS = {
   constraints:{ label: 'Constraints', fmt: v => v, ic: 'key' },
   ops:        { label: 'Operators', fmt: v => v, ic: 'merge' },
   tiers:      { label: 'Tiers', fmt: v => v, ic: 'layers' },
+  // ── query engine ──
+  tokens:     { label: 'Tokens', fmt: v => v, ic: 'listOrdered' },
+  nodes:      { label: 'Plan nodes', fmt: v => v, ic: 'layers' },
+  cost:       { label: 'Est. cost', fmt: v => v.toLocaleString(), good: 'low', ic: 'gauge' },
+  plans:      { label: 'Plans tried', fmt: v => v, ic: 'target' },
+  pages:      { label: 'Pages read', fmt: v => v.toLocaleString(), good: 'low', ic: 'file' },
 };
 
 export function renderHud(metrics, show, prev) {

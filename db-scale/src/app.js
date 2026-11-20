@@ -15,6 +15,16 @@ import { renderRelationalAlgebraScene } from './db/relational-algebra-scene.js';
 import { renderSqlRelationalAlgebraScene } from './db/sql-relational-algebra-scene.js';
 import { renderSchemaConstraintsScene } from './db/schema-constraints-scene.js';
 import { renderStorageHierarchyScene } from './db/storage-hierarchy-scene.js';
+import { renderSqlParsingScene } from './db/sql-parsing-scene.js';
+import { renderParseTreeScene } from './db/parse-tree-scene.js';
+import { renderAstScene } from './db/ast-scene.js';
+import { renderQueryAnalysisScene } from './db/query-analysis-scene.js';
+import { renderLogicalPlanScene } from './db/logical-plan-scene.js';
+import { renderPhysicalPlanScene } from './db/physical-plan-scene.js';
+import { renderQueryOptimizationScene } from './db/query-optimization-scene.js';
+import { renderCostBasedOptimizationScene } from './db/cost-based-optimization-scene.js';
+import { renderTableScanScene } from './db/table-scan-scene.js';
+import { renderIndexScanScene } from './db/index-scan-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -27,6 +37,16 @@ import { relationalAlgebraLesson } from './content/relational-algebra.js';
 import { sqlRelationalAlgebraLesson } from './content/sql-relational-algebra.js';
 import { schemaConstraintsLesson } from './content/schema-constraints.js';
 import { storageHierarchyLesson } from './content/storage-hierarchy.js';
+import { sqlParsingLesson } from './content/sql-parsing.js';
+import { parseTreeLesson } from './content/parse-tree.js';
+import { astLesson } from './content/ast.js';
+import { queryAnalysisLesson } from './content/query-analysis.js';
+import { logicalPlanLesson } from './content/logical-plan.js';
+import { physicalPlanLesson } from './content/physical-plan.js';
+import { queryOptimizationLesson } from './content/query-optimization.js';
+import { costBasedOptimizationLesson } from './content/cost-based-optimization.js';
+import { tableScanLesson } from './content/table-scan.js';
+import { indexScanLesson } from './content/index-scan.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -41,6 +61,16 @@ const LESSONS = {
   'sql-relational-algebra': sqlRelationalAlgebraLesson,
   'schema-constraints': schemaConstraintsLesson,
   'storage-hierarchy': storageHierarchyLesson,
+  'sql-parsing': sqlParsingLesson,
+  'parse-tree': parseTreeLesson,
+  'ast': astLesson,
+  'query-analysis': queryAnalysisLesson,
+  'logical-plan': logicalPlanLesson,
+  'physical-plan': physicalPlanLesson,
+  'query-optimization': queryOptimizationLesson,
+  'cost-based-optimization': costBasedOptimizationLesson,
+  'table-scan': tableScanLesson,
+  'index-scan': indexScanLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -54,6 +84,16 @@ const SCENES = {
   'sql-relational-algebra': renderSqlRelationalAlgebraScene,
   'schema-constraints': renderSchemaConstraintsScene,
   'storage-hierarchy': renderStorageHierarchyScene,
+  'sql-parsing': renderSqlParsingScene,
+  'parse-tree': renderParseTreeScene,
+  'ast': renderAstScene,
+  'query-analysis': renderQueryAnalysisScene,
+  'logical-plan': renderLogicalPlanScene,
+  'physical-plan': renderPhysicalPlanScene,
+  'query-optimization': renderQueryOptimizationScene,
+  'cost-based-optimization': renderCostBasedOptimizationScene,
+  'table-scan': renderTableScanScene,
+  'index-scan': renderIndexScanScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
