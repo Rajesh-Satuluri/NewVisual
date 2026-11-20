@@ -16,49 +16,49 @@ export const CATALOG = [
         "slug": "why-databases",
         "title": "Why Databases?",
         "icon": "❓",
-        "built": false
+        "built": true
       },
       {
         "slug": "dbms-architecture",
         "title": "DBMS Architecture",
         "icon": "🏗️",
-        "built": false
+        "built": true
       },
       {
         "slug": "data-models",
         "title": "Data Models",
         "icon": "📐",
-        "built": false
+        "built": true
       },
       {
         "slug": "relational-model",
         "title": "Relational Model",
         "icon": "📊",
-        "built": false
+        "built": true
       },
       {
         "slug": "relational-algebra",
         "title": "Relational Algebra",
         "icon": "➕",
-        "built": false
+        "built": true
       },
       {
         "slug": "sql-relational-algebra",
         "title": "SQL → Relational Algebra",
         "icon": "🔗",
-        "built": false
+        "built": true
       },
       {
         "slug": "schema-constraints",
         "title": "Schema & Constraints",
         "icon": "🔒",
-        "built": false
+        "built": true
       },
       {
         "slug": "storage-hierarchy",
         "title": "Storage Hierarchy",
         "icon": "💾",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 2;
+export const BUILT_COUNT = 10;
