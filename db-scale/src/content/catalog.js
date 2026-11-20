@@ -70,61 +70,61 @@ export const CATALOG = [
         "slug": "sql-parsing",
         "title": "SQL Parsing",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "parse-tree",
         "title": "Parse Tree",
         "icon": "🌳",
-        "built": false
+        "built": true
       },
       {
         "slug": "ast",
         "title": "AST",
         "icon": "🧬",
-        "built": false
+        "built": true
       },
       {
         "slug": "query-analysis",
         "title": "Query Analysis",
         "icon": "🔎",
-        "built": false
+        "built": true
       },
       {
         "slug": "logical-plan",
         "title": "Logical Plan",
         "icon": "📋",
-        "built": false
+        "built": true
       },
       {
         "slug": "physical-plan",
         "title": "Physical Plan",
         "icon": "⚙️",
-        "built": false
+        "built": true
       },
       {
         "slug": "query-optimization",
         "title": "Query Optimization",
         "icon": "🎯",
-        "built": false
+        "built": true
       },
       {
         "slug": "cost-based-optimization",
         "title": "Cost-Based Optimization",
         "icon": "💰",
-        "built": false
+        "built": true
       },
       {
         "slug": "table-scan",
         "title": "Table Scan",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "index-scan",
         "title": "Seq Scan vs Index Scan",
         "icon": "📑",
-        "built": false
+        "built": true
       },
       {
         "slug": "nested-loop-join",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 10;
+export const BUILT_COUNT = 20;
