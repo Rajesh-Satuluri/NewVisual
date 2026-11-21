@@ -229,6 +229,100 @@ window.LEARN.register("spark", "Transformations", [
   },
 
   {
+    id: "join-strategies-lab",
+    title: "Join Strategies Lab",
+    difficulty: "Core",
+    estMinutes: 10,
+    relevance: 3,
+    tagline: "Press play and watch each of Spark's four join strategies actually execute across the cluster — where data moves, what gets shuffled, and why the optimizer picks one over another.",
+
+    whatIsIt: [
+      "A join is logical (<code>a.join(b, 'key')</code>); the <b>strategy</b> is how Spark physically executes it. The optimizer picks from four, and the choice decides how much data crosses the network — the single biggest factor in a join's cost.",
+      "<b>Broadcast Hash Join (BHJ)</b> — when one side is under <code>spark.sql.autoBroadcastJoinThreshold</code> (10MB). The small side is copied to <b>every</b> executor and the big side is joined in place: <b>no shuffle of the big table</b>. The fastest option when it applies.",
+      "<b>Sort-Merge Join (SMJ)</b> — the default for two large tables. <b>Both</b> sides are shuffled by key, each partition is <b>sorted</b>, then two cursors merge-walk down. Robust at any scale, but pays for two exchanges plus a sort.",
+      "<b>Shuffle Hash Join (SHJ)</b> — both sides shuffle by key, then the smaller side builds a <b>per-partition hash table</b> and the larger side probes it. <b>No sort</b> — cheaper than sort-merge when the build side fits in memory, riskier if the estimate is wrong.",
+      "<b>Broadcast Nested Loop / Cartesian (BNL)</b> — the fallback for non-equi and cross joins where there is no key to hash or sort on. One side is broadcast and <b>every row is compared with every row</b> (O(n×m)) — fine for tiny inputs, catastrophic at scale."
+    ],
+
+    showMe: {
+      code:
+        "# The optimizer chooses the strategy from estimated sizes:\n" +
+        "big.join(F.broadcast(small), 'id')   # force BroadcastHashJoin\n" +
+        "big.join(small, 'id')                # SortMerge (or auto-broadcast if small <10MB)\n" +
+        "a.join(b, a.ts.between(b.lo, b.hi))  # non-equi -> BroadcastNestedLoop\n" +
+        "\n" +
+        "# See which one Spark actually planned:\n" +
+        "joined.explain()\n" +
+        "# BroadcastHashJoin / SortMergeJoin / ShuffleHashJoin / BroadcastNestedLoopJoin",
+      viz: {
+        type: "joinExecLab",
+        data: { big: "orders", small: "customers", executors: 3, bigSize: 500, smallSize: 6 }
+      },
+      caption:
+        "Pick a strategy tab (or let Auto choose from the size sliders), then Play / Step through the phases. Watch the broadcast copy the small table to every executor while the big table stays put, versus the shuffle that drags BOTH tables across the network. The cost meters update live with the sizes."
+    },
+
+    whyMatters:
+      "<p>Nearly every expensive Spark job is expensive because of a join. The same <code>df.join(...)</code> can run in seconds or hours depending only on which physical strategy the optimizer chose — and that is driven by the <b>estimated size</b> of each side.</p>" +
+      "<ul>" +
+      "<li><b>Keep the small side broadcastable</b> — filter and project it before the join so it stays under the 10MB threshold and you get a BHJ with no big-side shuffle.</li>" +
+      "<li><b>Read the physical plan, not the code</b> — <code>explain()</code> tells you the real strategy. A <code>SortMergeJoin</code> where you expected a broadcast means Spark's size estimate is off.</li>" +
+      "<li><b>A BroadcastNestedLoopJoin on a large table is a red flag</b> — it usually means an accidental cross join or a non-equi condition; fix the join key or add an equality predicate.</li>" +
+      "</ul>",
+
+    recognize: [
+      { q: "\"Small dimension joined to a huge fact table.\"", think: "BroadcastHashJoin — broadcast the dim, the fact table is never shuffled." },
+      { q: "\"Two large tables joined on a key, no side is small.\"", think: "SortMergeJoin (the default) — both sides shuffle and sort." },
+      { q: "\"One side is medium — too big to broadcast, much smaller than the other, and sorting is wasteful.\"", think: "ShuffleHashJoin — shuffle both, hash the smaller side, no sort." },
+      { q: "\"Join on a range/inequality or no condition at all.\"", think: "BroadcastNestedLoopJoin / Cartesian — O(n×m). Make sure it's intentional and the inputs are tiny." },
+      { q: "\"explain() shows SortMergeJoin but I expected a broadcast.\"", think: "The small side's estimate is over 10MB. Filter it down, raise the threshold, or force F.broadcast()." }
+    ],
+
+    matchTags: ["join", "broadcast", "sort merge", "shuffle hash", "nested loop", "strategy", "explain"],
+
+    traps: [
+      {
+        bad: "big.join(medium, 'id')               # SortMerge: both shuffle + sort",
+        good: "big.join(medium.hint('shuffle_hash'), 'id')  # skip the sort when build side fits",
+        why: "When the smaller side fits in memory but is above the broadcast threshold, a ShuffleHashJoin avoids the sort that SortMerge pays for on both sides."
+      },
+      {
+        bad: "a.join(b, a.ts >= b.start)           # BroadcastNestedLoop on large a,b",
+        good: "a.join(b, a.key == b.key).filter(a.ts >= b.start)  # give it an equi key first",
+        why: "A pure inequality has no key to hash or sort, so Spark compares every row against every row. Add an equality predicate so it can hash/sort, then filter the range."
+      }
+    ],
+
+    complexity: [
+      { op: "Broadcast Hash Join", big_o: "O(n) + broadcast(small)", note: "Big side never shuffled; small side copied to every executor. Fastest when small ≤ 10MB." },
+      { op: "Sort-Merge Join", big_o: "O(n log n) + 2 shuffles", note: "Both sides shuffled and sorted. The scalable default for two big tables." },
+      { op: "Shuffle Hash Join", big_o: "O(n) + 2 shuffles", note: "Both shuffled; smaller side hashed, no sort. Cheaper than SMJ when the build side fits in memory." },
+      { op: "Broadcast Nested Loop", big_o: "O(n × m)", note: "Every row vs every row. Only safe for tiny inputs / non-equi joins." }
+    ],
+
+    engineNote:
+      "<p><b>Under the hood.</b> Spark's optimizer estimates each side's size and applies, in order: broadcast if a side is under <code>autoBroadcastJoinThreshold</code> (10MB); otherwise a sort-merge join for equi-joins (or a shuffle-hash join when <code>spark.sql.join.preferSortMergeJoin=false</code> and the build side is estimated to fit); and a broadcast nested loop only when there is no equi-key.</p>" +
+      "<p><b>AQE (Spark 3.x)</b> can revise this at runtime: once it measures a side is actually small it flips a planned SortMergeJoin to a BroadcastHashJoin, and it splits skewed partitions so one hot key no longer stalls a single task.</p>",
+
+    challenge: {
+      prompt:
+        "A 1-TB events table is joined to a 40MB device lookup on 'device_id'. The plan shows a SortMergeJoin and the job is slow. The lookup is above the 10MB auto-broadcast threshold. What are two ways to get a faster strategy, and what would each plan show?",
+      starter:
+        "events.join(devices, 'device_id')   # SortMergeJoin today — how to speed up?",
+      solution:
+        "# Option A: shrink the lookup under 10MB, then it auto-broadcasts\n" +
+        "small = devices.select('device_id', 'os').filter(F.col('active'))\n" +
+        "events.join(F.broadcast(small), 'device_id')   # -> BroadcastHashJoin, no events shuffle\n" +
+        "\n" +
+        "# Option B: if it can't shrink, force a shuffle-hash join to skip the sort\n" +
+        "spark.conf.set('spark.sql.join.preferSortMergeJoin', False)\n" +
+        "events.join(devices.hint('shuffle_hash'), 'device_id')  # -> ShuffleHashJoin\n" +
+        "# A broadcasts the tiny side (events stays put); B still shuffles both but\n" +
+        "# hashes the 40MB side instead of sorting both — cheaper than SortMerge."
+    }
+  },
+
+  {
     id: "window-functions-spark",
     title: "Window Functions",
     difficulty: "Core",
