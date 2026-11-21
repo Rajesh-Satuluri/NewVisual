@@ -1841,6 +1841,7 @@
       if (spec.type === "shuffleStages") return shuffleStages(spec.data || {});
       if (spec.type === "windowFrame") return windowFrame(spec.data || {});
       if (spec.type === "joinStrategy") return joinStrategy(spec.data || {});
+      if (spec.type === "joinExecLab") return (window.JOINLAB ? window.JOINLAB.build(spec.data || {}) : null);
       if (spec.type === "dataSkew") return dataSkew(spec.data || {});
       if (spec.type === "memorySpill") return memorySpill(spec.data || {});
       if (spec.type === "partitionOps") return partitionOps(spec.data || {});

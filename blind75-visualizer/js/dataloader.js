@@ -82,7 +82,7 @@
     sparklearn: [
       "data/pyspark/concepts_foundations.js?v=20261027sparksubmit",
       "data/pyspark/concepts_shuffle.js",
-      "data/pyspark/concepts_transformations.js",
+      "data/pyspark/concepts_transformations.js?v=20261121joinlab",
       "data/pyspark/concepts_performance.js",
       "data/pyspark/concepts_advanced.js",
       "data/pyspark/concepts_modern.js",
