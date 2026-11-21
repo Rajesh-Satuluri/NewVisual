@@ -634,6 +634,40 @@
     rows.forEach(function (p, i) { listEl.appendChild(iqItem(p, i)); });
   }
 
+  // Non-destructive refresh for a cloud pull. Updates each existing row's edited
+  // question text, answer, badges, and known/due classes IN PLACE — so a card the
+  // user has open while studying stays open and the scroll position is kept. A
+  // full renderInlineList() (which replaces innerHTML) would collapse every open
+  // answer; we only fall back to it when the visible set itself changed (rare —
+  // e.g. an edit alters text while a search filter is active).
+  function refreshInlineInPlace() {
+    if (!inlineListEl) return;
+    var listEl = inlineListEl.querySelector(".iq-list");
+    if (!listEl) { renderInlineList(); return; }
+    var rows = inlineVisible();
+    var items = listEl.querySelectorAll(".iq-item");
+    if (items.length !== rows.length) { renderInlineList(); return; }
+    rows.forEach(function (p, i) {
+      var item = items[i];
+      if (!item || item.classList.contains("iqs-editing")) return;
+      var qt = item.querySelector(".iq-qtext");
+      if (qt) qt.innerHTML = esc(viewQ(p));
+      var badge = item.querySelector(".iqs-edited-badge");
+      if (badge) badge.hidden = !isEdited(p);
+      item.classList.toggle("iqs-edited", isEdited(p));
+      item.classList.toggle("iqs-known", !!got[p.id]);
+      if (bank.srs) item.classList.toggle("iqs-due", isDue(p));
+      // Only refresh an answer that's already been built, and only when its edited
+      // content actually changed — so an open card doesn't flicker/re-highlight on
+      // every background pull.
+      if (item.__built) {
+        var body = item.querySelector(".iqs-a-body");
+        if (!body || body.innerHTML !== viewA(p)) rebuildAnswer(item, p);
+      }
+    });
+    syncInlineDue();
+  }
+
   // Render the Q&A INLINE into a page container (the Learn main panel), Study-Hub
   // style. The host owns scrolling.
   function mount(bankKey, host) {
@@ -709,7 +743,7 @@
       window.addEventListener("blind75:cloud-refresh", function () {
         if (inlineHost && document.body.contains(inlineHost) &&
             !(inlineListEl && inlineListEl.querySelector(".iqs-editing"))) {
-          renderInlineList();
+          refreshInlineInPlace();
         }
       });
     }
