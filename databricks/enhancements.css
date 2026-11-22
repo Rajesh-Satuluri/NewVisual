@@ -267,3 +267,87 @@ body.cmdk-open { overflow: hidden; }
   .pager { padding-left: 16px; padding-right: 16px; }
   .pager-name { max-width: 60vw; }
 }
+
+/* ── Editable interview Q&A + cloud sync (Study Hub) ───────────────────────── */
+.iq-question .q-text { min-width: 0; }
+.iqe-tools { display: inline-flex; align-items: center; gap: 6px; }
+.iq-question .q-chevron { margin-left: 8px; }
+.iqe-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-lo); border: 1px solid var(--border);
+  padding: 2px 7px; border-radius: 999px;
+}
+.iqe-edit {
+  cursor: pointer; border: 1px solid var(--border); background: var(--bg3); color: var(--text2);
+  border-radius: 7px; width: 26px; height: 26px; line-height: 1; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.iqe-edit:hover { border-color: var(--accent); color: var(--accent); }
+.iqe-edited .iq-question { border-left: 2px solid var(--accent); }
+
+.iqe-editor { display: flex; flex-direction: column; gap: 6px; }
+.iqe-label { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; display: flex; align-items: center; gap: 8px; }
+.iqe-md-toggle {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 600; color: var(--text2); text-transform: none; letter-spacing: 0;
+  cursor: pointer; user-select: none;
+}
+.iqe-md-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+.iqe-md-note { font-size: 11px; color: var(--text3); margin: -2px 0 2px; }
+.iqe-md-note code { background: var(--bg3); color: var(--accent2); padding: 0 4px; border-radius: 3px; font-size: 10.5px; }
+.iqe-field {
+  border: 1px solid var(--border); background: var(--bg3); color: var(--text);
+  border-radius: 9px; padding: 10px 12px; line-height: 1.55; font: inherit;
+  min-height: 2.2em; outline: none;
+}
+.iqe-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lo); }
+.iqe-field.iqe-a { min-height: 4em; }
+.iqe-field.iqe-a-md { font-family: 'SF Mono', ui-monospace, monospace; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+.iqe-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.iqe-btn {
+  cursor: pointer; border: 1px solid var(--border); background: var(--bg3); color: var(--text);
+  border-radius: 8px; padding: 7px 13px; font: 600 12.5px/1 inherit;
+  transition: border-color .12s, background .12s;
+}
+.iqe-btn:hover { border-color: var(--accent); }
+.iqe-save { background: var(--accent); color: #1a1200; border-color: var(--accent); }
+.iqe-save:hover { filter: brightness(1.07); }
+.iqe-reset { color: var(--red); }
+.iqe-reset:hover { border-color: var(--red); background: rgba(239,68,68,.1); }
+.iqe-hint { font-size: 11px; color: var(--text3); margin-top: 2px; line-height: 1.5; }
+.iqe-synccta {
+  background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--accent); font-weight: 600; text-decoration: underline;
+}
+.iqe-synccta:hover { opacity: .8; }
+
+/* ── Rich / Markdown content inside an answer (components/md.js) ────────────── */
+.iq-answer code {
+  font-family: 'SF Mono', ui-monospace, monospace; font-size: 12px;
+  background: var(--bg3); color: var(--accent2); padding: 1px 5px; border-radius: 4px; word-break: break-word;
+}
+.iq-answer pre, .iq-answer .md-pre {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; margin: 0 0 12px; overflow-x: auto; line-height: 1.55;
+}
+.iq-answer pre code, .iq-answer .md-pre code { background: none; color: var(--text); padding: 0; font-size: 12px; display: block; white-space: pre; }
+.iq-answer h1, .iq-answer h2, .iq-answer h3, .iq-answer h4, .iq-answer .md-h { color: var(--text); font-weight: 700; line-height: 1.3; margin: 16px 0 8px; }
+.iq-answer h1, .iq-answer h2 { font-size: 15px; }
+.iq-answer h3 { font-size: 14px; }
+.iq-answer h4 { font-size: 13px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.03em; }
+.iq-answer ul, .iq-answer ol, .iq-answer .md-list { margin: 0 0 12px; padding-left: 22px; }
+.iq-answer li { margin: 4px 0; }
+.iq-answer li > ul, .iq-answer li > ol { margin: 4px 0; }
+.iq-answer blockquote, .iq-answer .md-quote {
+  margin: 0 0 12px; padding: 8px 14px; background: var(--bg2);
+  border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; color: var(--text2);
+}
+.iq-answer hr, .iq-answer .md-hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.iq-answer table, .iq-answer .md-table { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 12px; }
+.iq-answer th, .iq-answer td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+.iq-answer th { background: var(--bg3); color: var(--text); font-weight: 600; }
+.iq-answer tbody tr:nth-child(even) td { background: rgba(148,163,184,0.06); }
+.iq-answer .study-src { margin-bottom: 8px; }
+.iq-answer .study-src a { color: var(--accent2); text-decoration: none; font-size: 12px; }
+.iq-answer .study-src a:hover { text-decoration: underline; }

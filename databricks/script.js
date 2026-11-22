@@ -6,6 +6,8 @@ import { toast } from './components/toast.js';
 import { maybeRunTour } from './components/tour.js';
 import { createQuiz, initQuiz } from './components/quiz.js';
 import { QUIZ_BANK } from './data/quiz-bank.js';
+import { initCloudSync } from './components/cloudsync.js';
+import { initCloudSyncUI } from './components/cloudsync-ui.js';
 
 // ── State ──────────────────────────────────────────────────────────────────
 const done = new Set(JSON.parse(localStorage.getItem('databricks-done') || '[]'));
@@ -197,4 +199,6 @@ renderNav(null, done);
 updateProgress(done);
 navigate(getHash());
 initCommandPalette();
+initCloudSyncUI();
+initCloudSync();
 setTimeout(() => maybeRunTour(), 1000);

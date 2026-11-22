@@ -1,3 +1,13 @@
+import { renderMarkdown } from './md.js';
+
+// An answer is HTML by default. Opt into Markdown rendering with `md: true` on
+// the question object (used for answers authored or pasted as Markdown). The
+// Study Hub and module Q&A tabs both render answers through this helper so an
+// edit saved as Markdown renders consistently everywhere.
+export function renderAnswer(q) {
+  return q && q.md ? renderMarkdown(q.a) : (q ? q.a : '');
+}
+
 export function createModuleShell({ tag, title, subtitle, tabs }) {
   return `
     <div class="module-page">
