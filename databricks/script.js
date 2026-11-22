@@ -1,4 +1,4 @@
-import { MODULES, renderNav, updateProgress } from './components/nav.js';
+import { MODULES, SCENARIOS, SPECIAL_IDS, renderNav, updateProgress } from './components/nav.js';
 import { initTabs, initIQ } from './components/module-shell.js';
 import { initCommandPalette } from './components/command-palette.js';
 import { renderPager } from './components/pager.js';
@@ -15,6 +15,9 @@ let cleanupFn = null;
 // ── Module loaders ─────────────────────────────────────────────────────────
 const LOADERS = {
   study: () => import('./modules/study.js'),
+  decisions: () => import('./modules/decisions.js'),
+  incidents: () => import('./modules/incidents.js'),
+  tiered: () => import('./modules/tiered.js'),
   m01: () => import('./modules/m01-why-databricks.js'),
   m02: () => import('./modules/m02-lakehouse-architecture.js'),
   m03: () => import('./modules/m03-delta-lake-internals.js'),
@@ -33,7 +36,7 @@ const LOADERS = {
 // ── Navigate ───────────────────────────────────────────────────────────────
 async function navigate(id) {
   let mod = MODULES.find(m => m.id === id);
-  if (!mod && id !== 'study') { id = MODULES[0].id; mod = MODULES[0]; }
+  if (!mod && !SPECIAL_IDS.has(id)) { id = MODULES[0].id; mod = MODULES[0]; }
 
   if (currentId === id) return;
 
@@ -42,11 +45,12 @@ async function navigate(id) {
   currentId = id;
   renderNav(id, done);
 
+  const scenario = SCENARIOS.find(s => s.id === id);
   const breadcrumb = document.getElementById('breadcrumb');
   if (breadcrumb) {
-    breadcrumb.innerHTML = id === 'study'
-      ? `Review &rsaquo; <strong>📚 Study Hub</strong>`
-      : `${mod.group} &rsaquo; <strong>${mod.label}</strong>`;
+    if (id === 'study') breadcrumb.innerHTML = `Review &rsaquo; <strong>📚 Study Hub</strong>`;
+    else if (scenario) breadcrumb.innerHTML = `Scenarios &rsaquo; <strong>${scenario.icon} ${scenario.label}</strong>`;
+    else breadcrumb.innerHTML = `${mod.group} &rsaquo; <strong>${mod.label}</strong>`;
   }
 
   const canvas = document.getElementById('module-canvas');
@@ -59,7 +63,7 @@ async function navigate(id) {
     const m = await loader();
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
-    if (id !== 'study') { initTabs(canvas); initIQ(canvas); }
+    if (!SPECIAL_IDS.has(id)) { initTabs(canvas); initIQ(canvas); }
     enhanceModule(id);
     if (mod) markDone(id); // Study Hub is not a trackable module
   } catch (e) {
@@ -102,7 +106,7 @@ function markDone(id) {
 // ── Router ─────────────────────────────────────────────────────────────────
 function getHash() {
   const h = location.hash.slice(1);
-  if (h === 'study') return 'study';
+  if (SPECIAL_IDS.has(h)) return h;
   return MODULES.find(m => m.id === h) ? h : MODULES[0].id;
 }
 

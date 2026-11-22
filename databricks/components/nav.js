@@ -20,6 +20,16 @@ export const MODULES = [
 ];
 
 const GROUP_ORDER = ['Foundation', 'Compute', 'Governance', 'Orchestration', 'Operations'];
+
+// Non-module pages. Study Hub aggregates every module's Q&A; the Scenarios
+// pages are standalone banks (decisions / incidents / tiered answers) that are
+// not tied to a single module.
+export const SCENARIOS = [
+  { id:'decisions', label:'Decision Drills',   icon:'🧭', desc:'Choose the right Databricks approach — best / viable / wrong, with the mechanism' },
+  { id:'incidents', label:'Troubleshooting',   icon:'🚑', desc:'Production incident playbooks — investigate step by step to the root cause' },
+  { id:'tiered',    label:'Tiered Answers',     icon:'📶', desc:'One question, three depths — Weak / Good / Senior, and why depth wins' },
+];
+export const SPECIAL_IDS = new Set(['study', ...SCENARIOS.map(s => s.id)]);
 const REVIEW = { id:'study', label:'Study Hub', icon:'📚' };
 
 const COLLAPSE_KEY = 'databricks_nav_collapsed';
@@ -63,6 +73,7 @@ export function renderNav(activeId, done) {
       <button class="icon-btn nav-collapse-all" title="Collapse / expand all" aria-label="Collapse or expand all sections">⇕</button>
     </div>
     ${GROUP_ORDER.map(g => section(g, groups[g] || [])).join('')}
+    ${section('Scenarios', SCENARIOS.map(s => ({ ...s })))}
     ${section('Review', [{ ...REVIEW }])}
   `;
 
