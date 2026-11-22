@@ -7,6 +7,7 @@ export const MODULES = [
   { id:'m04', label:'Clusters & Runtimes',   icon:'⚙️', group:'Compute',           desc:'All-purpose vs job clusters, Databricks Runtime, autoscaling, spot nodes' },
   { id:'m05', label:'Photon Engine',         icon:'⚡', group:'Compute',           desc:'Vectorized C++ engine — column batches, cache-friendly ops, vs JVM Spark' },
   { id:'m06', label:'Structured Streaming',  icon:'🌊', group:'Compute',           desc:'Micro-batch and continuous processing, triggers, watermarks, checkpointing' },
+  { id:'m14', label:'Serverless Compute',    icon:'☁️', group:'Compute',           desc:'Instant-start managed compute — SQL, Jobs, Notebooks, serving; classic vs serverless' },
   // ── Storage & Governance ─────────────────────────────────────────────────
   { id:'m07', label:'Unity Catalog',         icon:'🗂️', group:'Governance',        desc:'3-level namespace, fine-grained access, data lineage, Delta Sharing' },
   { id:'m08', label:'Medallion Architecture',icon:'🥇', group:'Governance',        desc:'Bronze → Silver → Gold: incremental refinement at Amazon\'s data lake' },
@@ -14,12 +15,15 @@ export const MODULES = [
   // ── Jobs & Orchestration ─────────────────────────────────────────────────
   { id:'m10', label:'Workflows & Jobs',      icon:'📋', group:'Orchestration',     desc:'Multi-task jobs, task dependencies, parameters, retries, alerts' },
   { id:'m11', label:'MLflow & Model Serving',icon:'🤖', group:'Orchestration',     desc:'Experiment tracking, model registry, real-time serving endpoints' },
+  { id:'m15', label:'Asset Bundles & CI/CD', icon:'📦', group:'Orchestration',     desc:'Databricks Asset Bundles — jobs/pipelines/models as versioned, promotable IaC' },
+  // ── AI & BI ─────────────────────────────────────────────────────────────
+  { id:'m16', label:'Genie & AI/BI',         icon:'💬', group:'AI & BI',           desc:'Natural-language analytics over governed Lakehouse data — NL→SQL, Genie spaces, accuracy & limits' },
   // ── Operations ──────────────────────────────────────────────────────────
   { id:'m12', label:'Cost & Performance',    icon:'💰', group:'Operations',        desc:'DBU pricing, cluster rightsizing, spot vs on-demand, cost attribution' },
   { id:'m13', label:'Interview Q&A',         icon:'🎯', group:'Operations',        desc:'Senior / staff level Databricks & Lakehouse interview prep' },
 ];
 
-const GROUP_ORDER = ['Foundation', 'Compute', 'Governance', 'Orchestration', 'Operations'];
+const GROUP_ORDER = ['Foundation', 'Compute', 'Governance', 'Orchestration', 'AI & BI', 'Operations'];
 
 // Non-module pages. Study Hub aggregates every module's Q&A; the Scenarios
 // pages are standalone banks (decisions / incidents / tiered answers) that are

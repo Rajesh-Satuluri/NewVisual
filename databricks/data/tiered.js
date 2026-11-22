@@ -104,4 +104,40 @@ export const TIERED = [
     ],
     whySenior: `The good answer is a correct checklist; the senior answer turns it into a <b>method</b> — measure with system tables, enforce with policy rather than hope, and close the loop with monitoring — and gets the spot nuance right (on-demand driver). It shows you'd find the real driver instead of applying every lever blindly.`,
   },
+  {
+    id: 'why-serverless',
+    topic: 'Serverless',
+    moduleId: 'm14',
+    question: `Why would you use serverless compute?`,
+    tiers: [
+      { label: 'Weak', body: `"Because it's serverless — you don't manage servers, so it's easier and cheaper."` },
+      { label: 'Good', body: `"Serverless runs in Databricks' account from a warm pool, so it starts in seconds instead of minutes and scales to zero when idle. You don't size clusters or pay for idle VMs, and it's always Photon with Unity Catalog. It's great for bursty SQL warehouses and short jobs."` },
+      { label: 'Senior', body: `"Serverless is a delivery model that trades control for speed and zero idle. Because the compute lives in Databricks' account as a pre-warmed pool, it resumes in seconds, autoscales fast, and scales to zero — so it <b>wins where startup latency and idle time dominate the bill</b>: bursty BI warehouses, spiky or short jobs, intermittent interactive notebooks, scale-to-zero serving. The catch is it's a single higher <i>blended</i> DBU rate with no spot, no instance-type choice, no init scripts, and no VPC placement (private networking uses NCC). So it's <b>simpler, not unconditionally cheaper</b>: on a long, fully-utilized batch there's no idle to offset the higher rate and you lose spot, so classic + spot can beat it. I decide per workload on 'startup + idle vs steady utilization.'"` },
+    ],
+    whySenior: `"Easier and cheaper" is the myth. The senior answer explains <i>why</i> (warm pool, scale-to-zero), states the exact trade (higher blended rate, no spot/control, NCC networking), and gives the decision rule — including the case where serverless <b>loses</b>. Knowing where it's the wrong choice is the signal.`,
+  },
+  {
+    id: 'how-ship-databricks',
+    topic: 'CI/CD',
+    moduleId: 'm15',
+    question: `How do you deploy Databricks jobs and pipelines to production?`,
+    tiers: [
+      { label: 'Weak', body: `"You create the job in the production workspace and set it on a schedule."` },
+      { label: 'Good', body: `"I'd use Databricks Asset Bundles — define the jobs and pipelines in a databricks.yml, commit it to Git, and deploy with the Databricks CLI. You can have separate dev and prod targets and run the deploy from CI so it's automated and version-controlled."` },
+      { label: 'Senior', body: `"As infrastructure-as-code with Databricks Asset Bundles. The jobs, DLT pipelines, and models are declared in <code>databricks.yml</code> under version control; the CLI (<code>bundle validate / deploy / run</code>) reconciles that desired state into a workspace. One source defines <b>targets</b> — dev uses <code>development</code> mode (name-prefixed, schedules paused) so engineers iterate safely on a shared workspace, while prod overrides the catalog, schedule, and <code>run_as</code> a service principal. In CI, a PR runs <code>validate</code> + tests (a broken bundle can't merge), merge deploys to staging as a service principal with integration tests, and an approval/tag deploys the <i>same code</i> to prod. Rollback is redeploying the previous Git tag. The point is bringing real software discipline — review, environment parity, repeatable deploys, rollback — to data pipelines, instead of clicking jobs into existence."` },
+    ],
+    whySenior: `The good answer names the tool; the senior answer shows the <i>whole delivery system</i> — targets and development mode, service-principal deploys, validate-on-PR, same-code promotion, tag rollback — and articulates the underlying goal (SWE discipline for pipelines). That's the difference between having used DAB and owning a release process.`,
+  },
+  {
+    id: 'is-genie-trustworthy',
+    topic: 'AI/BI',
+    moduleId: 'm16',
+    question: `Can business users just ask Genie questions and trust the answers?`,
+    tiers: [
+      { label: 'Weak', body: `"Yes, Genie uses AI to answer questions about your data, so they can ask anything."` },
+      { label: 'Good', body: `"Genie turns natural-language questions into SQL over a curated set of Unity Catalog tables and shows the SQL it generated. It respects the user's permissions because it runs the query as them. It's accurate if the space is set up well — good table comments, instructions, and example queries — but you should review the SQL for important numbers."` },
+      { label: 'Senior', body: `"Trust has two parts: governance and accuracy, and they're different. <b>Governance is solid</b> — Genie runs the generated SQL under the asking user's Unity Catalog identity, so row filters and column masks apply and it can't leak data they couldn't query; it's auditable real SQL. <b>Accuracy is an engineering responsibility</b>, not a given — Genie can write plausible-but-wrong SQL on ambiguous questions or poorly-modeled data. You earn accuracy by curating the space: clean column names/comments, business-rule instructions, known-good example queries, a trimmed set of Gold/Silver tables, and pinned certified metrics — then iterating on real questions. And because it always shows the SQL, you keep humans reviewing it for high-stakes numbers. So: trust it for governed, ad-hoc exploration on a well-curated domain; don't treat it as an unreviewed source of truth for numbers that must be exact."` },
+    ],
+    whySenior: `"Yes, ask anything" is dangerous. The senior answer separates <b>governance</b> (genuinely enforced via run-as-user + UC) from <b>accuracy</b> (which you must engineer through curation), names the real failure mode (plausible-but-wrong SQL), and draws the boundary — exploration yes, unreviewed source-of-truth no. That nuance is exactly what a data leader is probing for.`,
+  },
 ];

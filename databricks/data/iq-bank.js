@@ -250,4 +250,90 @@ export const IQ_BANK = {
         </ul>`,
       tip: `Show you know the boundary: "on Databricks → Delta; Trino/Flink-centric lake → Iceberg; sub-minute CDC upserts → Hudi." Mentioning <b>UniForm</b> (Delta exposing Iceberg metadata) signals current knowledge.` },
   ],
+
+  // ── m14 · Serverless Compute ───────────────────────────────────────────
+  m14: [
+    { difficulty: 'medium', q: `What actually makes serverless compute different from a small auto-terminating classic cluster?`,
+      a: `<p><b>Location and pooling — not just "it's managed."</b></p>
+        <ul>
+          <li><b>Where it runs</b> — classic compute launches VMs in <i>your</i> cloud account, so it cold-boots in minutes and bills idle until auto-termination fires. Serverless runs in <b>Databricks' account</b> from a pre-warmed pool: starts in seconds, autoscales fast, and scales to zero (no idle cost).</li>
+          <li><b>Billing</b> — classic is two bills (DBU + cloud VM); serverless is a <b>single, higher blended DBU rate</b> with the VM folded in.</li>
+          <li><b>Always Photon + Unity Catalog</b> — no legacy no-isolation mode to fall out of.</li>
+        </ul>`,
+      tip: `The trade-off is <b>control</b>: no instance types, no arbitrary init scripts, no spot, no VPC placement — private networking goes through <b>NCC</b> (Network Connectivity Configs), not VPC peering.` },
+    { difficulty: 'hard', q: `When would you deliberately NOT use serverless?`,
+      a: `<p><b>Serverless optimizes for speed and zero idle, not the lowest rate on fully-used compute.</b> Avoid it when:</p>
+        <ul>
+          <li><b>Long, steady batch</b> — running hot for hours, the higher per-DBU rate has no idle period to offset, so classic + spot is often cheaper.</li>
+          <li><b>You need spot discounts</b> (60–80% off VMs) — serverless has no spot.</li>
+          <li><b>Custom runtime / instance families / GPUs / init scripts</b> — serverless is managed and restricts these.</li>
+          <li><b>Strict networking</b> that requires compute inside your own VPC.</li>
+        </ul>`,
+      tip: `Flip the usual assumption: serverless is <b>simpler, not unconditionally cheaper</b>. Say "measure startup + idle vs steady utilization" — bursty workloads win on serverless, hot steady ones can lose.` },
+    { difficulty: 'easy', q: `A BI warehouse is queried in bursts during business hours and idle otherwise. Serverless or classic?`,
+      a: `<p><b>Serverless SQL Warehouse.</b> The cost here is dominated by startup latency and idle time — exactly what serverless removes.</p>
+        <ul>
+          <li><b>Sub-second resume</b> and aggressive auto-stop (~1 min) mean it costs nothing between bursts, with no cold-start UX penalty.</li>
+          <li><b>Concurrency scaling</b> handles many simultaneous dashboard users better than keeping a classic warehouse warm all day.</li>
+          <li><b>Only reconsider</b> if the warehouse is actually hammered steadily all day, where the higher per-DBU rate with no idle to offset could cost more.</li>
+        </ul>`,
+      tip: `"Idle time is the enemy for BI." Serverless scale-to-zero turns an always-warm cost into a pay-per-burst one — the textbook serverless win.` },
+  ],
+
+  // ── m15 · Asset Bundles & CI/CD ────────────────────────────────────────
+  m15: [
+    { difficulty: 'medium', q: `What problem do Databricks Asset Bundles (DAB) solve, and what did they replace?`,
+      a: `<p><b>They make your Databricks resources reviewable, versioned infrastructure-as-code</b> instead of jobs clicked into the UI.</p>
+        <ul>
+          <li><b>databricks.yml</b> declares jobs, DLT pipelines, notebooks, and models; the Databricks CLI deploys that desired state to a workspace.</li>
+          <li><b>One source, many targets</b> — dev/staging/prod override variables, run-as identity, and schedules, so the same code promotes with no copy-paste drift.</li>
+          <li><b>Successor to dbx and hand-built jobs</b> — built into the CLI as the official IaC path, bringing code review, environment parity, repeatable deploys, and Git-tag rollback to data/ML pipelines.</li>
+        </ul>`,
+      tip: `The one-liner: "how do you get a Databricks job reviewed, tested, and promoted dev→prod without clicking?" → <b>Asset Bundles</b>. Name <code>bundle validate / deploy / run</code>.` },
+    { difficulty: 'medium', q: `What does <code>mode: development</code> do in a bundle target, and why does it matter?`,
+      a: `<p><b>It makes dev deploys safe and isolated on a shared workspace.</b></p>
+        <ul>
+          <li><b>Name prefixing</b> — resources deploy as <code>[dev user] orders-etl</code>, so many engineers deploy the same bundle without colliding.</li>
+          <li><b>Schedules paused</b> — dev deploys never accidentally fire a production-looking job.</li>
+          <li><b>vs production mode</b> — deploys real, unprefixed, scheduled resources, typically with <code>run_as</code> a service principal.</li>
+        </ul>`,
+      tip: `This is the answer to "how do ten engineers iterate on the same job definition without stepping on each other / firing prod schedules?" — development mode's prefixing + pausing.` },
+    { difficulty: 'hard', q: `Walk me through a CI/CD pipeline for Databricks jobs using Asset Bundles.`,
+      a: `<p><b>Validate on PR, deploy-to-staging on merge, promote-to-prod on approval — all as a service principal.</b></p>
+        <ul>
+          <li><b>PR</b> — CI runs <code>bundle validate</code> + unit tests; a broken bundle can't merge.</li>
+          <li><b>Merge to main</b> — CI authenticates as a <b>service principal</b> and runs <code>bundle deploy -t staging</code>, then integration tests.</li>
+          <li><b>Prod</b> — a tag/approval triggers <code>bundle deploy -t prod</code>: identical code, prod target overrides (catalog, schedule, run-as). <b>Rollback = redeploy the previous Git tag.</b></li>
+        </ul>`,
+      tip: `Three points that land: deploys run as a <b>service principal</b> (not a person), environments are the <b>same code + target overrides</b> (no copy-paste), and everything is gated by review + tests.` },
+  ],
+
+  // ── m16 · Genie & AI/BI ────────────────────────────────────────────────
+  m16: [
+    { difficulty: 'medium', q: `What is AI/BI Genie and how does it keep answers governed?`,
+      a: `<p><b>Genie is natural-language analytics over the Lakehouse</b> — a user asks in English, Genie generates SQL from a curated "space," shows it, and runs it on a SQL Warehouse.</p>
+        <ul>
+          <li><b>Governed by identity</b> — the SQL executes under the <i>asking user's</i> Unity Catalog grants, so row filters and column masks still apply. Genie can't surface data they couldn't query themselves; there's no back door.</li>
+          <li><b>Transparent</b> — it always shows the generated SQL, so answers are reviewable and auditable (real queries, logged).</li>
+          <li><b>Part of AI/BI</b> — pairs with AI/BI Dashboards as Databricks' native BI layer.</li>
+        </ul>`,
+      tip: `Emphasize "<b>runs as the user</b>, respects UC permissions." That's the governance answer — Genie layers on top of Unity Catalog, it doesn't bypass it.` },
+    { difficulty: 'hard', q: `A Genie space keeps generating wrong numbers for a common question. How do you fix it?`,
+      a: `<p><b>You fix the context, not the model.</b> In order of leverage:</p>
+        <ul>
+          <li><b>Add an example SQL query</b> — a known-good question→SQL pair teaches Genie the right joins/metric for your schema; highest-signal fix for a recurring mistake.</li>
+          <li><b>Clean Unity Catalog comments &amp; column names</b> — Genie reads metadata, so <code>net_rev_usd</code> + a comment beats <code>nr</code>.</li>
+          <li><b>Add a general instruction</b> encoding the business rule ("active customer = ordered in last 90 days").</li>
+          <li><b>Trim the table set</b> to clean Gold/Silver tables, and pin <b>trusted/certified</b> metrics so it reuses the approved calculation.</li>
+        </ul>`,
+      tip: `Treat the Genie space like a <b>product you curate</b>: watch real questions, patch with instructions/examples. The trap answer is "wait for the model to improve."` },
+    { difficulty: 'medium', q: `When should a team use a Genie space versus an AI/BI dashboard, and what are Genie's limits?`,
+      a: `<p><b>Dashboards for known/repeated questions, Genie for novel ad-hoc follow-ups.</b></p>
+        <ul>
+          <li><b>AI/BI Dashboard</b> — curated, fast, exactly right every time (a weekly revenue view).</li>
+          <li><b>Genie</b> — "and how does that split by region and channel?" without filing a ticket, on a governed domain.</li>
+          <li><b>Limits</b> — Genie can write <i>plausible-but-wrong</i> SQL on ambiguous or poorly-modeled data, and it isn't a full semantic layer or an analyst replacement for high-stakes/cross-domain work.</li>
+        </ul>`,
+      tip: `Be honest about the failure mode: plausible-but-wrong SQL. Mitigations = curate the space to shrink the error surface, and keep humans reviewing the (always-visible) SQL for numbers that matter.` },
+  ],
 };

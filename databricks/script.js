@@ -31,6 +31,9 @@ const LOADERS = {
   m11: () => import('./modules/m11-mlflow-model-serving.js'),
   m12: () => import('./modules/m12-cost-performance.js'),
   m13: () => import('./modules/m13-interview.js'),
+  m14: () => import('./modules/m14-serverless.js'),
+  m15: () => import('./modules/m15-asset-bundles.js'),
+  m16: () => import('./modules/m16-genie-aibi.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
@@ -99,7 +102,7 @@ function markDone(id) {
     const mod = MODULES.find(m => m.id === id);
     if (mod) toast(`Module complete — ${mod.label}`, { icon: '✅' });
     const real = [...done].filter(x => MODULES.some(m => m.id === x)).length;
-    if (real === MODULES.length) toast('All 13 modules complete!', { icon: '🏆', duration: 4200 });
+    if (real === MODULES.length) toast(`All ${MODULES.length} modules complete!`, { icon: '🏆', duration: 4200 });
   }
 }
 

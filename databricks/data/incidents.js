@@ -215,4 +215,39 @@ export const INCIDENTS = [
     prevention: `Make UC grants part of the migration runbook: for every migrated schema, grant the owning jobs' identities up front, map groups to catalogs/schemas, and verify all production jobs run on UC-enabled access modes before cutover.`,
     interviewAnswer: `"PERMISSION_DENIED (not 'not found') means the object exists but the identity isn't authorized. UC enforces by <b>identity</b>, not the cluster's instance profile — so the old 'the cluster could read S3' path is gone. Fix: least-privilege UC grants to the job's service principal/group, and ensure it runs on UC-compliant compute so credential vending works."`,
   },
+  {
+    id: 'serverless-cost-surprise',
+    difficulty: 'medium',
+    icon: '☁️',
+    title: 'We moved everything to serverless and the bill went UP',
+    symptom: `A team switched all compute to serverless "to save money and simplify ops." The next month's bill is <b>higher</b> than before, not lower. Leadership wants to know why and whether to roll back.`,
+    steps: [
+      {
+        prompt: `Serverless was supposed to be cheaper. Where do you look to explain the increase?`,
+        checks: [
+          { label: `Break down serverless spend by workload in system.billing.usage`, correct: true,
+            evidence: `Most of the increase comes from <b>one long-running nightly batch</b> that now runs ~6 hours on serverless; the bursty BI warehouses actually got cheaper.`,
+            reasoning: `Serverless isn't uniformly cheaper — it wins where <b>startup latency and idle</b> dominate and loses where compute runs <b>hot and steady</b>. Attributing the delta by workload (not assuming) shows the win and the loss are on different jobs, which is the whole story.` },
+          { label: `Assume serverless is just a scam and roll everything back`, correct: false,
+            why: `Over-correcting throws away the real savings on the bursty BI/interactive workloads. The bill moved for a specific reason on a specific workload — find it before reversing a decision that partly worked.` },
+          { label: `File a billing dispute with Databricks`, correct: false,
+            why: `There's nothing to dispute — the higher blended serverless rate is expected. This is a <b>workload-fit</b> problem, not a billing error.` },
+        ],
+      },
+      {
+        prompt: `The long hot batch is the culprit. Why does serverless lose there specifically?`,
+        checks: [
+          { label: `No idle to offset the higher rate, and no spot discount available`, correct: true,
+            evidence: `The batch has ~0% idle time (it runs flat-out for 6 hours), and on classic it had been using <b>spot workers</b> at ~70% off VM cost — which serverless can't use.`,
+            reasoning: `Serverless folds the VM cost into a higher per-DBU rate and trades away spot. On a job that's fully utilized for hours, there's no idle period for scale-to-zero to save, so you pay the higher rate the whole time <i>and</i> forfeit the spot discount. That's precisely where classic + spot is cheaper.` },
+          { label: `Serverless must be using bigger nodes`, correct: false,
+            why: `You don't choose node size on serverless, and the issue isn't sizing — it's the rate model (blended, no spot) applied to a steady, fully-utilized workload. Chasing node size misses the real cause.` },
+        ],
+      },
+    ],
+    rootCause: `Serverless was applied uniformly, including to a long-running, fully-utilized nightly batch. Serverless's higher blended rate has no idle period to offset on a hot steady job, and it can't use the spot discounts that job previously relied on — so that workload got more expensive, outweighing the genuine savings on bursty BI/interactive compute.`,
+    resolution: `Move the long hot batch <b>back to classic job compute with spot workers + on-demand driver</b>; keep the bursty SQL warehouses, interactive notebooks, and spiky jobs on serverless. Right-tool-per-workload, not all-or-nothing.`,
+    prevention: `Decide serverless vs classic per workload using the rule "startup + idle vs steady utilization": bursty/latency-sensitive → serverless; long, hot, spot-eligible → classic. Monitor <code>system.billing.usage</code> by workload so a migration's effect is visible immediately, not at month-end.`,
+    interviewAnswer: `"Serverless is simpler, not unconditionally cheaper. It wins where startup latency and idle dominate — bursty BI, spiky jobs, interactive — and loses on long, fully-utilized batch, where the higher blended rate has no idle to offset and you give up spot. I'd attribute the increase by workload in system tables, move just the hot steady batch back to classic + spot, and keep the rest on serverless."`,
+  },
 ];
