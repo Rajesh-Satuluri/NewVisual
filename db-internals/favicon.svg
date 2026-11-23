@@ -4,8 +4,9 @@
  <radialGradient id="glow" cx="0.5" cy="0.38" r="0.6"><stop offset="0" stop-color="#F43F5E" stop-opacity="0.22"/><stop offset="1" stop-color="#F43F5E" stop-opacity="0"/></radialGradient>
 </defs>
  <rect width="512" height="512" rx="96" fill="url(#bg)"/><rect width="512" height="512" rx="96" fill="url(#glow)"/>
- <g stroke="url(#arm)" stroke-width="22" stroke-linecap="round" fill="none">
-    <line x1="224" y1="150" x2="224" y2="362"/>
-    <line x1="224" y1="256" x2="372" y2="156"/>
-    <line x1="224" y1="256" x2="372" y2="356"/></g>
-   <circle cx="224" cy="150" r="40" fill="#F43F5E"/><circle cx="224" cy="150" r="17" fill="#0A0E1A"/><circle cx="224" cy="362" r="40" fill="#F43F5E"/><circle cx="224" cy="362" r="17" fill="#0A0E1A"/><circle cx="372" cy="156" r="40" fill="#F43F5E"/><circle cx="372" cy="156" r="17" fill="#0A0E1A"/><circle cx="372" cy="356" r="40" fill="#F43F5E"/><circle cx="372" cy="356" r="17" fill="#0A0E1A"/><circle cx="224" cy="256" r="30" fill="#FFFFFF"/></svg>
+
+ <path d="M152 196 v124 a74 24 0 0 0 148 0 v-124" fill="url(#arm)"/>
+ <ellipse cx="226" cy="196" rx="74" ry="24" fill="#fff"/>
+ <g fill="none" stroke="#0A0E1A" stroke-width="11"><path d="M152 244 a74 24 0 0 0 148 0"/><path d="M152 282 a74 24 0 0 0 148 0"/></g>
+ <circle cx="332" cy="300" r="34" fill="none" stroke="#fff" stroke-width="14"/><line x1="356" y1="324" x2="386" y2="354" stroke="#fff" stroke-width="16" stroke-linecap="round"/>
+</svg>
