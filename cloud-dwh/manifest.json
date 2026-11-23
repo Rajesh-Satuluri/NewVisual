@@ -1,31 +1,30 @@
 {
-  "name": "Cloud Data Warehouses \u2014 Snowflake \u00b7 Redshift \u00b7 Fabric",
-  "short_name": "CloudDWH",
-  "description": "Snowflake, Amazon Redshift, and Microsoft Fabric \u2014 one interactive tool with a platform switcher.",
-  "start_url": "./index.html",
+  "name": "Cloud Data Warehouses",
+  "short_name": "Cloud DWH",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0d1117",
-  "theme_color": "#0d1117",
+  "background_color": "#0A0E1A",
+  "theme_color": "#38BDF8",
   "icons": [
     {
-      "src": "assets/icon-192.png",
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "assets/icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "assets/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }
