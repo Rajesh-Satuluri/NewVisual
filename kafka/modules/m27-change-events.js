@@ -26,6 +26,12 @@ export const IQ = [
     a: 'This is a <strong>schema evolution / compatibility</strong> problem, enforced by <a href="#m14">Schema Registry</a>. The safe move is an <strong>additive, optional</strong> change: add the new column with a default / as nullable. That is both <em>backward</em> compatible (new consumers can read old messages — the missing field takes the default) and <em>forward</em> compatible (old consumers can read new messages — they ignore the unknown field), i.e. <strong>FULL</strong> compatible, so you can upgrade producers and consumers in any order. The dangerous changes are: adding a <strong>required field with no default</strong> (breaks backward compatibility — old data has no value for it), <strong>removing a required field</strong> (breaks forward compatibility — old consumers still expect it), and <strong>narrowing or changing a type</strong>. The rule of thumb: <em>add optional, never remove required, never change types in place</em> — and let the registry reject anything that violates the topic\'s compatibility setting before it ever reaches a consumer.',
     tip: 'Tie "additive + optional = FULL compatible = deploy in any order" together. That single sentence answers most schema-evolution questions, and the registry is what enforces it.',
   },
+  {
+    q: 'What does the ExtractNewRecordState SMT do, and why is it almost always used?',
+    a: 'A raw Debezium event is an envelope — <code>before</code>, <code>after</code>, <code>op</code>, <code>source</code>, <code>ts_ms</code> — but most sinks just want the current row. (1) <code>ExtractNewRecordState</code> (the "unwrap" SMT) flattens the envelope to the <code>after</code> image, so the message becomes a plain row a JDBC sink, search index, or table can consume directly. (2) It can keep useful metadata (op type, timestamps) as fields and represent deletes as a tombstone or a soft-delete flag. (3) Without it, every consumer would have to parse the envelope. The tradeoff: flattening discards the <code>before</code> image, so keep the full envelope for streams that need old values.',
+    tip: 'Call it the "unwrap" SMT: ExtractNewRecordState turns the before/after envelope into a flat row. Mention you can keep op and ts_ms as fields and choose tombstone vs soft-delete.',
+    difficulty: 'easy'
+  },
 ];
 
 export function mount(container) {
@@ -33,6 +39,10 @@ export function mount(container) {
     tag: 'M27 · Change Data Capture',
     title: 'Change Events & Data Contracts',
     subtitle: 'The exact shape of a change event — op codes, before/after, source metadata, deletes and tombstones — plus serialization, SMTs, and schema evolution.',
+    definition: {
+      formal: "A change event is the structured message a CDC tool emits for each row change — carrying an operation code (c/u/d/r), the before and after row images, and source metadata. Together with serialization, transformations, and schema evolution rules, its shape forms the data contract with consumers.",
+      easy: "Each change becomes a little packet that says what happened (created/updated/deleted), the row before and after, and where it came from. The agreed shape of that packet is the “contract” readers rely on.",
+    },
     tabs: [
       { id: 'envelope', label: '✉️ The Envelope' },
       { id: 'inspector', label: '🔬 Event Inspector' },

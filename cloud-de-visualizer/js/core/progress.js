@@ -351,6 +351,30 @@
 
   function exportJSON() { return JSON.stringify(load(), null, 2); }
 
+  /* ── Cloud-sync bridge (used by js/core/cloud-store.js) ──────
+     snapshot() returns a deep copy of the whole progress object;
+     adopt() replaces the in-memory + persisted state with an
+     incoming (already-merged) object WITHOUT bumping `updated`,
+     so a pulled copy keeps its original timestamp for later LWW
+     merges. Both degrade safely if storage is blocked. */
+  function snapshot() {
+    try { return JSON.parse(JSON.stringify(load())); } catch (e) { return load(); }
+  }
+  function adopt(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+    var before = '';
+    try { before = JSON.stringify(load()); } catch (e) {}
+    // Persist first, then clear the cache so load() re-reads and re-applies the
+    // shape guards against the incoming (possibly partial) object.
+    try { TV.ls.set(KEY, JSON.stringify(obj)); } catch (e) {}
+    _cache = null;
+    var now = load();
+    var after = '';
+    try { after = JSON.stringify(now); } catch (e) {}
+    try { document.dispatchEvent(new CustomEvent('progress:change')); } catch (e) {}
+    return before !== after;
+  }
+
   /* ── Auto-capture "viewed" from navigation ───────────────────
      app.js fires app:navigate with {id, format} on every screen
      change. We record it as a studied signal. Non-topic screens
@@ -369,7 +393,7 @@
   /* ── Public API ──────────────────────────────────────────── */
   TV.Progress = {
     REVIEW_AFTER, DAY,
-    load, save, reset, exportJSON, hasAnyProgress,
+    load, save, reset, exportJSON, hasAnyProgress, snapshot, adopt,
     recordView, viewedInfo,
     recordQuizAnswer, quizInfo,
     setRating, getRating, clearRating,

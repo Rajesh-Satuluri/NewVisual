@@ -56,6 +56,18 @@ export const IQ = [
     a: 'Without a Schema Registry, consumers must negotiate data format out-of-band. As schemas evolve, broken consumers are a production incident. The Schema Registry stores Avro/Protobuf/JSON Schema definitions and enforces compatibility modes (BACKWARD, FORWARD, FULL). Producers register schemas before writing; consumers fetch the schema by ID embedded in each message header. This decouples schema evolution from deployment, enables data lineage, and powers CDC pipelines safely.',
     tip: 'Mention that the magic byte (0x00) + 4-byte schema ID prefix is the Confluent wire format — shows you understand the actual encoding.'
   },
+  {
+    q: 'When is Kafka the wrong tool for the job?',
+    a: 'Kafka is overkill for low-volume or request/reply workloads. (1) If you need per-message RPC with an immediate reply, use gRPC or REST — Kafka is one-way and async. (2) For a simple task queue of a few messages per second, RabbitMQ or SQS is lighter to run than a broker-plus-controller quorum. (3) Under ~1k msgs/sec the operational cost of partitions, replication, and consumer groups rarely pays off. (4) Kafka is also not a database — you cannot query by key efficiently without an external store or ksqlDB. Reach for Kafka when you need durable replay, fan-out, and high throughput.',
+    tip: 'Name the anti-patterns out loud: "Kafka is not an RPC layer, not a task queue for 10 msgs/sec, and not a queryable database." Knowing when not to use it signals maturity.',
+    difficulty: 'easy'
+  },
+  {
+    q: 'Why is Kafka built on an append-only log instead of a mutable data structure?',
+    a: 'An append-only log makes every write sequential, which is the root of Kafka\'s speed and correctness. (1) Appending to the end of a segment is sequential disk I/O — far faster than random writes into a B-tree. (2) Immutability means readers never block writers; each consumer just tracks an offset into the shared log. (3) History is preserved, so replay, auditing, and event sourcing come for free — nothing is overwritten. (4) Replication is trivial: followers copy the same ordered byte stream. The tradeoff: you cannot update a record in place — corrections are new events, and cleanup happens via retention or log compaction.',
+    tip: 'Frame it as "the log is the source of truth, state is just a projection." That line signals you understand event sourcing, not only messaging.',
+    difficulty: 'medium'
+  },
 ];
 
 export function mount(container) {
@@ -63,6 +75,10 @@ export function mount(container) {
     tag: 'M01 · Foundation',
     title: 'Why Kafka?',
     subtitle: 'From LinkedIn logs to the backbone of Amazon Prime — the distributed log that changed data engineering',
+    definition: {
+      formal: "Apache Kafka is a distributed, append-only commit log that lets many producers publish streams of events and many consumers read them independently — durably storing each event and replaying it on demand. It is a publish/subscribe messaging system built for high-throughput, fault-tolerant data pipelines.",
+      easy: "Think of a shared, never-ending notebook: apps keep writing new events to the end, and any number of other apps read through it at their own pace. Nothing is erased when it is read, so everyone gets their own copy of the story.",
+    },
     tabs: [
       { id: 'timeline', label: '📜 Timeline' },
       { id: 'compare',  label: '⚡ Kafka vs Queue' },

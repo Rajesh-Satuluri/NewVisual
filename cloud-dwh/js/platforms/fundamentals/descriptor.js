@@ -15,6 +15,7 @@
   P.navGroups = [
     { label: '🧭 Start Here', items: [
       { id: 'foundations-home', label: 'Why Fundamentals', icon: '🧭' },
+      { id: 'sql-playground', label: 'SQL Playground', icon: '🧪' },
     ] },
     { label: '🏛️ Foundations', items: [
       { id: 'fund-olap-oltp',    label: 'OLAP vs OLTP',            icon: '📊' },
@@ -37,6 +38,18 @@
     { label: '📐 Data & Modeling', items: [
       { id: 'fund-modeling',  label: 'Dimensional Modeling',     icon: '⭐' },
       { id: 'fund-lakehouse', label: 'Open Formats & Lakehouse', icon: '🧊' },
+    ] },
+    { label: '🏗️ Modeling & Design Track', items: [
+      { id: 'fund-dim-grain',  label: 'Grain & Dimensions',        icon: '🎯' },
+      { id: 'fund-star-snow',  label: 'Star vs Snowflake',         icon: '✦' },
+      { id: 'fund-fact-types', label: 'Fact Types & Additivity',   icon: '📏' },
+      { id: 'fund-keys',       label: 'Surrogate vs Natural Keys', icon: '🔑' },
+      { id: 'fund-scd',        label: 'Slowly-Changing Dims',      icon: '🕰️' },
+      { id: 'fund-scd2-sim',   label: 'SCD2 — Interactive',        icon: '🎮' },
+      { id: 'fund-kimball-inmon', label: 'Kimball vs Inmon',       icon: '⚖️' },
+      { id: 'fund-data-vault', label: 'Data Vault 2.0',            icon: '🗄️' },
+      { id: 'fund-marts-ods',  label: 'Data Marts & ODS',          icon: '🏬' },
+      { id: 'fund-medallion',  label: 'Medallion + Dimensional',   icon: '🥇' },
     ] },
     { label: '🛡️ Operations', items: [
       { id: 'fund-governance', label: 'Governance & Security', icon: '🔐' },

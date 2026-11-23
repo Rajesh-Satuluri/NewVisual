@@ -444,6 +444,32 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .iq-answer-wrap, .iq-answer, .q-chevron { transition: none; }
 }
+
+/* Smooth expand/collapse for `.ca-card` accordions (Incident Bank,
+   Troubleshooting Lab, Choose-the-Approach, Coding Dojo, CDC Incident Lab,
+   Level-Up Answers). Same grid-rows 0fr→1fr technique as the Q&A accordion:
+   the wrapper animates to the body's true height (any height, no JS measuring,
+   no max-height clip), while the body fades in step. Driven by `.ca-card.open`
+   so the toggle never re-renders the list. See components/accordion.js. */
+.ca-card-acc {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.36s cubic-bezier(0.33, 1, 0.68, 1);
+}
+.ca-card.open > .ca-card-acc { grid-template-rows: 1fr; }
+.ca-card-acc > .ca-card-body {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.ca-card.open > .ca-card-acc > .ca-card-body {
+  opacity: 1;
+  transition: opacity 0.3s ease 0.08s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ca-card-acc, .ca-card-acc > .ca-card-body { transition: none; }
+}
 .tip {
   margin-top: 10px;
   padding: 10px 14px;

@@ -28,14 +28,14 @@
           facts: ['Import: fast queries, stale copy, refresh cost', 'DirectQuery: always fresh, slower per query'] },
         { label: 'Direct Lake', title: 'Direct Lake = best of both', on: { spot: ['dl', 'lake'], conn: ['modes'], flow: ['delta'] },
           body: '<strong>Direct Lake</strong> reads the Delta/Parquet files in OneLake <em>directly</em> into the Power BI engine — import-like speed with DirectQuery-like freshness, and no separate copy.',
-          facts: ['Loads Delta columns on demand into memory', 'No scheduled refresh, no duplicate data', 'V-Order makes the Parquet reads fast'] },
+          facts: ['Loads Delta columns on demand into memory', 'No data import; the model reframes to the latest Delta version (no duplicate copy)', 'V-Order makes the Parquet reads fast'] },
         { label: 'Guardrails', title: 'Capacity guardrails & fallback', on: { spot: ['report'], conn: ['lake'], flow: ['viz'] },
           body: 'Direct Lake needs a Fabric <strong>capacity</strong>; guardrails (rows, file counts, model size) scale with the F-SKU, and queries can fall back to DirectQuery if exceeded.',
           facts: ['Requires a Fabric capacity (not Free/Pro alone)', 'Guardrails grow with the SKU (e.g. model-size cap lifts at F64+)', 'Falls back to DirectQuery beyond limits', 'Model must be in the same region as its data'] },
       ],
       takeaways: [
         'Direct Lake reads Delta in OneLake directly — import speed + DirectQuery freshness',
-        'No data duplication and no scheduled refresh; V-Order keeps reads fast',
+        'No data duplication; the model reframes to the newest Delta version instead of importing; V-Order keeps reads fast',
         'Requires a Fabric capacity; guardrails scale with the SKU, else fall back to DirectQuery',
       ],
     },
@@ -139,7 +139,7 @@
           facts: ['All items share OneLake storage', 'No federation/linked-server plumbing'] },
         { label: 'Three-part', title: 'Reference with three-part names', on: { spot: ['q'], conn: ['items'], flow: ['join'] },
           body: 'Use <code>database.schema.table</code> three-part names in one T-SQL query to join a warehouse with a lakehouse endpoint or a mirrored database.',
-          facts: ['Syntax: [item].[schema].[table]', 'Join warehouse + lakehouse + mirrored data', 'Must be within the same workspace scope'] },
+          facts: ['Syntax: [item].[schema].[table]', 'Join warehouse + lakehouse + mirrored data', 'Spans items in the same workspace; use OneLake shortcuts to reach other workspaces'] },
       ],
       code: { title: 'Cross-database join', lang: 'sql', src:
 `SELECT  s.title_id, SUM(s.revenue) AS rev, e.plays
@@ -157,7 +157,7 @@ GROUP BY s.title_id, e.plays;` },
     'semanticModels': {
       eyebrow: 'Internals', title: 'Semantic Models',
       subtitle: 'A semantic model is the BI layer — tables, relationships, and measures — that Power BI reports read, often bound to OneLake via Direct Lake. Press Play.',
-      doc: 'https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-overview',
+      doc: 'https://learn.microsoft.com/en-us/fabric/data-warehouse/semantic-models',
       stage: { caption: 'The shared business layer',
         groups: [
           { id: 'data', label: 'OneLake data', nodes: [{ id: 'delta', label: 'Delta tables' }], connectorAfter: 'Direct Lake binding' },

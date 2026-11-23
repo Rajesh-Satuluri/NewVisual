@@ -1,4 +1,22 @@
-export function createModuleShell({ tag, title, subtitle, tabs }) {
+// `definition` (optional): { formal, easy } — renders a "what this module means"
+// card between the hero and the tabs so the plain-language definition is always
+// visible no matter which tab is active. Omit it on utility/lab pages that aren't
+// teaching a single named concept.
+function createDefinitionCard(definition) {
+  if (!definition || !definition.formal) return '';
+  const { formal, easy } = definition;
+  return `
+    <div class="module-definition" style="background:#111827;border:1px solid #1E293B;border-left:3px solid #06B6D4;border-radius:12px;padding:16px 20px;margin-bottom:22px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#06B6D4;margin-bottom:8px">📘 Definition</div>
+      <div style="font-size:13.5px;line-height:1.7;color:#E2E8F0">${formal}</div>
+      ${easy ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #1E293B;font-size:12.5px;line-height:1.7;color:#94A3B8">
+        <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#10B981;margin-right:8px">In plain terms</span>${easy}
+      </div>` : ''}
+    </div>`;
+}
+
+export function createModuleShell({ tag, title, subtitle, tabs, definition }) {
   return `
     <div class="module-page">
       <div class="module-hero">
@@ -6,6 +24,7 @@ export function createModuleShell({ tag, title, subtitle, tabs }) {
         <h1 class="module-title">${title}</h1>
         <p class="module-subtitle">${subtitle}</p>
       </div>
+      ${createDefinitionCard(definition)}
       <div class="module-tabs" role="tablist" aria-label="Module sections">
         ${tabs.map((t, i) => `
           <button class="tab-btn ${i === 0 ? 'active' : ''}" data-tab="${t.id}" role="tab"

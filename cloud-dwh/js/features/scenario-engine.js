@@ -422,7 +422,23 @@
       const step = steps[idx];
       const card = el('div', 'lab-chain-step');
       card.innerHTML = `<div class="lab-chain-q"><span class="lab-chain-n">Q${idx + 1}</span>${esc(step.q)}</div>`;
-      const btn = el('button', 'lab-next', 'Reveal solution');
+
+      // Optional runnable sandbox: when a step provides a `run` spec and the
+      // playground engine is available, mount a live editor so the learner can
+      // write + execute + diff the (dialect-neutral) equivalent before revealing
+      // the idiomatic platform answer.
+      if (step.run && viz.SqlPlayground) {
+        const host = el('div', 'lab-sql-run');
+        card.appendChild(host);
+        const inst = viz.SqlPlayground.mount(host, step.run);
+        if (inst) {
+          const cleanup = () => { try { inst.destroy && inst.destroy(); } catch (_) {} };
+          document.addEventListener('cdwh:navigate', cleanup, { once: true });
+        }
+      }
+
+      const btn = el('button', 'lab-next',
+        step.run ? 'Reveal idiomatic answer' : 'Reveal solution');
       btn.type = 'button';
       btn.addEventListener('click', () => {
         btn.remove();

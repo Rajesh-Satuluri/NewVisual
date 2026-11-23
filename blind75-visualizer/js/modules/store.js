@@ -20,6 +20,7 @@
     codeEdits: {},  // problemId -> { "<approachIndex>:<mode>": editedSource } (user code edits)
     logicEdits: {}, // problemId -> { "<approachIndex>": editedMarkdown } (user logic edits)
     descEdits: {},  // problemId -> editedMarkdown (user problem-description edits)
+    iqaEdits: {},   // bankKey ("spark"|"sql") -> { questionId -> { q?, a? } } (interview Q&A edits)
     srs: {},        // problemId -> { ease, interval(days), reps, lapses, due(ms), last(ms) }
     activity: {},   // "YYYY-MM-DD" -> count of solves/reviews that day (for the heatmap + streak)
     pyStatus: {},   // pythonTopicId -> "not-started" | "learning" | "learned" | "mastered"
@@ -53,6 +54,7 @@
       data.codeEdits = data.codeEdits || {};
       data.logicEdits = data.logicEdits || {};
       data.descEdits = data.descEdits || {};
+      data.iqaEdits = data.iqaEdits || {};
       data.srs = data.srs || {};
       data.activity = data.activity || {};
       data.pyStatus = data.pyStatus || {};
@@ -244,6 +246,28 @@
       save();
     },
 
+    // ---- interview Q&A edits (per bank + question id) ----
+    // An override is { q?: plainText, a?: html }; only the changed fields are
+    // stored. Returns null when the question is untouched.
+    getIqaEdit: function (bank, id) {
+      var m = state.iqaEdits[bank];
+      var v = m && m[id];
+      return v == null ? null : v;
+    },
+    setIqaEdit: function (bank, id, obj) {
+      if (!obj || (obj.q == null && obj.a == null)) { this.clearIqaEdit(bank, id); return; }
+      if (!state.iqaEdits[bank]) state.iqaEdits[bank] = {};
+      state.iqaEdits[bank][id] = obj;
+      save();
+    },
+    clearIqaEdit: function (bank, id) {
+      var m = state.iqaEdits[bank];
+      if (!m || m[id] == null) return;
+      delete m[id];
+      if (!Object.keys(m).length) delete state.iqaEdits[bank];
+      save();
+    },
+
     // ---- Python-for-DSA topic progress ----
     // States: "not-started" | "learning" | "learned" | "mastered".
     getPyStatus: function (id) {
@@ -356,6 +380,7 @@
       state.codeEdits = incoming.codeEdits || {};
       state.logicEdits = incoming.logicEdits || {};
       state.descEdits = incoming.descEdits || {};
+      state.iqaEdits = incoming.iqaEdits || {};
       state.srs = incoming.srs || {};
       state.activity = incoming.activity || {};
       state.pyStatus = incoming.pyStatus || {};
@@ -380,6 +405,7 @@
         codeEdits:   deep(state.codeEdits),
         logicEdits:  deep(state.logicEdits),
         descEdits:   deep(state.descEdits),
+        iqaEdits:    deep(state.iqaEdits),
         status:      deep(state.status),
         pyStatus:    deep(state.pyStatus),
         srs:         deep(state.srs),
@@ -401,6 +427,7 @@
       if (b.codeEdits)   state.codeEdits = b.codeEdits;
       if (b.logicEdits)  state.logicEdits = b.logicEdits;
       if (b.descEdits)   state.descEdits = b.descEdits;
+      if (b.iqaEdits)    state.iqaEdits = b.iqaEdits;
       if (b.status)      state.status = b.status;
       if (b.pyStatus)    state.pyStatus = b.pyStatus;
       if (b.srs)         state.srs = b.srs;
@@ -435,7 +462,7 @@
     return JSON.stringify([
       state.status, state.pyStatus, state.srs, state.review, state.activity,
       state.pyChallenge, state.notes, state.links, state.codeEdits,
-      state.logicEdits, state.descEdits, pickSyncPrefs()
+      state.logicEdits, state.descEdits, state.iqaEdits, pickSyncPrefs()
     ]);
   }
 
