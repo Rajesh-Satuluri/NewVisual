@@ -4,8 +4,8 @@
  <radialGradient id="glow" cx="0.5" cy="0.38" r="0.6"><stop offset="0" stop-color="#22D3EE" stop-opacity="0.22"/><stop offset="1" stop-color="#22D3EE" stop-opacity="0"/></radialGradient>
 </defs>
  <rect width="512" height="512" rx="96" fill="url(#bg)"/><rect width="512" height="512" rx="96" fill="url(#glow)"/>
- <g stroke="url(#arm)" stroke-width="22" stroke-linecap="round" fill="none">
-    <line x1="224" y1="150" x2="224" y2="362"/>
-    <line x1="224" y1="256" x2="372" y2="156"/>
-    <line x1="224" y1="256" x2="372" y2="356"/></g>
-   <circle cx="224" cy="150" r="40" fill="#22D3EE"/><circle cx="224" cy="150" r="17" fill="#0A0E1A"/><circle cx="224" cy="362" r="40" fill="#22D3EE"/><circle cx="224" cy="362" r="17" fill="#0A0E1A"/><circle cx="372" cy="156" r="40" fill="#22D3EE"/><circle cx="372" cy="156" r="17" fill="#0A0E1A"/><circle cx="372" cy="356" r="40" fill="#22D3EE"/><circle cx="372" cy="356" r="17" fill="#0A0E1A"/><circle cx="224" cy="256" r="30" fill="#FFFFFF"/></svg>
+
+ <path d="M256 150 L360 210 L256 270 L152 210 Z" fill="url(#arm)" opacity="0.4"/>
+ <g fill="none" stroke="url(#arm)" stroke-width="16" stroke-linejoin="round"><path d="M256 150 L360 210 V330 L256 390 L152 330 V210 Z"/><path d="M256 150 V270 M256 270 L360 210 M256 270 L152 210"/></g>
+ <circle cx="256" cy="270" r="14" fill="#fff"/>
+</svg>

@@ -4,8 +4,9 @@
  <radialGradient id="glow" cx="0.5" cy="0.38" r="0.6"><stop offset="0" stop-color="#3B82F6" stop-opacity="0.22"/><stop offset="1" stop-color="#3B82F6" stop-opacity="0"/></radialGradient>
 </defs>
  <rect width="512" height="512" rx="96" fill="url(#bg)"/><rect width="512" height="512" rx="96" fill="url(#glow)"/>
- <g stroke="url(#arm)" stroke-width="22" stroke-linecap="round" fill="none">
-    <line x1="224" y1="150" x2="224" y2="362"/>
-    <line x1="224" y1="256" x2="372" y2="156"/>
-    <line x1="224" y1="256" x2="372" y2="356"/></g>
-   <circle cx="224" cy="150" r="40" fill="#3B82F6"/><circle cx="224" cy="150" r="17" fill="#0A0E1A"/><circle cx="224" cy="362" r="40" fill="#3B82F6"/><circle cx="224" cy="362" r="17" fill="#0A0E1A"/><circle cx="372" cy="156" r="40" fill="#3B82F6"/><circle cx="372" cy="156" r="17" fill="#0A0E1A"/><circle cx="372" cy="356" r="40" fill="#3B82F6"/><circle cx="372" cy="356" r="17" fill="#0A0E1A"/><circle cx="224" cy="256" r="30" fill="#FFFFFF"/></svg>
+
+ <g fill="url(#arm)"><circle cx="198" cy="296" r="46"/><circle cx="256" cy="262" r="62"/><circle cx="320" cy="296" r="50"/>
+  <rect x="194" y="296" width="132" height="50" rx="25"/></g>
+ <g stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none">
+  <line x1="256" y1="232" x2="256" y2="316"/><polyline points="224,286 256,318 288,286"/></g>
+</svg>
