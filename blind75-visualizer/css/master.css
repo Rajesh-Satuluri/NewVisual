@@ -896,15 +896,68 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
   transition: opacity .3s ease .08s, padding .36s cubic-bezier(.33,1,.68,1), border-color .3s ease; }
 @media (prefers-reduced-motion: reduce) { .iq-answer-wrap, .iq-answer, .q-chevron { transition: none; } }
 
+/* ── Interview Q&A answer rich content ─────────────────────────────────────
+   Scoped typography for answer markup (hand-written HTML or pasted rich text),
+   mirroring the Kafka Study Hub's .iq-answer rendering specs so lists, code,
+   tables, headings, quotes and inline marks all render identically. Applies to
+   BOTH the inline Study-Hub view (.iqs-a-body) and the pop-up modal
+   (.iqa-a-body). Variable names are blind75's (--text-2, --bg-3, --brand-2…). */
 .iqs-a-body { font-size: 13.5px; color: var(--text-2); line-height: 1.7; }
-.iqs-a-body > *:first-child { margin-top: 0; }
-.iqs-a-body > *:last-child { margin-bottom: 0; }
-.iqs-a-body p { margin: 0 0 10px; }
-.iqs-a-body b, .iqs-a-body strong { color: var(--text); font-weight: 700; }
-.iqs-a-body code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em;
-  background: var(--bg-3); border-radius: 4px; padding: 1px 5px; }
-.iqs-a-body ul, .iqs-a-body ol { margin: 0 0 10px; padding-left: 20px; }
-.iqs-a-body li { margin: 3px 0; }
+.iqs-a-body > *:first-child, .iqa-a-body > *:first-child { margin-top: 0; }
+.iqs-a-body > *:last-child, .iqa-a-body > *:last-child { margin-bottom: 0; }
+.iqs-a-body p, .iqa-a-body p { margin: 0 0 10px; }
+.iqs-a-body strong, .iqs-a-body b,
+.iqa-a-body strong, .iqa-a-body b { color: var(--text); font-weight: 600; }
+.iqs-a-body em, .iqa-a-body em { font-style: italic; }
+.iqs-a-body del, .iqa-a-body del { opacity: 0.6; }
+.iqs-a-body a, .iqa-a-body a { color: var(--brand-2); text-decoration: none; border-bottom: 1px solid transparent; }
+.iqs-a-body a:hover, .iqa-a-body a:hover { border-bottom-color: currentColor; }
+
+.iqs-a-body code, .iqa-a-body code {
+  font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px; background: var(--bg-3); color: var(--brand-2);
+  padding: 1px 5px; border-radius: 4px; word-break: break-word;
+}
+.iqs-a-body pre, .iqa-a-body pre {
+  background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; margin: 0 0 12px; overflow-x: auto; line-height: 1.55;
+}
+.iqs-a-body pre code, .iqa-a-body pre code {
+  background: none; color: var(--text); padding: 0; font-size: 12px; display: block; white-space: pre;
+}
+
+.iqs-a-body h1, .iqs-a-body h2, .iqs-a-body h3, .iqs-a-body h4,
+.iqa-a-body h1, .iqa-a-body h2, .iqa-a-body h3, .iqa-a-body h4 {
+  color: var(--text); font-weight: 700; line-height: 1.3; margin: 16px 0 8px;
+}
+.iqs-a-body h1, .iqs-a-body h2, .iqa-a-body h1, .iqa-a-body h2 { font-size: 15px; }
+.iqs-a-body h3, .iqa-a-body h3 { font-size: 14px; }
+.iqs-a-body h4, .iqa-a-body h4 { font-size: 13px; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.03em; }
+
+.iqs-a-body ul, .iqs-a-body ol, .iqa-a-body ul, .iqa-a-body ol { margin: 0 0 12px; padding-left: 22px; }
+.iqs-a-body li, .iqa-a-body li { margin: 4px 0; }
+.iqs-a-body li > ul, .iqs-a-body li > ol,
+.iqa-a-body li > ul, .iqa-a-body li > ol { margin: 4px 0; }
+
+.iqs-a-body blockquote, .iqa-a-body blockquote {
+  margin: 0 0 12px; padding: 8px 14px; background: var(--bg-2);
+  border-left: 3px solid var(--brand); border-radius: 0 6px 6px 0; color: var(--text-2);
+}
+.iqs-a-body hr, .iqa-a-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+.iqs-a-body table, .iqa-a-body table { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 12px; }
+.iqs-a-body th, .iqs-a-body td, .iqa-a-body th, .iqa-a-body td {
+  border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top;
+}
+.iqs-a-body th, .iqa-a-body th { background: var(--bg-3); color: var(--text); font-weight: 600; }
+.iqs-a-body tbody tr:nth-child(even) td,
+.iqa-a-body tbody tr:nth-child(even) td { background: rgba(148,163,184,0.06); }
+
+.iqs-a-body kbd, .iqa-a-body kbd {
+  font-family: 'SF Mono', ui-monospace, monospace; font-size: 11px;
+  background: var(--bg-3); border: 1px solid var(--border); border-bottom-width: 2px;
+  border-radius: 4px; padding: 1px 5px; color: var(--text);
+}
 .iq-answer .iqa-code { margin-top: 12px; }
 .iq-answer .tip {
   margin-top: 12px; padding: 10px 14px; background: var(--brand-glow);
@@ -982,11 +1035,10 @@ body.sidebar-open .ham i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
 .iqa-caret { font-size: 12px; color: var(--muted); width: 12px; text-align: center; }
 
 .iqa-a { padding: 2px 14px 14px 46px; border-top: 1px solid var(--border-soft); }
-.iqa-a-body { font-size: 13.5px; line-height: 1.6; color: var(--text); }
-.iqa-a-body p { margin: 8px 0; }
-.iqa-a-body ul { margin: 8px 0; padding-left: 18px; }
-.iqa-a-body li { margin: 4px 0; }
-.iqa-a-body code { font-size: 12.5px; }
+/* Modal answer body: base container only — the rich-content element specs are
+   shared with the inline view in the "Interview Q&A answer rich content" block
+   above (so both surfaces render answers with the same Kafka Study-Hub specs). */
+.iqa-a-body { font-size: 13.5px; line-height: 1.7; color: var(--text-2); }
 .iqa-code { margin-top: 12px; }
 .iqa-tip { margin-top: 12px; font-size: 12.5px; line-height: 1.55; color: var(--text-2);
   background: color-mix(in srgb, var(--amber, #f08c00) 8%, var(--bg-1));
