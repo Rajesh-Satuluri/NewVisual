@@ -92,44 +92,26 @@
       <!-- Sidebar nav -->
       <aside id="sidebar" class="sidebar" aria-label="Module navigation">
         <div class="sidebar-section">
-          <div class="sidebar-label">Real-World Scenario</div>
+          <div class="sidebar-label">1 · Start Here</div>
           <ul class="sidebar-list" role="list">
+            <li><a href="#home" class="sidebar-link" data-route="home">Home</a></li>
+            <li><a href="#architecture" class="sidebar-link" data-route="architecture">Architecture Overview</a></li>
             <li><a href="#business-scenario" class="sidebar-link" data-route="business-scenario">🛒 E-commerce Pipeline</a></li>
           </ul>
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-label">Interview Prep</div>
+          <div class="sidebar-label">2 · Core Concepts</div>
           <ul class="sidebar-list" role="list">
-            <li><a href="#readiness" class="sidebar-link" data-route="readiness">🎯 Readiness Dashboard</a></li>
-            <li><a href="#troubleshooting" class="sidebar-link" data-route="troubleshooting">🔧 Troubleshooting Lab</a></li>
-            <li><a href="#incidents" class="sidebar-link" data-route="incidents">📟 Incident Bank</a></li>
-            <li><a href="#choose-primitive" class="sidebar-link" data-route="choose-primitive">⚖️ Choose the Right Primitive</a></li>
-            <li><a href="#interview-chains" class="sidebar-link" data-route="interview-chains">🎤 Follow-up Chains</a></li>
-            <li><a href="#pipeline-design" class="sidebar-link" data-route="pipeline-design">🧱 Design a Pipeline</a></li>
-            <li><a href="#answer-levels" class="sidebar-link" data-route="answer-levels">🪜 Improve Your Answer</a></li>
-            <li><a href="#timed-answers" class="sidebar-link" data-route="timed-answers">⏱️ 30s / 90s / 3-min</a></li>
-            <li><a href="#traps" class="sidebar-link" data-route="traps">🪤 Interview Traps</a></li>
-            <li><a href="#predict" class="sidebar-link" data-route="predict">🔮 Predict Behavior</a></li>
-            <li><a href="#de-scenarios" class="sidebar-link" data-route="de-scenarios">🔗 Airflow + DE Scenarios</a></li>
-            <li><a href="#version-trap" class="sidebar-link" data-route="version-trap">🔀 Airflow 2.x → 3.x</a></li>
-            <li><a href="#senior-scenarios" class="sidebar-link" data-route="senior-scenarios">🧠 Senior Scenarios</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Core Concepts</div>
-          <ul class="sidebar-list" role="list">
-            <li><a href="#home" class="sidebar-link" data-route="home">Home</a></li>
-            <li><a href="#architecture" class="sidebar-link" data-route="architecture">Architecture Overview</a></li>
             <li><a href="#dag-parsing" class="sidebar-link" data-route="dag-parsing">DAG Parsing</a></li>
             <li><a href="#dag-run" class="sidebar-link" data-route="dag-run">DAG Run Lifecycle</a></li>
             <li><a href="#task-instance" class="sidebar-link" data-route="task-instance">Task Instance</a></li>
+            <li><a href="#task-lifecycle" class="sidebar-link" data-route="task-lifecycle">Task Lifecycle</a></li>
           </ul>
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-label">Scheduler</div>
+          <div class="sidebar-label">3 · Scheduling</div>
           <ul class="sidebar-list" role="list">
             <li><a href="#scheduler" class="sidebar-link" data-route="scheduler">Scheduler Internals</a></li>
             <li><a href="#scheduling" class="sidebar-link" data-route="scheduling">Scheduling & Timetables</a></li>
@@ -138,10 +120,9 @@
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-label">Execution</div>
+          <div class="sidebar-label">4 · Execution & Data Flow</div>
           <ul class="sidebar-list" role="list">
             <li><a href="#executors" class="sidebar-link" data-route="executors">Executors</a></li>
-            <li><a href="#task-lifecycle" class="sidebar-link" data-route="task-lifecycle">Task Lifecycle</a></li>
             <li><a href="#xcoms" class="sidebar-link" data-route="xcoms">XCom</a></li>
             <li><a href="#sensors" class="sidebar-link" data-route="sensors">Sensors & Deferrable</a></li>
             <li><a href="#pools" class="sidebar-link" data-route="pools">Pools & Slots</a></li>
@@ -150,32 +131,33 @@
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-label">Internals</div>
+          <div class="sidebar-label">5 · Authoring & Operations</div>
           <ul class="sidebar-list" role="list">
-            <li><a href="#serialization" class="sidebar-link" data-route="serialization">Serialization</a></li>
-            <li><a href="#metadata-db" class="sidebar-link" data-route="metadata-db">Metadata DB</a></li>
-            <li><a href="#callbacks" class="sidebar-link" data-route="callbacks">Callbacks</a></li>
-            <li><a href="#templating" class="sidebar-link" data-route="templating">Templating & Jinja</a></li>
-            <li><a href="#priority" class="sidebar-link" data-route="priority">Priority & Concurrency</a></li>
-          </ul>
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-label">Operations</div>
-          <ul class="sidebar-list" role="list">
+            <li><a href="#dag-coding" class="sidebar-link" data-route="dag-coding">Reading &amp; Writing DAGs</a></li>
             <li><a href="#connections" class="sidebar-link" data-route="connections">Connections & Hooks</a></li>
             <li><a href="#variables" class="sidebar-link" data-route="variables">Variables & Params</a></li>
+            <li><a href="#templating" class="sidebar-link" data-route="templating">Templating & Jinja</a></li>
+            <li><a href="#callbacks" class="sidebar-link" data-route="callbacks">Callbacks</a></li>
             <li><a href="#retries" class="sidebar-link" data-route="retries">Retries & SLAs</a></li>
-            <li><a href="#logging" class="sidebar-link" data-route="logging">Logging</a></li>
-            <li><a href="#monitoring" class="sidebar-link" data-route="monitoring">Monitoring & Metrics</a></li>
-            <li><a href="#security" class="sidebar-link" data-route="security">Security & RBAC</a></li>
+            <li><a href="#priority" class="sidebar-link" data-route="priority">Priority & Concurrency</a></li>
             <li><a href="#cli" class="sidebar-link" data-route="cli">CLI Deep Dive</a></li>
           </ul>
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-label">Production</div>
+          <div class="sidebar-label">6 · Internals</div>
           <ul class="sidebar-list" role="list">
+            <li><a href="#serialization" class="sidebar-link" data-route="serialization">Serialization</a></li>
+            <li><a href="#metadata-db" class="sidebar-link" data-route="metadata-db">Metadata DB</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">7 · Production & Scale</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#logging" class="sidebar-link" data-route="logging">Logging</a></li>
+            <li><a href="#monitoring" class="sidebar-link" data-route="monitoring">Monitoring & Metrics</a></li>
+            <li><a href="#security" class="sidebar-link" data-route="security">Security & RBAC</a></li>
             <li><a href="#failure-scenarios" class="sidebar-link" data-route="failure-scenarios">Failure Scenarios</a></li>
             <li><a href="#performance" class="sidebar-link" data-route="performance">Performance Tuning</a></li>
             <li><a href="#ha-setup" class="sidebar-link" data-route="ha-setup">High Availability</a></li>
@@ -185,17 +167,35 @@
         </div>
 
         <div class="sidebar-section">
-          <div class="sidebar-label">Learning Mode</div>
+          <div class="sidebar-label">8 · Practice & Reference</div>
           <ul class="sidebar-list" role="list">
-            <li><a href="#interview" class="sidebar-link" data-route="interview">Interview Q&amp;A</a></li>
-            <li><a href="#interview-bank" class="sidebar-link" data-route="interview-bank">Interview Question Bank</a></li>
             <li><a href="#quiz" class="sidebar-link" data-route="quiz">Quiz</a></li>
-            <li><a href="#glossary" class="sidebar-link" data-route="glossary">Glossary</a></li>
+            <li><a href="#study" class="sidebar-link" data-route="study">Study Deck</a></li>
             <li><a href="#event-simulator" class="sidebar-link" data-route="event-simulator">Event Simulator</a></li>
             <li><a href="#master-map" class="sidebar-link" data-route="master-map">Master Concept Map</a></li>
-            <li><a href="#study" class="sidebar-link" data-route="study">Study Deck</a></li>
-            <li><a href="#dag-coding" class="sidebar-link" data-route="dag-coding">Reading &amp; Writing DAGs</a></li>
+            <li><a href="#glossary" class="sidebar-link" data-route="glossary">Glossary</a></li>
             <li><a href="#cheat-sheet" class="sidebar-link" data-route="cheat-sheet">Cheat Sheet</a></li>
+          </ul>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-label">9 · Interview Prep</div>
+          <ul class="sidebar-list" role="list">
+            <li><a href="#readiness" class="sidebar-link" data-route="readiness">🎯 Readiness Dashboard</a></li>
+            <li><a href="#interview" class="sidebar-link" data-route="interview">Interview Q&amp;A</a></li>
+            <li><a href="#interview-bank" class="sidebar-link" data-route="interview-bank">Interview Question Bank</a></li>
+            <li><a href="#answer-levels" class="sidebar-link" data-route="answer-levels">🪜 Improve Your Answer</a></li>
+            <li><a href="#timed-answers" class="sidebar-link" data-route="timed-answers">⏱️ 30s / 90s / 3-min</a></li>
+            <li><a href="#choose-primitive" class="sidebar-link" data-route="choose-primitive">⚖️ Choose the Right Primitive</a></li>
+            <li><a href="#predict" class="sidebar-link" data-route="predict">🔮 Predict Behavior</a></li>
+            <li><a href="#troubleshooting" class="sidebar-link" data-route="troubleshooting">🔧 Troubleshooting Lab</a></li>
+            <li><a href="#incidents" class="sidebar-link" data-route="incidents">📟 Incident Bank</a></li>
+            <li><a href="#interview-chains" class="sidebar-link" data-route="interview-chains">🎤 Follow-up Chains</a></li>
+            <li><a href="#pipeline-design" class="sidebar-link" data-route="pipeline-design">🧱 Design a Pipeline</a></li>
+            <li><a href="#de-scenarios" class="sidebar-link" data-route="de-scenarios">🔗 Airflow + DE Scenarios</a></li>
+            <li><a href="#traps" class="sidebar-link" data-route="traps">🪤 Interview Traps</a></li>
+            <li><a href="#version-trap" class="sidebar-link" data-route="version-trap">🔀 Airflow 2.x → 3.x</a></li>
+            <li><a href="#senior-scenarios" class="sidebar-link" data-route="senior-scenarios">🧠 Senior Scenarios</a></li>
           </ul>
         </div>
 
