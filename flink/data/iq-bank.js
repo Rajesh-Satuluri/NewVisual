@@ -3,6 +3,55 @@
 // Add a `mXX: [...]` entry as each module is built.
 
 export const IQ_BANK = {
+  m11b: [
+    {
+      q: 'When would you choose HashMapStateBackend over EmbeddedRocksDBStateBackend, and vice versa?',
+      difficulty: 'medium',
+      a: `<strong>HashMapStateBackend</strong> keeps state as Java objects on the <strong>JVM heap</strong> — fastest access (no serialization), but bounded by memory and it adds GC pressure. Use it when state comfortably fits in RAM and you need the lowest latency (small keyed aggregates, short windows).<br><br>
+      <strong>EmbeddedRocksDBStateBackend</strong> keeps state <strong>off-heap, in an embedded RocksDB on local disk</strong> — each access pays serialization and possibly a disk read, but state can grow far beyond RAM and it supports <strong>incremental checkpoints</strong>. Use it for large or unbounded state (long TTL, big windows, millions of keys).<br><br>
+      For R-4471's per-driver fraud state across millions of drivers, RocksDB is the answer; a small per-city counter could stay on HashMap.`,
+      tip: 'Frame it as a tradeoff: heap speed + GC + size limit vs off-heap near-unbounded + serialization + incremental checkpoints.',
+    },
+    {
+      q: 'How does RocksDB store state? Walk through the LSM write path.',
+      difficulty: 'hard',
+      a: `RocksDB is a <strong>log-structured merge (LSM) tree</strong>:<br><br>
+      1. A write first appends to the <strong>WAL</strong> (durability) and updates the in-memory <strong>active memtable</strong>.<br>
+      2. When the memtable fills, it becomes immutable and is <strong>flushed</strong> to an immutable <strong>SST file</strong> in level <strong>L0</strong>.<br>
+      3. When a level has too many files, <strong>leveled compaction</strong> merges them into fewer, larger, sorted SSTs in the next level down (L1, then L2…). SSTs are immutable — compaction writes new files and drops old ones.<br><br>
+      Reads check the memtable, then the block cache, then SSTs (using per-SST <strong>bloom filters</strong> to skip files that can't hold the key). This structure makes writes cheap (append + background merge) and keeps reads bounded.`,
+      tip: 'The keywords: memtable → flush → SST → leveled compaction; reads use block cache + bloom filters. Say "SSTs are immutable" — it is why incremental checkpoints work.',
+    },
+    {
+      q: 'What is write amplification in RocksDB and where does it come from?',
+      difficulty: 'medium',
+      a: `<strong>Write amplification</strong> is the ratio of bytes actually written to disk versus the logical bytes you wrote. In RocksDB it comes from <strong>compaction</strong>: as data sinks from L0 → L1 → L2, each level's files are rewritten when merged, so one logical byte is physically written several times.<br><br>
+      It is the core LSM tradeoff: compaction keeps <em>read</em> amplification low (fewer, sorted files to search) and space amplification low (dead/old versions removed), but it costs background write I/O. You tune it with bigger memtables (fewer, larger flushes), compaction style, and level sizing. On fast local NVMe it is usually a good trade; on slow disks it hurts.`,
+      tip: 'Name the three amplifications (write / read / space) — RocksDB tuning is always trading one against the others.',
+    },
+    {
+      q: 'What are incremental checkpoints and why does only RocksDB support them?',
+      difficulty: 'medium',
+      a: `An <strong>incremental checkpoint</strong> uploads only the state that <em>changed</em> since the last checkpoint, instead of the entire state every time. RocksDB can do this because its <strong>SST files are immutable</strong>: once written, an SST never changes, so a checkpoint just uploads the SSTs created since the last one and <strong>references</strong> the already-uploaded older SSTs. Full state is reconstructed from the chain of SSTs.<br><br>
+      HashMapStateBackend cannot — its on-heap state has no immutable file structure to diff, so every checkpoint is full. For hundreds of GB of state, incremental checkpoints turn a multi-minute checkpoint into a few seconds, which is what keeps large-state jobs operable.`,
+      tip: 'The one-liner: "RocksDB SSTs are immutable, so a checkpoint uploads only new SSTs and references the rest."',
+    },
+    {
+      q: 'RocksDB state lives off-heap in Flink\'s managed memory. Why does that matter?',
+      difficulty: 'medium',
+      a: `RocksDB's working memory — the <strong>block cache</strong> and <strong>write buffers (memtables)</strong> — is allocated from Flink's <strong>managed memory</strong> (<code>taskmanager.memory.managed.fraction</code>), which is <strong>off the JVM heap</strong>.<br><br>
+      That matters because it means large state does <strong>not</strong> compete with your operators' heap and does <strong>not</strong> cause long JVM garbage-collection pauses — a job with 100s of GB of RocksDB state can run with a small, stable heap. Flink also sizes RocksDB within that managed budget so it won't OOM the container. With HashMapStateBackend, by contrast, all that state is on heap and directly drives GC.`,
+      tip: 'Connect it to GC: off-heap managed memory is why big RocksDB state avoids the GC pauses that would cripple an on-heap backend.',
+    },
+    {
+      q: 'How do you keep RocksDB state from growing forever and keep read latency low?',
+      difficulty: 'medium',
+      a: `Two sides:<br><br>
+      <strong>Bound growth</strong> — use <strong>state TTL</strong> (<code>StateTtlConfig</code>) to expire entries you no longer need; configure cleanup to run <em>in the RocksDB compaction filter</em> so expired data is dropped during the compaction that is already happening. Avoid unbounded keyspaces and set TTL on long-lived keyed state.<br><br>
+      <strong>Keep reads fast</strong> — give RocksDB a larger <strong>block cache</strong> (more read hits from memory), keep <strong>bloom filters</strong> on (skip SSTs that can't contain a key), put the local dir on <strong>fast NVMe</strong>, and use efficient serializers (never Kryo for long-lived state). Bigger memtables reduce flush/compaction churn.`,
+      tip: 'TTL for growth, block cache + bloom filters + fast local disk for latency — mentioning "cleanup in the compaction filter" signals real RocksDB experience.',
+    },
+  ],
   m18c: [
     {
       q: 'What are Flink\'s deployment modes and how do they differ?',

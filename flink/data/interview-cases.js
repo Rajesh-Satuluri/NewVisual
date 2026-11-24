@@ -15,6 +15,24 @@
 // =====================================================================
 
 export const INTERVIEW_CASES = [
+  // ---------------- State Backends & RocksDB (m11b) ----------------
+  {
+    id: 'rdb-gc-pauses', module: 'm11b', concept: 'state-backends', difficulty: 'hard',
+    scenario: 'R-4471\'s fraud job holds per-driver state for millions of drivers on HashMapStateBackend. Latency p99 spikes every few minutes, and the TaskManager logs show multi-second stop-the-world GC pauses; occasionally a TM OOMs.',
+    breaks: 'Hundreds of GB of keyed state as Java objects on the JVM heap is a GC and memory disaster — you cannot tune your way out of it, and full checkpoints serialize the entire heap.',
+    answer: `The root cause is the <strong>state backend</strong>, not the GC flags. Move to <strong>EmbeddedRocksDBStateBackend</strong>: state goes off-heap onto local disk, so the heap stays small and stable (no more stop-the-world pauses), and RocksDB's block cache/write buffers come from <strong>managed memory</strong> sized to the container. Turn on <strong>incremental checkpoints</strong> so snapshots at this scale finish in seconds, and apply <strong>state TTL</strong> (cleanup in the compaction filter) to bound growth. Put the RocksDB local dir on fast NVMe.`,
+    config: ['state.backend.type: rocksdb', 'state.backend.incremental: true', 'taskmanager.memory.managed.fraction'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'rdb-incremental-ckpt', module: 'm11b', concept: 'state-backends', difficulty: 'medium',
+    scenario: 'After moving R-4471 to RocksDB, full checkpoints of ~300 GB of state take around 4 minutes and sometimes overrun the 2-minute interval, causing checkpoint failures.',
+    breaks: 'Re-uploading the entire 300 GB every checkpoint cannot fit a short interval. Lengthening the interval only increases how much you reprocess on recovery.',
+    answer: `Enable <strong>incremental checkpoints</strong>. RocksDB SST files are <strong>immutable</strong>, so an incremental checkpoint uploads only the SSTs created since the last checkpoint and references the already-uploaded ones; full state is rebuilt from the chain. For 300 GB where only a slice changes each interval, upload volume collapses and checkpoints finish in seconds. This is distinct from <em>unaligned</em> checkpoints, which address barrier-alignment stalls under backpressure, not upload volume.`,
+    config: ['state.backend.incremental: true', 'execution.checkpointing.interval'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+
   // ---------------- Deployment & Kubernetes (m18c) ----------------
   {
     id: 'dep-session-blast', module: 'm18c', concept: 'deployment', difficulty: 'medium',

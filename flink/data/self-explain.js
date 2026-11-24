@@ -3,6 +3,32 @@
 // words, then reveals the model answer and checks their explanation against keyPoints.
 
 export const SELF_EXPLAIN = {
+  m11b: [
+    {
+      prompt: 'In your own words, explain to a teammate why R-4471\'s per-driver fraud state (hundreds of GB) uses RocksDB rather than the heap-based HashMap backend.',
+      keyPoints: [
+        'HashMap keeps state on the JVM heap — bounded by RAM, heavy GC',
+        'RocksDB is off-heap + on local disk — holds far more than RAM',
+        'RocksDB supports incremental checkpoints (immutable SSTs)',
+        'Tradeoff: per-access serialization + possible disk read',
+      ],
+      modelAnswer: `<p>With millions of drivers, the fraud state is hundreds of GB — far more than we can or should keep on the JVM heap. <strong>HashMapStateBackend</strong> stores state as Java objects on heap, so that much state would blow memory and cause brutal GC pauses.</p>
+<p><strong>EmbeddedRocksDBStateBackend</strong> keeps state <strong>off-heap in an embedded RocksDB on local disk</strong>, so it scales well beyond RAM and its working memory (block cache, write buffers) comes from Flink's managed memory rather than the heap — no GC storm. Crucially, it supports <strong>incremental checkpoints</strong>: because SST files are immutable, each checkpoint uploads only the SSTs created since the last one, turning a multi-minute snapshot into seconds.</p>
+<p>The price is a serialization step (and sometimes a disk read) on every state access — a fair trade for unbounded, operable state. A tiny per-city counter could stay on HashMap for raw speed; the big per-driver state belongs in RocksDB.</p>`,
+    },
+    {
+      prompt: 'Explain how a write travels through RocksDB\'s LSM tree and why "write amplification" is the price of keeping reads fast.',
+      keyPoints: [
+        'Write → WAL + active memtable',
+        'Full memtable flushes to an immutable SST in L0',
+        'Leveled compaction merges files down L0→L1→L2 (rewrites data)',
+        'Rewrites = write amplification; the payoff is low read/space amplification',
+      ],
+      modelAnswer: `<p>A write first appends to the <strong>WAL</strong> (for durability) and updates the in-memory <strong>active memtable</strong>. When the memtable fills, it becomes immutable and is <strong>flushed</strong> to a new immutable <strong>SST file</strong> in level <strong>L0</strong>.</p>
+<p>Over time L0 accumulates files, so <strong>leveled compaction</strong> merges them into fewer, larger, sorted SSTs in L1, then L2, and so on. Each merge <strong>rewrites</strong> the data, so a single logical byte ends up physically written several times — that is <strong>write amplification</strong>.</p>
+<p>The payoff is that reads stay fast: data is sorted into a few non-overlapping files per level, and bloom filters let a lookup skip files that can't contain the key. So we spend background write I/O (amplification) to buy low read amplification and bounded space — the fundamental LSM bargain.</p>`,
+    },
+  ],
   m18c: [
     {
       prompt: 'A teammate wants to run R-4471\'s long-running fraud, surge and ETA jobs all together in one Session cluster "to save money." Explain, in your own words, the risk and what you would do instead.',

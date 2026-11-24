@@ -4,6 +4,55 @@
 // Exactly one option per card is the 'best'.
 
 export const DECISIONS = {
+  // ------------------------------------------------------------------ m11b
+  m11b: [
+    {
+      scenario:
+        'R-4471\'s fraud job keeps per-driver history for millions of drivers — easily hundreds of GB of keyed state. The job is on HashMapStateBackend and now suffers multi-second GC pauses and occasional TaskManager OOMs. You must fix the state layer.',
+      options: [
+        {
+          label: 'Switch to EmbeddedRocksDBStateBackend with incremental checkpoints and managed memory',
+          verdict: 'best',
+          why: 'RocksDB keeps state off-heap on local disk, so hundreds of GB no longer sit on the JVM heap — the GC pauses and OOMs disappear. Incremental checkpoints keep snapshot time bounded at that scale, and its block cache/write buffers come from managed memory, sized to not OOM the container.'
+        },
+        {
+          label: 'Keep HashMapStateBackend but add more heap and tune the garbage collector',
+          verdict: 'bad',
+          why: 'This only delays the wall. Hundreds of GB of on-heap objects cannot be GC-tuned into health, and every full checkpoint still serializes the entire heap. You are scaling the wrong axis.'
+        },
+        {
+          label: 'Keep HashMap but shrink state aggressively with a very short TTL',
+          verdict: 'ok',
+          why: 'Bounding state with TTL is good hygiene and may help, but if the business genuinely needs long per-driver history you will fight it forever. TTL complements RocksDB; it is not a substitute for moving large state off-heap.'
+        }
+      ],
+      takeaway:
+        'Large keyed state belongs in RocksDB (off-heap, on-disk, incremental checkpoints). You cannot GC-tune hundreds of GB of on-heap state into health — change the backend, then apply TTL.'
+    },
+    {
+      scenario:
+        'With RocksDB enabled, full checkpoints of R-4471\'s 300 GB state take ~4 minutes and sometimes overrun the interval. You need checkpoints to finish in seconds without shrinking the state.',
+      options: [
+        {
+          label: 'Enable incremental checkpoints so only SSTs created since the last checkpoint are uploaded',
+          verdict: 'best',
+          why: 'RocksDB SSTs are immutable, so an incremental checkpoint uploads just the new SSTs and references the already-uploaded ones. For 300 GB where only a slice changes per interval, upload volume (and time) drops by orders of magnitude.'
+        },
+        {
+          label: 'Increase the checkpoint interval to 10 minutes so the 4-minute checkpoint fits',
+          verdict: 'bad',
+          why: 'This hides the symptom and increases recovery cost: on failure you reprocess up to 10 minutes of data. It does nothing about the real problem — re-uploading the entire state every time.'
+        },
+        {
+          label: 'Switch to unaligned checkpoints',
+          verdict: 'ok',
+          why: 'Unaligned checkpoints help when the delay is barrier alignment under backpressure, not when it is the sheer volume of state being uploaded. Here the bottleneck is upload size, so incremental checkpoints are the direct fix.'
+        }
+      ],
+      takeaway:
+        'For large RocksDB state, incremental checkpoints are the direct lever on checkpoint duration. Unaligned checkpoints fix alignment stalls, not upload volume; a longer interval just trades duration for recovery pain.'
+    }
+  ],
   // ------------------------------------------------------------------ m18c
   m18c: [
     {

@@ -14,6 +14,7 @@ export const MODULES = [
   { id: 'm10', title: 'Windows',                 icon: '🪟', group: 'Time & Windows', num: '10' },
   // Group: State & Fault Tolerance
   { id: 'm11', title: 'State Management',        icon: '🗄️', group: 'State & Fault',  num: '11' },
+  { id: 'm11b', title: 'State Backends & RocksDB', icon: '💽', group: 'State & Fault', num: '11b' },
   { id: 'm12', title: 'Checkpointing',           icon: '✅', group: 'State & Fault',  num: '12' },
   { id: 'm13', title: 'Fault Tolerance',         icon: '🛡️', group: 'State & Fault',  num: '13' },
   { id: 'm13b', title: 'Savepoints',             icon: '💾', group: 'State & Fault',  num: '13b' },

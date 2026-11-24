@@ -3,6 +3,63 @@
 // Each: { q, options:[...], answer:<0-based index>, explanation }
 
 export const QUIZ_BANK = {
+  m11b: [
+    {
+      q: 'Your Flink job keeps hundreds of GB of keyed state (per-driver history for millions of drivers). Which state backend fits?',
+      options: [
+        'HashMapStateBackend — it is always fastest',
+        'EmbeddedRocksDBStateBackend — off-heap, on-disk, with incremental checkpoints',
+        'Neither; Flink cannot hold that much state',
+        'It does not matter, they are identical',
+      ],
+      answer: 1,
+      explanation: 'RocksDB stores state off-heap and spills to local disk, so it holds far more than RAM, and it supports incremental checkpoints. HashMap keeps everything on the JVM heap and would OOM / cause huge GC pauses at that size.',
+    },
+    {
+      q: 'In RocksDB, what happens when the active memtable fills up?',
+      options: [
+        'It is discarded to make room',
+        'It is flushed to an immutable SST file in L0',
+        'It is merged directly into L2',
+        'The job fails with an out-of-memory error',
+      ],
+      answer: 1,
+      explanation: 'A full memtable becomes immutable and is flushed as a new immutable SST file into level L0. Later, leveled compaction merges L0 files into larger sorted SSTs in deeper levels.',
+    },
+    {
+      q: 'Why can RocksDB do incremental checkpoints while HashMapStateBackend cannot?',
+      options: [
+        'RocksDB compresses state and HashMap does not',
+        'RocksDB SST files are immutable, so a checkpoint uploads only new SSTs and references the rest',
+        'HashMap state is encrypted',
+        'RocksDB runs on a separate server',
+      ],
+      answer: 1,
+      explanation: 'Because SSTs never change once written, an incremental checkpoint uploads only the SSTs created since the last checkpoint and reuses the already-uploaded ones. On-heap HashMap state has no immutable file structure to diff, so its checkpoints are always full.',
+    },
+    {
+      q: 'Write amplification in RocksDB is primarily caused by:',
+      options: [
+        'The WAL being written twice',
+        'Compaction rewriting data as it moves down the LSM levels',
+        'Network replication of state',
+        'Bloom filters being rebuilt on every read',
+      ],
+      answer: 1,
+      explanation: 'Leveled compaction rewrites SSTs as data sinks from L0→L1→L2, so one logical byte is physically written several times. This is the cost that keeps read and space amplification low.',
+    },
+    {
+      q: 'RocksDB\'s block cache and write buffers are allocated from Flink\'s managed memory (off-heap). The main benefit is:',
+      options: [
+        'Faster network transfers',
+        'Large state does not drive JVM garbage collection or compete with operator heap',
+        'State is automatically encrypted',
+        'It removes the need for checkpoints',
+      ],
+      answer: 1,
+      explanation: 'Off-heap managed memory means hundreds of GB of state do not sit on the JVM heap, avoiding long GC pauses and heap contention with your operators — the key reason RocksDB scales to large state.',
+    },
+  ],
   m18c: [
     {
       q: 'In which deployment mode does the job\'s main() method run on the JobManager rather than the client?',
