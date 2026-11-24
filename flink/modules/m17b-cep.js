@@ -261,24 +261,25 @@ function buildCEP(container) {
       ctx.fillText(n.lbl, cx, cy + 3);
     });
 
-    // event timeline (middle)
+    // event timeline (middle) — newest on the right; window bracket covers in-window events
     ctx.textAlign = 'left'; ctx.fillStyle = pal.text; ctx.font = 'bold 12px system-ui';
-    ctx.fillText('Event stream (one user) →', 20, 170);
+    ctx.fillText('Event stream (one user) — newest on the right →', 20, 170);
     const tlY = 230, tlX = 20, tlW = Wd - 40;
-    ctx.strokeStyle = pal.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tlX, tlY); ctx.lineTo(tlX + tlW, tlY); ctx.stroke();
-    // within-window bracket (covers the most recent W ticks region, right side)
-    const span = 24;                     // events shown
-    const stepX = tlW / span;
-    const winPx = Math.min(tlW, W * stepX);
-    const brX = tlX + tlW - winPx;
-    ctx.fillStyle = 'rgba(245,158,11,0.10)'; ctx.fillRect(brX, tlY - 70, winPx, 140);
-    ctx.strokeStyle = AMBER; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(brX, tlY - 70, winPx, 140); ctx.setLineDash([]);
+    const span = 22, stepX = (tlW - 28) / span;
+    const vis = S.events.slice(-span);
+    const n = vis.length;
+    const xOf = idx => tlX + tlW - 14 - (n - 1 - idx) * stepX;   // newest at the right edge
+    const inWinCount = vis.filter(e => e.t > S.t - W).length;
+    const brRight = tlX + tlW;
+    const brX = inWinCount > 0 ? xOf(n - inWinCount) - stepX / 2 : brRight - 4;
+    ctx.fillStyle = 'rgba(245,158,11,0.10)'; ctx.fillRect(brX, tlY - 70, brRight - brX, 140);
+    ctx.strokeStyle = AMBER; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5; ctx.strokeRect(brX, tlY - 70, brRight - brX, 140); ctx.setLineDash([]);
     ctx.fillStyle = AMBER; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('within window', brX + winPx / 2, tlY - 76);
+    ctx.fillText('within window', (brX + brRight) / 2, tlY - 76);
+    ctx.strokeStyle = pal.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tlX, tlY); ctx.lineTo(tlX + tlW, tlY); ctx.stroke();
 
-    const recent = S.events.slice(-span);
-    recent.forEach((e, i) => {
-      const x = tlX + 14 + i * stepX, inWindow = e.t > S.t - W;
+    vis.forEach((e, idx) => {
+      const x = xOf(idx), inWindow = e.t > S.t - W;
       const spec = EV[e.type];
       const y = e.type === 'fail' ? tlY - 34 : e.type === 'ride' ? tlY + 34 : tlY;
       // connector tick
