@@ -3,6 +3,32 @@
 // words, then reveals the model answer and checks their explanation against keyPoints.
 
 export const SELF_EXPLAIN = {
+  m18c: [
+    {
+      prompt: 'A teammate wants to run R-4471\'s long-running fraud, surge and ETA jobs all together in one Session cluster "to save money." Explain, in your own words, the risk and what you would do instead.',
+      keyPoints: [
+        'Session shares one JobManager (single point of failure) + a TaskManager pool',
+        'No isolation: one job\'s OOM/classloader leak or slot hunger hurts the others',
+        'Application mode gives each job its own cluster + independent upgrades',
+        'Session is right for many short/ad-hoc jobs, not critical long-running ones',
+      ],
+      modelAnswer: `<p>Session mode runs all jobs on a <strong>shared JobManager and a shared TaskManager slot pool</strong>. That couples their fates: if the JobManager pod dies, <em>every</em> job goes down at once; a classloader leak or OOM in the ETA job can destabilize fraud and surge; and a greedy job can consume slots the others need.</p>
+<p>For <strong>critical, long-running</strong> jobs I would use <strong>Application mode</strong> (one dedicated cluster per application) — ideally via the Kubernetes Operator. Each job then has its own JobManager and TaskManagers, its own classpath, and an independent upgrade/rollback lifecycle, so a problem in one is contained.</p>
+<p>Session mode is the right tool for <em>many short or ad-hoc jobs</em> (notebooks, backfills) where instant submission matters more than isolation — not for the production pipelines that page you at 3am.</p>`,
+    },
+    {
+      prompt: 'Explain how the Flink Kubernetes Operator upgrades a running job when you change its image tag, and how that relates to savepoints.',
+      keyPoints: [
+        'You edit the FlinkDeployment spec and kubectl apply it',
+        'Operator reconciliation detects the diff and drives an upgrade',
+        'savepoint upgradeMode = stop-with-savepoint → redeploy → restore',
+        'last-state uses the latest checkpoint when the job can\'t savepoint',
+      ],
+      modelAnswer: `<p>Upgrades are <strong>declarative</strong>. You change the image tag (or parallelism) in the <code>FlinkDeployment</code> YAML and <code>kubectl apply</code> it. The operator's <strong>reconciliation loop</strong> observes that desired state no longer matches actual state and drives the upgrade.</p>
+<p>With <code>upgradeMode: savepoint</code>, it performs a clean <strong>stop-with-savepoint</strong> (drain in-flight records, take a canonical savepoint), redeploys the new image, and restores state from that savepoint — exactly the planned-upgrade flow from the savepoints module, now automated. With <code>upgradeMode: last-state</code>, it instead restarts from the latest completed checkpoint via HA metadata, which works even if the job is too unhealthy to savepoint.</p>
+<p>Rollback is symmetric: <code>git revert</code> the YAML and re-apply, and the operator brings the old version back from state.</p>`,
+    },
+  ],
   m18b: [
     {
       prompt: 'An engineer says "throughput looks fine, so the job is healthy." Explain, in your own words, why that is not enough for ride R-4471, and what else you would check.',

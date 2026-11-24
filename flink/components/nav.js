@@ -26,6 +26,7 @@ export const MODULES = [
   { id: 'm18', title: 'Performance',             icon: '🚀', group: 'Optimization',    num: '18' },
   // Group: Operations
   { id: 'm18b', title: 'Monitoring & Observability', icon: '📡', group: 'Operations', num: '18b' },
+  { id: 'm18c', title: 'Deployment & Kubernetes', icon: '☸️', group: 'Operations', num: '18c' },
   { id: 'm19', title: 'Uber Pipeline',           icon: '🗺️', group: 'End-to-End',     num: '19' },
 ];
 

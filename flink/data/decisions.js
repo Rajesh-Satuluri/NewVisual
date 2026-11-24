@@ -4,6 +4,55 @@
 // Exactly one option per card is the 'best'.
 
 export const DECISIONS = {
+  // ------------------------------------------------------------------ m18c
+  m18c: [
+    {
+      scenario:
+        'You are productionizing R-4471\'s fraud pipeline — a critical, long-running job that will be upgraded every sprint. You must pick a deployment mode for it (not for ad-hoc analytics).',
+      options: [
+        {
+          label: 'Application mode (one dedicated cluster for this job), ideally via the Kubernetes Operator',
+          verdict: 'best',
+          why: 'A critical long-running job wants <strong>isolation and an independent lifecycle</strong>: its own JobManager + TaskManagers, its own classpath, and savepoint-based upgrades that don\'t touch other jobs. Application mode is exactly this and is the production default.'
+        },
+        {
+          label: 'Session mode, sharing one cluster with the surge and ETA jobs to save resources',
+          verdict: 'bad',
+          why: 'Session mode shares one JobManager (a single point of failure for all jobs) and a slot pool. A crash, OOM, classloader leak, or slot-hungry neighbour in any job hits fraud too. Fine for short/ad-hoc jobs; wrong for a critical pipeline.'
+        },
+        {
+          label: 'Per-Job mode for isolation',
+          verdict: 'ok',
+          why: 'Per-Job also isolates, but it ran main() on the client and is <strong>deprecated/removed</strong>. Application mode supersedes it (main() on the JobManager, better for operators/CI) — so choosing Per-Job today is choosing a dead end.'
+        }
+      ],
+      takeaway:
+        'Critical long-running jobs → Application mode (isolation + independent upgrades). Session mode is for many short/ad-hoc jobs. Per-Job is removed; don\'t reach for it.'
+    },
+    {
+      scenario:
+        'R-4471\'s fraud job is crash-looping after a bad config push. You have a fix, but the job is too unhealthy to take a savepoint. The operator must redeploy the fix without discarding per-driver state.',
+      options: [
+        {
+          label: 'Set upgradeMode: last-state so the operator restores from the latest completed checkpoint via HA metadata',
+          verdict: 'best',
+          why: 'last-state does not need a clean savepoint — it restarts from the most recent checkpoint recorded in the HA ConfigMap. That is precisely the mode designed for a job too broken to savepoint, and it preserves state.'
+        },
+        {
+          label: 'Keep upgradeMode: savepoint and wait for the job to stabilize enough to drain',
+          verdict: 'bad',
+          why: 'A crash-looping job may never reach a healthy point to stop-with-savepoint, so you could wait indefinitely while the incident continues. savepoint mode assumes a healthy job.'
+        },
+        {
+          label: 'Use upgradeMode: stateless to force a clean restart',
+          verdict: 'ok',
+          why: 'It will deploy the fix, but it <strong>discards all keyed state</strong> — the fraud model loses its per-driver history and must warm up again. Acceptable only if the state is truly disposable; here it is not.'
+        }
+      ],
+      takeaway:
+        'last-state upgrade exists for exactly this: recover a job that is too unhealthy to savepoint by restoring from its latest checkpoint. Reserve stateless for genuinely disposable state.'
+    }
+  ],
   // ------------------------------------------------------------------ m18b
   m18b: [
     {

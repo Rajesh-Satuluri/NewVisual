@@ -3,6 +3,58 @@
 // Each: { q, options:[...], answer:<0-based index>, explanation }
 
 export const QUIZ_BANK = {
+  m18c: [
+    {
+      q: 'In which deployment mode does the job\'s main() method run on the JobManager rather than the client?',
+      options: ['Session mode', 'Per-Job mode', 'Application mode', 'Standalone mode'],
+      answer: 2,
+      explanation: 'Application mode ships the JAR to the cluster and runs main() on the JobManager — the client just submits. Session and (deprecated) Per-Job mode run main() on the client.',
+    },
+    {
+      q: 'You run 6 jobs in a single Session-mode cluster. The JobManager pod crashes. What happens?',
+      options: [
+        'Only the most recently submitted job fails',
+        'All 6 jobs are affected — the JobManager is shared',
+        'Nothing; each job has its own JobManager',
+        'The jobs migrate to another cluster automatically',
+      ],
+      answer: 1,
+      explanation: 'Session mode shares one JobManager across all jobs, so it is a single point of failure for the whole cluster. Application mode gives each job its own JobManager and isolates this blast radius.',
+    },
+    {
+      q: 'Why is Per-Job mode deprecated/removed in favour of Application mode?',
+      options: [
+        'Per-Job mode could not use checkpoints',
+        'Application mode runs main() on the JobManager and is better for GitOps/CI, with the same isolation',
+        'Per-Job mode only worked on YARN',
+        'Application mode is faster at runtime',
+      ],
+      answer: 1,
+      explanation: 'Both give a dedicated cluster per job (full isolation), but Per-Job ran main() on the client. Application mode moves main() to the JobManager — lighter client, better for operators/CI — so it supersedes Per-Job.',
+    },
+    {
+      q: 'The Flink Kubernetes Operator manages jobs primarily through which mechanism?',
+      options: [
+        'A cron job that runs flink run every minute',
+        'A reconciliation loop driving a FlinkDeployment custom resource toward desired state',
+        'Manual kubectl exec into the JobManager',
+        'A Helm chart re-applied on every commit',
+      ],
+      answer: 1,
+      explanation: 'You declare a FlinkDeployment CRD; the operator continuously observes, validates and reconciles actual state to the spec — deploying, upgrading (via savepoint), recovering and autoscaling.',
+    },
+    {
+      q: 'A job is crash-looping and cannot take a savepoint, but you must deploy a fix without losing state. Which operator upgrade mode fits?',
+      options: [
+        'stateless',
+        'savepoint',
+        'last-state (restart from the latest checkpoint via HA metadata)',
+        'None — you must discard state',
+      ],
+      answer: 2,
+      explanation: 'last-state upgrade restores from the latest completed checkpoint using HA metadata, so it works even when the job is too broken to take a clean savepoint. savepoint mode requires a healthy job to drain and snapshot.',
+    },
+  ],
   m18b: [
     {
       q: 'In a Source → Map → Window → Sink job, the Sink is busy ~100% and NOT backpressured, while Map and Source are heavily backpressured. Where is the bottleneck?',

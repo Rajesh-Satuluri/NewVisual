@@ -15,6 +15,24 @@
 // =====================================================================
 
 export const INTERVIEW_CASES = [
+  // ---------------- Deployment & Kubernetes (m18c) ----------------
+  {
+    id: 'dep-session-blast', module: 'm18c', concept: 'deployment', difficulty: 'medium',
+    scenario: 'To cut cost, R-4471\'s fraud, surge and ETA jobs were all deployed into one Session cluster. One night the ETA job has a memory leak, the TaskManager OOMs, and the JobManager restarts — and fraud scoring goes dark at the same instant.',
+    breaks: 'Session mode shares one JobManager and one TaskManager pool across all jobs. An OOM or JM restart is cluster-wide, so an unrelated job (ETA) takes down the critical one (fraud). "Saving money" bought a shared point of failure.',
+    answer: `The root cause is the <strong>deployment mode</strong>, not the leak. Session mode couples every job's fate through a shared JobManager + slot pool, so the blast radius is the whole cluster. The fix is <strong>Application mode</strong> — one dedicated cluster per job (own JM + TMs + classpath), ideally managed by the Kubernetes Operator so each has an independent lifecycle and upgrade path. Keep Session mode for short/ad-hoc jobs where instant submission matters more than isolation.`,
+    config: ['execution.target=kubernetes-application', 'kubernetes.cluster-id'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'dep-last-state-upgrade', module: 'm18c', concept: 'deployment', difficulty: 'hard',
+    scenario: 'A bad config push puts R-4471\'s fraud job into a crash loop. You have the fix, but the job won\'t stay up long enough to take a savepoint — and you cannot afford to lose the per-driver fraud state.',
+    breaks: 'The default savepoint upgrade mode needs a healthy job to drain and snapshot. A crash-looping job may never get there, so a savepoint-only process stalls while the incident drags on.',
+    answer: `Use the operator's <code>upgradeMode: last-state</code>. Instead of a clean savepoint, it restarts the job from the <strong>latest completed checkpoint</strong> recorded in the Kubernetes HA ConfigMap — which works even when the job is too unhealthy to savepoint. Apply the fixed FlinkDeployment and the operator redeploys the new image and restores state from that checkpoint. Reserve <code>stateless</code> for when state is genuinely disposable; here it is not.`,
+    config: ['upgradeMode: last-state', 'high-availability.type: kubernetes'],
+    anchor: { stage: 'JOB_UPGRADE' },
+  },
+
   // ---------------- Monitoring & Observability (m18b) ----------------
   {
     id: 'mon-frozen-windows', module: 'm18b', concept: 'monitoring', difficulty: 'hard',

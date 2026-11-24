@@ -3,6 +3,54 @@
 // Add a `mXX: [...]` entry as each module is built.
 
 export const IQ_BANK = {
+  m18c: [
+    {
+      q: 'What are Flink\'s deployment modes and how do they differ?',
+      difficulty: 'medium',
+      a: `There are three, distinguished by <strong>cluster lifetime</strong> and <strong>where main() runs</strong>:<br><br>
+      <strong>Application mode</strong> — a dedicated cluster per application; <code>main()</code> runs on the <strong>JobManager</strong>. Full isolation, independent lifecycle. The production default.<br><br>
+      <strong>Session mode</strong> — one long-running cluster that hosts <strong>many jobs sharing</strong> the JobManager and TaskManager slots; <code>main()</code> runs on the <strong>client</strong>. Submission is instant (the cluster already exists), but there is no isolation.<br><br>
+      <strong>Per-Job mode</strong> — a dedicated cluster per job but <code>main()</code> ran on the client. <strong>Deprecated in 1.15 and removed</strong>; use Application mode instead.`,
+      tip: 'Anchor your answer on the two axes: cluster-per-job vs shared, and main() on JM vs client. That framing covers all three modes cleanly.',
+    },
+    {
+      q: 'Where does main() run in Application vs Session mode, and why does it matter?',
+      difficulty: 'medium',
+      a: `In <strong>Session</strong> (and the old Per-Job) mode, <code>main()</code> runs on the <strong>client</strong>: the client executes your code, builds the JobGraph, downloads dependencies, then ships it to the cluster. That makes the client heavy, and if it dies mid-submission the job may never start — awkward for CI/CD at scale.<br><br>
+      In <strong>Application</strong> mode, the JAR is handed to the cluster and <code>main()</code> runs on the <strong>JobManager</strong>. The client just submits and walks away. This is far better for GitOps/operators and for jobs that call <code>execute()</code> multiple times, and it keeps each application fully self-contained with its own classpath.`,
+      tip: 'The phrase "main() on the JobManager, not the client" is the exact detail interviewers are listening for with Application mode.',
+    },
+    {
+      q: 'What is the "blast radius" difference between Session and Application mode?',
+      difficulty: 'medium',
+      a: `In <strong>Session</strong> mode every job shares <strong>one JobManager and one TaskManager pool</strong>, so the blast radius is the whole cluster: a JobManager failure takes down <em>every</em> job, a classloader leak or OOM in one job can destabilize its neighbours, and one greedy job can starve others of slots.<br><br>
+      In <strong>Application</strong> mode each job is its own cluster with its own JobManager and TaskManagers, so a crash, a bad deploy, or a resource spike is <strong>contained to that one application</strong>. This isolation — plus independent upgrades — is why long-running production jobs (like R-4471's fraud pipeline) run in Application mode and reserve Session mode for many short or ad-hoc jobs.`,
+      tip: 'Mention slot contention and shared-classpath conflicts, not just "JM is a SPOF" — it shows you have run shared clusters.',
+    },
+    {
+      q: 'What does the Flink Kubernetes Operator do?',
+      difficulty: 'medium',
+      a: `It turns Flink into a declarative Kubernetes resource. You apply a <code>FlinkDeployment</code> (or <code>FlinkSessionJob</code>) custom resource describing the desired job — image, parallelism, state dirs, upgrade mode — and the operator runs a <strong>reconciliation loop</strong> (observe → validate → reconcile → update status) that makes reality match it.<br><br>
+      It handles the full lifecycle automatically: initial deploy, <strong>savepoint-based upgrades</strong> (stop-with-savepoint, redeploy new image, restore), rollback, HA recovery, and <strong>autoscaling</strong> (it reads backpressure/throughput metrics and rewrites per-vertex parallelism, then triggers a rescale). You manage jobs with <code>kubectl apply</code> / GitOps instead of hand-running <code>flink run</code>.`,
+      tip: 'Name the CRDs (FlinkDeployment / FlinkSessionJob) and the reconcile loop — that specificity separates a real answer from a hand-wave.',
+    },
+    {
+      q: 'What is the difference between "savepoint" and "last-state" upgrade modes in the operator?',
+      difficulty: 'hard',
+      a: `Both preserve state across an upgrade, but differ in how they capture it:<br><br>
+      <strong>savepoint</strong> — the operator does a clean <code>stop-with-savepoint</code>: it drains in-flight records, takes a canonical savepoint, then redeploys and restores. Safest and portable, but requires the job to be healthy enough to take a savepoint (a wedged job can't).<br><br>
+      <strong>last-state</strong> — the operator skips the savepoint and restarts from the <strong>latest completed checkpoint</strong> using HA metadata. Faster, and it works even when the job is unhealthy/crash-looping (you can't savepoint a dead job), at the cost of reprocessing from the last checkpoint rather than a drained point.<br><br>
+      <strong>stateless</strong> discards state entirely. Rule of thumb: <code>savepoint</code> for routine upgrades, <code>last-state</code> to recover a stuck job.`,
+      tip: 'The killer line: "last-state works when the job is too broken to savepoint." That is the real reason it exists.',
+    },
+    {
+      q: 'How does Flink achieve high availability on Kubernetes without ZooKeeper?',
+      difficulty: 'medium',
+      a: `Flink supports <strong>Kubernetes-native HA</strong> (<code>high-availability.type: kubernetes</code>). Instead of ZooKeeper, it uses the Kubernetes API for <strong>leader election</strong> and stores JobManager metadata (the pointer to the latest checkpoint, the JobGraph, completed-checkpoint info) in <strong>ConfigMaps</strong>.<br><br>
+      If the active JobManager pod dies, a standby wins leader election, reads the HA ConfigMap to find the latest checkpoint, and restores the job from it — no separate ZooKeeper ensemble to run or operate. The checkpoints themselves live in durable storage (S3/HDFS); the ConfigMap only holds the small pointers and metadata.`,
+      tip: 'Say "ConfigMap-based leader election + metadata; checkpoints stay in S3" — that is the precise mechanism.',
+    },
+  ],
   m18b: [
     {
       q: 'A Flink job is slow. How do you find which operator is the bottleneck?',
