@@ -3,6 +3,63 @@
 // Each: { q, options:[...], answer:<0-based index>, explanation }
 
 export const QUIZ_BANK = {
+  m18b: [
+    {
+      q: 'In a Source → Map → Window → Sink job, the Sink is busy ~100% and NOT backpressured, while Map and Source are heavily backpressured. Where is the bottleneck?',
+      options: [
+        'The Source — it is reading too fast',
+        'The Sink — it is busy but not backpressured, so it is the limiting operator',
+        'The Map — it has the most backpressure',
+        'There is no bottleneck; this is normal',
+      ],
+      answer: 1,
+      explanation: 'The bottleneck is the first operator (walking from the sink backward) that is busy but NOT backpressured. The Sink is working flat out and nothing downstream holds it back; everything upstream is backpressured waiting to hand off. Speed up or parallelize the Sink.',
+    },
+    {
+      q: 'What does watermark lag measure?',
+      options: [
+        'How many records are waiting in Kafka',
+        'How long checkpoints take',
+        'How far the event-time frontier is behind wall-clock time (result freshness)',
+        'The network latency between TaskManagers',
+      ],
+      answer: 2,
+      explanation: 'Watermark lag = now() − currentOutputWatermark. It measures how stale windowed results are. A job can have healthy throughput but large watermark lag — meaning it is processing volume but its event-time results are old.',
+    },
+    {
+      q: 'A job\'s checkpoint duration has been climbing for an hour and is approaching the checkpoint timeout. The most likely root cause is:',
+      options: [
+        'The disk is full',
+        'Barrier alignment is stalling because an operator is backpressured',
+        'Too many TaskManagers',
+        'The Prometheus reporter interval is too short',
+      ],
+      answer: 1,
+      explanation: 'Under backpressure, checkpoint barriers queue behind buffered data, so alignment — and the whole checkpoint — takes longer. Relieve the backpressure, or enable unaligned checkpoints so barriers overtake buffered records.',
+    },
+    {
+      q: 'Which reporter do you configure to get Flink metrics into Grafana?',
+      options: [
+        'The Slf4j reporter',
+        'The JMX reporter only',
+        'The Prometheus reporter (metrics.reporter.prom), scraped by Prometheus',
+        'Grafana reads Flink\'s REST API directly',
+      ],
+      answer: 2,
+      explanation: 'The Prometheus reporter exposes a /metrics endpoint on each TaskManager that Prometheus scrapes; Grafana then queries Prometheus. Keep metrics.scope.operator stable so dashboards survive redeploys.',
+    },
+    {
+      q: 'Which of these is the BEST thing to page an on-call engineer on?',
+      options: [
+        'Per-operator CPU usage above 70%',
+        'Any GC pause over 50ms',
+        'Watermark lag above the freshness SLO for several minutes',
+        'Checkpoint size increased by 5%',
+      ],
+      answer: 2,
+      explanation: 'Page on user-visible symptoms (stale results, job down, rising lag, sustained backpressure, checkpoint failures). CPU/GC/size details are diagnostics you consult AFTER a page — alerting on them creates noise and alert fatigue.',
+    },
+  ],
   m01: [
     {
       q: 'What is the core reason Flink achieves lower latency than Spark Streaming?',

@@ -24,6 +24,8 @@ export const MODULES = [
   { id: 'm17', title: 'Flink SQL · Advanced',    icon: '🧮', group: 'APIs & Connectors', num: '17' },
   // Group: Optimization
   { id: 'm18', title: 'Performance',             icon: '🚀', group: 'Optimization',    num: '18' },
+  // Group: Operations
+  { id: 'm18b', title: 'Monitoring & Observability', icon: '📡', group: 'Operations', num: '18b' },
   { id: 'm19', title: 'Uber Pipeline',           icon: '🗺️', group: 'End-to-End',     num: '19' },
 ];
 

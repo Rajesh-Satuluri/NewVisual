@@ -3,6 +3,32 @@
 // words, then reveals the model answer and checks their explanation against keyPoints.
 
 export const SELF_EXPLAIN = {
+  m18b: [
+    {
+      prompt: 'An engineer says "throughput looks fine, so the job is healthy." Explain, in your own words, why that is not enough for ride R-4471, and what else you would check.',
+      keyPoints: [
+        'Throughput measures volume, not freshness',
+        'Watermark lag can be high while throughput is healthy (idle partition, held-back watermarks)',
+        'Backpressure can clamp throughput below input rate — check input vs throughput',
+        'Checkpoint duration/failures signal recovery risk even when flowing',
+      ],
+      modelAnswer: `<p>Throughput only tells you how many records per second are moving — it says nothing about whether the <strong>event-time results are current</strong> or whether the job is <strong>keeping up with its input</strong>.</p>
+<p>For R-4471, I would add three checks. First, <strong>watermark lag</strong> (now − currentOutputWatermark): a single idle Kafka partition or a held-back watermark can freeze window firing while throughput looks normal — surge pricing would then act on stale data. Second, <strong>input rate vs throughput</strong>: if throughput is pinned below the input rate, a bottleneck is clamping the job and backlog is silently growing. Third, <strong>checkpoint duration and failures</strong>: a climbing duration warns that barrier alignment is stalling under backpressure, risking a restart from an old checkpoint.</p>
+<p>"Healthy" means fresh results, keeping up with input, and safe recovery — not just a high records/sec number.</p>`,
+    },
+    {
+      prompt: 'Explain how you would locate the bottleneck in a slow Source → Map → Window → Sink job using only busyTime and backpressure metrics.',
+      keyPoints: [
+        'Walk the chain from the sink backward',
+        'Bottleneck = first operator busy (~100%) but NOT backpressured',
+        'Everything upstream of it is backpressured (blocked handing off)',
+        'Everything downstream is idle (starved)',
+      ],
+      modelAnswer: `<p>I read two metrics per operator: <code>busyTimeMsPerSecond</code> (time spent processing) and <code>backPressuredTimeMsPerSecond</code> (time blocked because output buffers were full), and I walk the graph <strong>from the sink backward</strong>.</p>
+<p>The <strong>bottleneck is the first operator that is busy (~1000ms/s) but not backpressured</strong>: it is working flat out and nothing downstream is holding it back. Every operator <em>upstream</em> of it will show high backpressure — they are blocked waiting to hand records off — and everything <em>downstream</em> will be idle, starved for input.</p>
+<p>So if the Window operator is pegged busy with low backpressure while Source and Map are backpressured and the Sink is idle, the fraud window is the bottleneck: add parallelism or optimize its state access. The metrics localize the problem without guessing.</p>`,
+    },
+  ],
   m01: [
     {
       prompt: 'In your own words, explain why Uber would reach for Apache Flink instead of a nightly batch job to power surge pricing and fraud detection on ride R-4471.',

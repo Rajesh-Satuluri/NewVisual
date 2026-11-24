@@ -15,6 +15,24 @@
 // =====================================================================
 
 export const INTERVIEW_CASES = [
+  // ---------------- Monitoring & Observability (m18b) ----------------
+  {
+    id: 'mon-frozen-windows', module: 'm18b', concept: 'monitoring', difficulty: 'hard',
+    scenario: 'During R-4471’s ride, the Grafana dashboard shows throughput steady at ~1M pings/sec, but downstream nobody has seen a new surge-price update in 90 seconds. On-call is told "throughput is fine, must be a UI bug."',
+    breaks: 'Throughput measures volume, not freshness. Windows can stop firing while records still flow — so a volume-only view declares the job healthy while event-time results are frozen.',
+    answer: `This is a <strong>watermark lag</strong> incident, not a throughput one. The tell is <code>currentOutputWatermark</code> stalling while <code>numRecordsInPerSecond</code> stays high. The usual cause is an <strong>idle source partition</strong> (an operator’s watermark is the MIN across inputs, so one silent partition pins the global watermark) or a watermark held back by out-of-orderness. Confirm by charting <code>now() − currentOutputWatermark</code>; fix the idle-partition case with <code>WatermarkStrategy.withIdleness(...)</code>. Lesson for the dashboard: <strong>watermark lag belongs next to throughput</strong>, and it is the one you page on for freshness.`,
+    config: ['currentOutputWatermark', 'WatermarkStrategy.withIdleness', 'metrics.reporter.prom'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'mon-locate-bottleneck', module: 'm18b', concept: 'monitoring', difficulty: 'medium',
+    scenario: 'R-4471’s pipeline (Kafka Source → Parse → KeyBy·Fraud Window → Alerts Sink) is lagging. The backpressure tab shows Source and Parse HIGH, the Fraud Window busy ~100% with LOW backpressure, and the Sink idle.',
+    breaks: 'Teams often "fix" the operator with the highest backpressure (Source/Parse) and scale it up — which does nothing, because those operators are merely blocked waiting on something downstream.',
+    answer: `Read it from the <strong>sink backward</strong>: the bottleneck is the <strong>first operator that is busy but NOT backpressured</strong> — here, the <strong>Fraud Window</strong>. Source and Parse are backpressured because they are blocked handing records to the window; the Sink is idle because it is starved. The fix targets the window: raise its parallelism, or reduce its per-key state cost (RocksDB tuning, lighter state). Scaling the Source would only feed the same bottleneck faster.`,
+    config: ['busyTimeMsPerSecond', 'backPressuredTimeMsPerSecond'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+
   // ---------------- Watermarks (m09) ----------------
   {
     id: 'wm-late-event', module: 'm09', concept: 'watermarks', difficulty: 'medium',

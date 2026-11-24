@@ -3,6 +3,61 @@
 // Add a `mXX: [...]` entry as each module is built.
 
 export const IQ_BANK = {
+  m18b: [
+    {
+      q: 'A Flink job is slow. How do you find which operator is the bottleneck?',
+      difficulty: 'medium',
+      a: `Walk the job graph <strong>from the sink backward</strong> and read two metrics per operator: <code>busyTimeMsPerSecond</code> and <code>backPressuredTimeMsPerSecond</code>.<br><br>
+      The <strong>bottleneck is the first operator that is busy (~1000ms/s) but NOT backpressured</strong> — it is working flat out and nothing downstream is holding it back. Everything <em>upstream</em> of it shows high backpressure (they are blocked waiting to hand records off), and everything <em>downstream</em> is idle (starved of input).<br><br>
+      In the Web UI this is the backpressure tab (OK/LOW/HIGH per subtask); via REST it is <code>/jobs/&lt;jid&gt;/vertices/&lt;vid&gt;/backpressure</code>. Once you have the operator, the fix is operator-specific: add parallelism, remove a sync call (async I/O), or speed up the sink.`,
+      tip: 'The exact phrase interviewers want: "busy but not backpressured = the bottleneck; everything upstream is backpressured."',
+    },
+    {
+      q: 'What is watermark lag and why is it often more important than throughput?',
+      difficulty: 'medium',
+      a: `<strong>Watermark lag = wall-clock time − currentOutputWatermark</strong>. It tells you how far <em>behind real time</em> the event-time frontier is — i.e. how stale your windowed results are.<br><br>
+      Throughput can look perfectly healthy while the job is quietly wrong: if a source partition is idle or watermarks are held back, windows stop firing even though records flow. For Uber's R-4471, a 90s watermark lag means surge pricing is deciding on data that is 90 seconds old. That is a user-visible defect that throughput alone never reveals.<br><br>
+      Monitor it per-operator (<code>currentOutputWatermark</code>), subtract from <code>now()</code>, and alert when it exceeds your freshness SLO (e.g. 60s).`,
+      tip: 'Say "watermark lag measures freshness; throughput measures volume — a job can have great throughput and terrible freshness."',
+    },
+    {
+      q: 'Which checkpoint metrics do you watch, and what does a climbing checkpoint duration mean?',
+      difficulty: 'medium',
+      a: `Watch <code>lastCheckpointDuration</code>, <code>lastCheckpointSize</code>, <code>numberOfFailedCheckpoints</code>, and the alignment time.<br><br>
+      A <strong>rising checkpoint duration is the earliest warning sign you get</strong>. The usual cause is <strong>barrier alignment under backpressure</strong>: when an operator is backpressured, checkpoint barriers queue behind buffered data, so alignment — and thus the whole checkpoint — takes longer. Left unchecked, duration crosses the checkpoint timeout and checkpoints start <em>failing</em>, which eventually causes a restart from an old checkpoint (more reprocessing).<br><br>
+      Fixes: relieve the backpressure (the root cause), or enable <strong>unaligned checkpoints</strong> so barriers overtake buffered data instead of waiting. Alert when duration exceeds ~50% of the checkpoint interval.`,
+      tip: 'Link checkpoint duration to backpressure via barrier alignment, and name unaligned checkpoints as the mitigation.',
+    },
+    {
+      q: 'How does Flink expose metrics, and how do you get them into Grafana?',
+      difficulty: 'easy',
+      a: `Flink has a built-in <strong>metric system</strong>: every JobManager/TaskManager/operator/subtask registers counters, gauges, meters and histograms into a scoped hierarchy. A <strong>reporter</strong> then ships them out on an interval.<br><br>
+      For Grafana you configure the <strong>Prometheus reporter</strong> (<code>metrics.reporter.prom</code>) — each TaskManager exposes a <code>/metrics</code> endpoint that Prometheus scrapes, and Grafana reads Prometheus. Keep <code>metrics.scope.operator</code> stable so dashboards don't break across redeploys. You can add custom business metrics via <code>getRuntimeContext().getMetricGroup().counter(...)</code> and they appear beside the system metrics.`,
+      tip: 'Name the reporter + scope format; mentioning "stable scopes so dashboards survive redeploys" signals real operational experience.',
+    },
+    {
+      q: 'What is the difference between busyTimeMsPerSecond and backPressuredTimeMsPerSecond?',
+      difficulty: 'medium',
+      a: `Both measure, out of each 1000ms, how the operator spent its time.<br><br>
+      <strong>busyTimeMsPerSecond</strong> — time spent actively <em>processing</em> records. ~1000 means the operator itself is the limiting factor (CPU-bound logic, a slow sync call).<br><br>
+      <strong>backPressuredTimeMsPerSecond</strong> — time spent <em>blocked</em> because it could not emit downstream (the output buffers were full). High here means the limiter is <em>downstream</em>, not this operator.<br><br>
+      The remainder (1000 − busy − backpressured) is idle/waiting for input. Reading all three across the chain is how you localize a bottleneck without guessing.`,
+      tip: 'busy = "I am the slow one"; backpressured = "someone after me is the slow one".',
+    },
+    {
+      q: 'What would you actually page (alert) on for a production streaming job, versus just dashboard?',
+      difficulty: 'hard',
+      a: `Page on <strong>symptoms the user feels</strong>, not raw noise:<br><br>
+      • <strong>Job state != RUNNING</strong> — the bluntest, most important check.<br>
+      • <strong>Watermark lag &gt; SLO</strong> (e.g. 60s for 5 min) — results are stale.<br>
+      • <strong>Consumer/source lag rising</strong> for 15 min — falling behind input; backlog won't self-drain.<br>
+      • <strong>Sustained backpressure</strong> (&gt;50% on any subtask for 10 min) — throughput clamped below input.<br>
+      • <strong>Checkpoint failures</strong> or duration &gt; 50% of interval — recovery is at risk.<br>
+      • <strong>numRestarts &gt; 0</strong> in a short window — crash loop.<br><br>
+      Everything else (per-operator CPU, GC details, buffer pool stats) is a <em>dashboard</em> you consult <em>after</em> a page, not a page itself. Alerting on noise trains people to ignore alerts.`,
+      tip: 'Framing it as "page on user-visible symptoms, dashboard on diagnostics" is exactly the SRE-grade answer interviewers reward.',
+    },
+  ],
   m01: [
     {
       q: 'Why did Uber choose Apache Flink over Spark Streaming?',

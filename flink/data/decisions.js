@@ -4,6 +4,56 @@
 // Exactly one option per card is the 'best'.
 
 export const DECISIONS = {
+  // ------------------------------------------------------------------ m18b
+  m18b: [
+    {
+      scenario:
+        'The R-4471 fraud job\'s checkpoint duration has been climbing all evening and is now at 8s against a 10s timeout. The backpressure tab shows the Alerts Sink at ~90%. You must act before checkpoints start failing.',
+      options: [
+        {
+          label: 'Find and fix the sink backpressure (scale the sink / downstream), treating it as the root cause',
+          verdict: 'best',
+          why: 'Rising checkpoint duration here is a <em>symptom</em> of barrier alignment stalling under backpressure. The sink is busy/backpressured, so the real fix is downstream throughput — scale the sink or its target. Relieve that and alignment time (and checkpoint duration) drops back on its own.'
+        },
+        {
+          label: 'Immediately raise the checkpoint timeout to 60s so checkpoints stop failing',
+          verdict: 'bad',
+          why: 'This hides the warning light. Longer timeouts mean a failure recovers from an even older checkpoint (more reprocessing), and the underlying backpressure keeps growing. You have treated the alarm, not the fire.'
+        },
+        {
+          label: 'Enable unaligned checkpoints to let barriers overtake buffered data',
+          verdict: 'ok',
+          why: 'A legitimate mitigation — unaligned checkpoints decouple checkpoint duration from alignment time and are the right tool when backpressure is unavoidable/bursty. But it increases checkpoint size (in-flight data is stored) and does not fix the clamped throughput, so pair it with addressing the sink.'
+        }
+      ],
+      takeaway:
+        'Checkpoint duration climbing under backpressure is an <strong>alignment</strong> problem. Fix the backpressure (root cause) first; use unaligned checkpoints as a mitigation — never just raise the timeout and look away.'
+    },
+    {
+      scenario:
+        'You are defining the pager (not dashboard) alerts for the R-4471 location pipeline. The team wants to "be alerted about everything" — CPU, GC, buffer pools, watermark lag, job state, checkpoint failures.',
+      options: [
+        {
+          label: 'Page only on user-visible symptoms (job down, watermark lag > SLO, rising source lag, sustained backpressure, checkpoint failures); keep CPU/GC/buffers as dashboards',
+          verdict: 'best',
+          why: 'Alerts must map to "the product is now wrong or late." Symptom-based paging catches real incidents and stays quiet otherwise; diagnostics like CPU/GC are what you open <em>after</em> a page to find the cause.'
+        },
+        {
+          label: 'Page on all of them to be safe — more coverage is better',
+          verdict: 'bad',
+          why: 'This is how you get alert fatigue. A GC blip or a 71% CPU reading that harms nothing will page at 3am; people learn to ignore alerts, and the one that matters gets missed. Noise reduces real coverage.'
+        },
+        {
+          label: 'Page only on job state != RUNNING and nothing else',
+          verdict: 'ok',
+          why: 'It is the single most important check and a fine minimum, but it misses the "quietly broken" class — a RUNNING job with 5-minute watermark lag or a crash-looping restart that still reports RUNNING between restarts. Add the freshness/lag/backpressure symptoms.'
+        }
+      ],
+      takeaway:
+        'Page on symptoms the user feels; dashboard the diagnostics. "Alert on everything" is the same as alerting on nothing once fatigue sets in.'
+    }
+  ],
+
   // ------------------------------------------------------------------ m05
   m05: [
     {
