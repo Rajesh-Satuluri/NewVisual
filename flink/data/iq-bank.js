@@ -3,6 +3,106 @@
 // Add a `mXX: [...]` entry as each module is built.
 
 export const IQ_BANK = {
+  m17b: [
+    {
+      q: 'What is Complex Event Processing (CEP) and how does Flink implement it?',
+      difficulty: 'medium',
+      a: `CEP detects <strong>patterns across a sequence of events</strong> — ordering and timing relationships — rather than evaluating single events in isolation. Example: "two failed card attempts <em>followed by</em> a ride start within 2 minutes."<br><br>
+      Flink's <code>flink-cep</code> library compiles a <strong>Pattern</strong> into a <strong>non-deterministic finite automaton (NFA)</strong> that it runs over a <strong>keyed, watermarked</strong> stream. It keeps every <strong>partial match</strong> in <strong>keyed state</strong>, advances them as matching events arrive, and <strong>expires</strong> them when the <code>within</code> window passes (by the watermark). On a full match it emits via a <code>PatternSelectFunction</code>; timed-out partials can go to a side output.`,
+      tip: 'Keywords: NFA, partial matches in keyed state, advanced/expired by the watermark. CEP is windowed, stateful pattern matching.',
+    },
+    {
+      q: 'What is the difference between next, followedBy and followedByAny in the Pattern API?',
+      difficulty: 'medium',
+      a: `They define <strong>contiguity</strong> between pattern stages:<br><br>
+      <strong>next</strong> — <em>strict</em> contiguity: the very next event must match the next stage; any other event breaks the partial match.<br><br>
+      <strong>followedBy</strong> — <em>relaxed</em> contiguity: other, non-matching events may occur between the two stages (they're skipped). This is what you usually want — "two failures, then eventually a ride start" tolerates GPS pings in between.<br><br>
+      <strong>followedByAny</strong> — <em>non-deterministic</em> relaxed: like followedBy but it will match <em>every</em> possible subsequent event that satisfies the stage, producing multiple matches rather than just the first.`,
+      tip: 'Strict (next) vs relaxed (followedBy) vs non-deterministic relaxed (followedByAny). Most fraud/sequence patterns use followedBy.',
+    },
+    {
+      q: 'What does within() do in a CEP pattern, and what happens to partial matches that exceed it?',
+      difficulty: 'medium',
+      a: `<code>within(Time)</code> bounds the <strong>entire pattern to a time window</strong> — all stages must complete within it, measured in <strong>event time</strong> against the watermark. It is what makes "within 2 minutes" enforceable.<br><br>
+      Partial matches whose age exceeds the window are <strong>discarded</strong>. If you care about them (e.g. "started a checkout but never finished"), provide a <strong>timed-out side output</strong> via <code>PatternFlatTimeoutFunction</code> / <code>OutputTag</code> — Flink emits the partial match there when it times out instead of silently dropping it. Without <code>within</code>, partial matches can live (and accumulate state) indefinitely.`,
+      tip: 'within = event-time bound on the whole match; timed-out partials go to a side output. Mentioning the timeout side output signals depth.',
+    },
+    {
+      q: 'What are after-match skip strategies and why do they matter?',
+      difficulty: 'hard',
+      a: `When a match fires, the NFA must decide <strong>where to resume</strong> — which controls whether overlapping matches are emitted:<br><br>
+      • <strong>NO_SKIP</strong> — emit all possible matches, including overlaps (most, can be noisy).<br>
+      • <strong>SKIP_TO_NEXT</strong> — discard matches starting at the same event as the one emitted.<br>
+      • <strong>SKIP_PAST_LAST_EVENT</strong> — resume after the match's last event → <strong>non-overlapping</strong> matches (usually what alerts want).<br>
+      • <strong>SKIP_TO_FIRST/LAST(pattern)</strong> — resume relative to a named stage.<br><br>
+      For a fraud alert you typically want SKIP_PAST_LAST so one card-testing episode raises one alert, not a flood of overlapping ones.`,
+      tip: 'It governs overlapping matches. "SKIP PAST LAST ROW for one alert per episode" is the practical takeaway.',
+    },
+    {
+      q: 'What is MATCH_RECOGNIZE and how does it relate to the Pattern API?',
+      difficulty: 'medium',
+      a: `<code>MATCH_RECOGNIZE</code> is the SQL-standard construct for pattern matching over an ordered stream — Flink SQL's way to do CEP <strong>declaratively</strong>, using the <em>same NFA engine</em> as the Pattern API underneath.<br><br>
+      It has: <code>PARTITION BY</code> (the key), <code>ORDER BY</code> (event-time), a regex-like <code>PATTERN</code> (e.g. <code>(F{2,} R)</code>), <code>DEFINE</code> (each pattern variable's condition), <code>MEASURES</code> (values to project out), <code>AFTER MATCH SKIP</code> (the skip strategy), and <code>WITHIN</code> (the time bound). Most PyFlink users reach for MATCH_RECOGNIZE because it's far more readable than hand-building an NFA, with no loss of power for common patterns.`,
+      tip: 'Same engine, SQL surface. Map PATTERN (F{2,} R) ↔ failed.timesOrMore(2).followedBy(ride).',
+    },
+    {
+      q: 'Why does CEP depend on watermarks and event time?',
+      difficulty: 'medium',
+      a: `Because patterns are about <strong>order and timing</strong>, the NFA must process events in <strong>event-time order</strong> and expire partial matches by event time — both of which require <strong>watermarks</strong>.<br><br>
+      Flink CEP buffers and <strong>sorts incoming events by timestamp</strong>, only advancing the match (and firing <code>within</code> timeouts) as the <strong>watermark</strong> progresses, so out-of-order events are handled correctly. The consequences from the watermark modules carry straight over: an <strong>idle partition</strong> that holds the watermark back will stall CEP matching, and events later than the allowed out-of-orderness are treated as late. In short, CEP is watermark-driven windowed state — tune watermarks the same way you would for windows.`,
+      tip: 'CEP sorts by event time and advances on the watermark — so idle partitions and out-of-orderness affect it exactly like windows.',
+    },
+  ],
+  m06b: [
+    {
+      q: 'Why shouldn\'t you call an external service from a plain synchronous map(), and what do you use instead?',
+      difficulty: 'medium',
+      a: `A synchronous <code>map()</code> <strong>blocks the operator subtask</strong> on every record: it issues the request, waits for the response, then handles the next record. Throughput is capped at <strong>1 / latency</strong> per subtask — at 1M GPS pings/sec with even a 10ms lookup, that collapses.<br><br>
+      Use <strong>Async I/O</strong> (<code>AsyncDataStream.unordered_wait / ordered_wait</code>). It keeps many requests <strong>in flight concurrently</strong>, so throughput becomes roughly <strong>capacity / latency</strong>. The catch: the client must be <em>genuinely non-blocking</em> (returns a future). Wrapping a blocking JDBC call in Async I/O just hides the blocking in a thread pool and buys little.`,
+      tip: 'Say "sync map throughput = 1/latency; async = capacity/latency — but only with a truly non-blocking client."',
+    },
+    {
+      q: 'What is the difference between ordered and unordered Async I/O, and when do you use each?',
+      difficulty: 'medium',
+      a: `Both keep multiple requests in flight; they differ in <strong>emit order</strong>.<br><br>
+      <strong>unordered_wait</strong> emits each result the moment it returns — highest throughput and lowest latency, but output order ≠ input order. Use it when nothing downstream depends on order.<br><br>
+      <strong>ordered_wait</strong> preserves input order by <strong>buffering completed results until their predecessors finish</strong> (a reorder buffer). Correct when order matters downstream — e.g. event-time processing where records must stay time-ordered — but one slow request delays everything behind it.<br><br>
+      Default to unordered unless you have a concrete ordering requirement.`,
+      tip: 'Ordered = reorder buffer + head-of-line blocking; unordered = emit on completion. Pick unordered unless downstream needs order.',
+    },
+    {
+      q: 'What do the capacity and timeout parameters control in Async I/O?',
+      difficulty: 'medium',
+      a: `<strong>Capacity</strong> is the maximum number of <strong>in-flight requests per subtask</strong>. It is the real throughput lever (throughput ≈ capacity / latency). When capacity is full, Flink applies <strong>backpressure</strong> upstream rather than issuing more requests — so set it high enough for throughput but not so high that you overwhelm the external system.<br><br>
+      <strong>Timeout</strong> is how long to wait for a response before the request is treated as failed. You <strong>must</strong> implement the timeout handler (retry, or complete with a default/empty result) — an unhandled timeout fails the job. Capacity is also part of operator state, so it participates in checkpoints.`,
+      tip: 'Capacity = in-flight limit + where backpressure starts; timeout must be handled or the job dies. Forgetting the timeout handler is the classic mistake.',
+    },
+    {
+      q: 'What is a ProcessFunction and when would you drop down to it from the DSL?',
+      difficulty: 'medium',
+      a: `<code>ProcessFunction</code> / <code>KeyedProcessFunction</code> is Flink's <strong>low-level primitive</strong> that exposes everything the high-level DSL hides: direct access to <strong>keyed state</strong>, <strong>timers</strong> (event- or processing-time with an <code>onTimer</code> callback), and <strong>side outputs</strong>, plus per-record access to timestamps and watermarks.<br><br>
+      Drop down to it when <code>map/filter/window</code> can't express the logic: custom session/timeout detection (register a timer, fire if no follow-up event arrives), de-duplication with state, complex routing, or emitting multiple typed streams. On R-4471 it powers a "stuck ride" watchdog — a timer set at ride start that alerts if no completion arrives.`,
+      tip: 'Keyed state + timers + side outputs in one operator — that triad is the reason to use ProcessFunction.',
+    },
+    {
+      q: 'What is the difference between event-time and processing-time timers?',
+      difficulty: 'medium',
+      a: `Both schedule an <code>onTimer</code> callback, but fire on different clocks:<br><br>
+      <strong>Event-time timers</strong> fire when the <strong>watermark</strong> passes the registered timestamp. They are aligned with your data's time, so they behave correctly under replay/out-of-order data — use them for windowing and event-time timeouts that must be reproducible.<br><br>
+      <strong>Processing-time timers</strong> fire on <strong>wall-clock</strong> time. Use them for real-world timeouts independent of the data ("no heartbeat seen for 30 real seconds").<br><br>
+      Both are <strong>scoped to a key</strong> and <strong>checkpointed</strong>, so they survive failures and restore with the job.`,
+      tip: 'Event-time timers fire on the watermark (replay-safe); processing-time timers fire on wall-clock. Both are per-key and checkpointed.',
+    },
+    {
+      q: 'What are side outputs and give two production uses.',
+      difficulty: 'easy',
+      a: `A <strong>side output</strong> is an additional, strongly-typed output stream from a single operator, identified by an <code>OutputTag</code> and emitted with <code>ctx.output(tag, value)</code>; downstream you read it with <code>get_side_output(tag)</code>. It avoids a second pass over the data.<br><br>
+      Two canonical uses:<br>
+      1. <strong>Late data</strong> — a window routes events later than <code>allowedLateness</code> to a side output instead of dropping them, so you can reconcile later.<br>
+      2. <strong>Dead-letter queue</strong> — un-parseable or invalid records go to a DLQ side output; the main stream stays clean and one bad record never crashes the job.`,
+      tip: 'Late-data capture and DLQ routing are the two uses interviewers want to hear — both keep the main stream clean.',
+    },
+  ],
   m11b: [
     {
       q: 'When would you choose HashMapStateBackend over EmbeddedRocksDBStateBackend, and vice versa?',

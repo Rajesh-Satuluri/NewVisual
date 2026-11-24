@@ -17,7 +17,7 @@ import { applyCodeOverrides, injectEditButtons, bindCloudRefresh } from './compo
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261124c';
+const BUILD = '20261124e';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -28,6 +28,7 @@ const LOADERS = {
   m04: () => imp('./modules/m04-job-lifecycle.js'),
   m05: () => imp('./modules/m05-parallelism.js'),
   m06: () => imp('./modules/m06-data-flow.js'),
+  m06b: () => imp('./modules/m06b-async-process.js'),
   m07: () => imp('./modules/m07-operators.js'),
   m08: () => imp('./modules/m08-time-concepts.js'),
   m09: () => imp('./modules/m09-watermarks.js'),
@@ -41,6 +42,7 @@ const LOADERS = {
   m15: () => imp('./modules/m15-backpressure.js'),
   m16: () => imp('./modules/m16-connectors.js'),
   m17: () => imp('./modules/m17-flink-sql.js'),
+  m17b: () => imp('./modules/m17b-cep.js'),
   m18: () => imp('./modules/m18-performance.js'),
   m18b: () => imp('./modules/m18b-monitoring.js'),
   m18c: () => imp('./modules/m18c-deployment.js'),

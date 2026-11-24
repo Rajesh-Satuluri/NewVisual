@@ -3,6 +3,56 @@
 // words, then reveals the model answer and checks their explanation against keyPoints.
 
 export const SELF_EXPLAIN = {
+  m17b: [
+    {
+      prompt: 'Explain to a teammate why detecting "2 failed card attempts then a ride start within 2 minutes" needs CEP rather than a filter or a window aggregate.',
+      keyPoints: [
+        'The signal is a sequence with order + timing, not a single event',
+        'CEP compiles a pattern to an NFA over a keyed, watermarked stream',
+        'within() bounds the whole match; partial matches expire by watermark',
+        'followedBy allows unrelated events (GPS pings) between the stages',
+      ],
+      modelAnswer: `<p>A filter only looks at one event at a time, and a plain window aggregate counts/sums — neither captures an <strong>ordered sequence with a timing constraint</strong>. The fraud signal here is relational: <em>failure, then another failure, then a ride start, all close together in time</em>.</p>
+<p><strong>CEP</strong> expresses that directly: a pattern of <code>payment-failed{2,}</code> <code>followedBy</code> <code>ride-started</code> <code>within 2 minutes</code>. Flink compiles it to an <strong>NFA</strong> that runs per user over the <strong>watermarked</strong> stream, keeping partial matches in keyed state. <code>followedBy</code> (relaxed contiguity) means harmless events like GPS pings between the failures and the ride don't break the match, and <code>within</code> expires partial matches once the window passes — so only a genuine burst fires an alert.</p>
+<p>Doing this by hand with state + timers is possible but error-prone; CEP (or SQL MATCH_RECOGNIZE) makes the pattern declarative and readable.</p>`,
+    },
+    {
+      prompt: 'In your own words, explain how after-match skip strategy and the within window together keep fraud alerts clean, and why CEP depends on watermarks.',
+      keyPoints: [
+        'within bounds the match in event time; stale partials expire',
+        'SKIP_PAST_LAST_EVENT = non-overlapping matches (one alert per episode)',
+        'CEP sorts by event time and advances on the watermark',
+        'Idle partitions / out-of-orderness affect CEP like windows',
+      ],
+      modelAnswer: `<p><code>within</code> keeps each match inside an event-time window, so a partial match (say one failed attempt) that ages out is discarded instead of lingering. The <strong>after-match skip strategy</strong> controls overlaps: with <code>SKIP_PAST_LAST_EVENT</code> the NFA resumes after the matched sequence, so one card-testing episode raises <strong>one</strong> alert rather than a flood of overlapping ones (<code>NO_SKIP</code> would emit every overlap).</p>
+<p>CEP is fundamentally <strong>watermark-driven</strong>: the engine sorts events into event-time order and only advances matches — and fires <code>within</code> timeouts — as the watermark progresses, so out-of-order events are handled correctly. That means the watermark lessons carry over: an idle source partition holding the watermark back will stall matching, and events beyond the allowed out-of-orderness count as late. Tune watermarks for CEP exactly as you would for windows.</p>`,
+    },
+  ],
+  m06b: [
+    {
+      prompt: 'Explain to a teammate why enriching R-4471\'s GPS pings with a synchronous map() call to the driver store fails at 1M pings/sec, and what you would do instead.',
+      keyPoints: [
+        'Sync map blocks per record — throughput = 1/latency per subtask',
+        'Async I/O keeps many requests in flight — throughput ≈ capacity/latency',
+        'Set capacity and a timeout handler; backpressure kicks in at capacity',
+        'Needs a genuinely non-blocking client to help',
+      ],
+      modelAnswer: `<p>A synchronous <code>map()</code> issues the lookup and <strong>waits</strong> for the reply before touching the next record, so each subtask does one request at a time. Throughput is pinned at <strong>1 / latency</strong> — with a 10ms lookup that is ~100 records/sec per subtask, nowhere near 1M/sec. The incoming queue just backs up.</p>
+<p>The fix is <strong>Async I/O</strong>: issue many lookups concurrently and complete each via a future, so throughput rises to roughly <strong>capacity / latency</strong>. I would use <code>unordered_wait</code> (unless downstream needs input order), set a <strong>capacity</strong> high enough for throughput but kind to the store, and always implement the <strong>timeout</strong> handler (default/retry) so a slow response can't fail the job. Flink backpressures once capacity is full.</p>
+<p>Crucial caveat: this only helps with a <strong>genuinely non-blocking client</strong> — wrapping a blocking JDBC call in Async I/O just hides the blocking in a thread pool.</p>`,
+    },
+    {
+      prompt: 'In your own words, explain how you would detect a "stuck ride" (started but never completed) and how side outputs help keep the pipeline robust.',
+      keyPoints: [
+        'KeyedProcessFunction with an event-time timer set at ride start',
+        'onTimer fires if no completion arrived → emit alert',
+        'Timers are per-key and checkpointed',
+        'Side outputs route late/bad records instead of dropping/crashing',
+      ],
+      modelAnswer: `<p>I would use a <strong>KeyedProcessFunction</strong> keyed by ride. On a <code>RIDE_STARTED</code> event I register an <strong>event-time timer</strong> 30 minutes out and store the deadline in keyed state. If a <code>RIDE_COMPLETED</code> arrives first I clear it; otherwise the watermark passes the deadline, <code>onTimer</code> fires, and I emit a "stuck ride" alert. Because timers are per-key and checkpointed, this survives failures.</p>
+<p><strong>Side outputs</strong> make the same pipeline robust: pings that arrive later than <code>allowedLateness</code> go to a late-data side output (kept for reconciliation, not dropped), and un-parseable pings go to a dead-letter side output so one malformed record never crashes the job. The main stream stays clean, and I read each branch with <code>get_side_output(tag)</code> — all in a single pass over the data.</p>`,
+    },
+  ],
   m11b: [
     {
       prompt: 'In your own words, explain to a teammate why R-4471\'s per-driver fraud state (hundreds of GB) uses RocksDB rather than the heap-based HashMap backend.',

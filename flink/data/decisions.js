@@ -4,6 +4,104 @@
 // Exactly one option per card is the 'best'.
 
 export const DECISIONS = {
+  // ------------------------------------------------------------------ m17b
+  m17b: [
+    {
+      scenario:
+        'You must flag "≥2 failed card attempts followed by a ride start within 2 minutes" per user on R-4471. The team debates how to implement it: hand-rolled state, a window aggregate, or CEP.',
+      options: [
+        {
+          label: 'Use CEP / MATCH_RECOGNIZE with a followedBy pattern and within(2 min)',
+          verdict: 'best',
+          why: 'The signal is an ordered, time-bounded sequence — exactly what CEP is for. A followedBy pattern tolerates unrelated events between stages, within() enforces the 2-minute bound and expires stale partials, and MATCH_RECOGNIZE keeps it readable. The NFA + keyed state handle per-user tracking for you.'
+        },
+        {
+          label: 'Use a 2-minute tumbling window that counts failures and checks for a ride',
+          verdict: 'ok',
+          why: 'A window can approximate it, but tumbling windows have fixed boundaries — a sequence straddling a boundary is missed, and you lose the ordering/"followed by" semantics. It is a blunt instrument for a sequence pattern.'
+        },
+        {
+          label: 'Hand-roll it in a KeyedProcessFunction with state and timers',
+          verdict: 'ok',
+          why: 'Entirely possible and sometimes warranted for very custom logic, but you re-implement the NFA, ordering, and timeout handling yourself — more code and more bugs than expressing the pattern declaratively with CEP for a standard sequence like this.'
+        }
+      ],
+      takeaway:
+        'Ordered, time-bounded sequences are CEP\'s job. Prefer CEP/MATCH_RECOGNIZE over windows (which miss boundary-straddling sequences and lose ordering) or hand-rolled NFAs (which you then own).'
+    },
+    {
+      scenario:
+        'Your CEP card-testing detector works, but on a real episode it fires a burst of ~15 near-identical alerts for the same user within seconds, overwhelming the on-call channel.',
+      options: [
+        {
+          label: 'Set the after-match skip strategy to SKIP_PAST_LAST_EVENT (non-overlapping matches)',
+          verdict: 'best',
+          why: 'The burst comes from overlapping matches (the default NO_SKIP emits every possible combination). SKIP_PAST_LAST_EVENT resumes the NFA after the matched sequence, so one episode yields one alert — the correct fix at the pattern level.'
+        },
+        {
+          label: 'Add a downstream dedupe/throttle keyed by user with a cooldown window',
+          verdict: 'ok',
+          why: 'A reasonable secondary guard, but it treats the symptom with extra state/logic downstream. The overlaps are a CEP configuration issue; fix them at the source with the skip strategy, then throttle only if still needed.'
+        },
+        {
+          label: 'Increase the within window so fewer matches complete',
+          verdict: 'bad',
+          why: 'A larger window makes matching MORE permissive, not less — it would generally produce more matches and more overlaps, and weaken the "within 2 minutes" business rule. It addresses neither the cause nor the rule.'
+        }
+      ],
+      takeaway:
+        'A flood of overlapping CEP matches is an after-match skip-strategy problem. SKIP_PAST_LAST_EVENT gives one alert per episode; downstream throttling is a secondary guard, and widening within() makes it worse.'
+    }
+  ],
+  // ------------------------------------------------------------------ m06b
+  m06b: [
+    {
+      scenario:
+        'R-4471\'s pipeline must enrich 1M GPS pings/sec with a driver-profile lookup from an external store (~8ms per call). A first version uses a synchronous map() and is hopelessly backpressured. Downstream does NOT depend on ping order.',
+      options: [
+        {
+          label: 'Use Async I/O (unordered_wait) with a tuned capacity and a timeout handler',
+          verdict: 'best',
+          why: 'Async I/O keeps many lookups in flight, so throughput becomes ≈ capacity/latency instead of 1/latency. Unordered is correct because order doesn\'t matter downstream, and it is the fastest. Set capacity for throughput and always handle the timeout.'
+        },
+        {
+          label: 'Keep the synchronous map() but raise the operator\'s parallelism a lot',
+          verdict: 'bad',
+          why: 'Each subtask still does one blocking call at a time, so you are throwing machines at a 1/latency ceiling. You would need absurd parallelism to match what a single Async I/O operator does — wasteful and it hammers the store with connections.'
+        },
+        {
+          label: 'Use Async I/O but with ordered_wait to be safe',
+          verdict: 'ok',
+          why: 'It works and is still far better than sync, but ordered adds a reorder buffer and head-of-line latency you don\'t need here (order doesn\'t matter downstream). Unordered is the better fit; reserve ordered for when order is actually required.'
+        }
+      ],
+      takeaway:
+        'External enrichment on a high-throughput stream = Async I/O. Prefer unordered unless downstream needs order, tune capacity, and always handle the timeout. Scaling a blocking map() is fighting a 1/latency ceiling.'
+    },
+    {
+      scenario:
+        'Some GPS pings arrive after allowedLateness, and a few are malformed JSON. The current job silently drops late pings and throws on bad ones (crashing the task). You must make it robust without losing data.',
+      options: [
+        {
+          label: 'Route late events and malformed records to side outputs (late-data tag + dead-letter tag)',
+          verdict: 'best',
+          why: 'Side outputs give separate typed streams: late pings go to a late-data output for reconciliation instead of being dropped, and bad records go to a DLQ output so the main stream stays clean and one bad record never crashes the job. Single pass, nothing lost.'
+        },
+        {
+          label: 'Wrap parsing in try/except and just log errors; increase allowedLateness a lot',
+          verdict: 'ok',
+          why: 'Catching parse errors stops the crash, but logging loses the records, and inflating allowedLateness makes every window hold state far longer and still drops anything beyond it. It is a patch, not the clean mechanism.'
+        },
+        {
+          label: 'Drop late and malformed records to keep the pipeline simple',
+          verdict: 'bad',
+          why: 'This throws away data you may need (late pings matter for accurate distance/fraud) and hides data-quality problems. "Simple" here means silently wrong.'
+        }
+      ],
+      takeaway:
+        'Side outputs are the idiomatic robustness tool: capture late data and dead-letter bad records as separate streams instead of dropping them or crashing. Keep the main stream clean.'
+    }
+  ],
   // ------------------------------------------------------------------ m11b
   m11b: [
     {

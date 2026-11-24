@@ -3,6 +3,115 @@
 // Each: { q, options:[...], answer:<0-based index>, explanation }
 
 export const QUIZ_BANK = {
+  m17b: [
+    {
+      q: 'Flink CEP compiles a pattern into what, and where are partial matches kept?',
+      options: [
+        'A SQL view; in a database',
+        'A non-deterministic finite automaton (NFA); in keyed state',
+        'A thread pool; on the heap only',
+        'A window operator; in the block cache',
+      ],
+      answer: 1,
+      explanation: 'A Pattern compiles to an NFA that runs over the keyed, watermarked stream. Partial matches live in keyed state and are advanced/expired by the watermark.',
+    },
+    {
+      q: 'You want "two failed payments, then eventually a ride start (other events may occur in between)". Which contiguity do you use?',
+      options: [
+        'next (strict)',
+        'followedBy (relaxed)',
+        'notFollowedBy',
+        'union',
+      ],
+      answer: 1,
+      explanation: 'followedBy is relaxed contiguity — non-matching events between the stages are skipped. next would require the ride start to be the very next event, breaking on any GPS ping in between.',
+    },
+    {
+      q: 'What does within(Time) do, and what happens to partial matches that exceed it?',
+      options: [
+        'Nothing; it is advisory only',
+        'Bounds the whole pattern to an event-time window; over-age partial matches are discarded (optionally to a timed-out side output)',
+        'Deletes the whole stream after the time',
+        'Converts the pattern to processing time',
+      ],
+      answer: 1,
+      explanation: 'within bounds the entire match to an event-time window measured against the watermark. Partial matches older than the window are discarded; you can capture them via a timed-out side output instead of losing them.',
+    },
+    {
+      q: 'For a fraud alert, which after-match skip strategy gives one alert per episode (non-overlapping matches)?',
+      options: [
+        'NO_SKIP',
+        'SKIP_TO_NEXT',
+        'SKIP_PAST_LAST_EVENT',
+        'There is no such control',
+      ],
+      answer: 2,
+      explanation: 'SKIP_PAST_LAST_EVENT resumes the NFA after the matched sequence\'s last event, producing non-overlapping matches — so one card-testing episode raises one alert instead of a flood of overlapping ones.',
+    },
+    {
+      q: 'MATCH_RECOGNIZE in Flink SQL is:',
+      options: [
+        'A different engine unrelated to the CEP library',
+        'A declarative SQL surface for CEP using the same NFA engine underneath',
+        'Only for batch queries',
+        'A way to define windows',
+      ],
+      answer: 1,
+      explanation: 'MATCH_RECOGNIZE expresses patterns declaratively (PARTITION BY / ORDER BY / PATTERN / DEFINE / MEASURES / AFTER MATCH SKIP / WITHIN) and runs on the same NFA engine as the Pattern API — just far more readable.',
+    },
+  ],
+  m06b: [
+    {
+      q: 'You enrich 1M pings/sec with a 10ms external lookup using a synchronous map(). Throughput per subtask is capped at roughly:',
+      options: ['1,000,000/sec', '100/sec (1 / 10ms)', 'Unlimited', '10,000/sec'],
+      answer: 1,
+      explanation: 'A synchronous call blocks the subtask until it returns, so throughput = 1/latency = 1/10ms = 100 records/sec per subtask. Async I/O keeps many requests in flight, lifting this to ~capacity/latency.',
+    },
+    {
+      q: 'Which Async I/O mode gives the highest throughput, and what is its tradeoff?',
+      options: [
+        'Ordered — it preserves input order with no cost',
+        'Unordered — emits results as they return, but output order ≠ input order',
+        'They are identical',
+        'Ordered — it is always faster',
+      ],
+      answer: 1,
+      explanation: 'unordered_wait emits each result the moment it completes (fastest, lowest latency) but does not preserve input order. ordered_wait buffers completed results until predecessors finish, adding head-of-line latency.',
+    },
+    {
+      q: 'In Async I/O, what happens when the number of in-flight requests reaches capacity?',
+      options: [
+        'New records are dropped',
+        'The job fails',
+        'Flink applies backpressure upstream until a slot frees',
+        'Capacity is automatically doubled',
+      ],
+      answer: 2,
+      explanation: 'Capacity bounds in-flight requests per subtask. Once full, Flink backpressures upstream rather than issuing more requests — which is why capacity (not just latency) governs throughput.',
+    },
+    {
+      q: 'You need to emit a "stuck ride" alert if no RIDE_COMPLETED event arrives within 30 minutes of RIDE_STARTED. The right tool is:',
+      options: [
+        'A tumbling window',
+        'A KeyedProcessFunction with an event-time timer and onTimer callback',
+        'A filter()',
+        'Async I/O',
+      ],
+      answer: 1,
+      explanation: 'Register an event-time timer at ride start; if the completion event clears it first, cancel/ignore, otherwise onTimer fires and emits the alert. Timers + keyed state are exactly what ProcessFunction provides.',
+    },
+    {
+      q: 'What is the idiomatic way to keep un-parseable records from crashing the job while preserving them for later?',
+      options: [
+        'Wrap everything in try/except and log',
+        'Route them to a side output (OutputTag) as a dead-letter stream',
+        'Increase parallelism',
+        'Drop them silently',
+      ],
+      answer: 1,
+      explanation: 'A side output (OutputTag) gives a separate typed stream for bad records — a dead-letter queue — so the main stream stays clean and nothing is lost. Late window data uses the same mechanism.',
+    },
+  ],
   m11b: [
     {
       q: 'Your Flink job keeps hundreds of GB of keyed state (per-driver history for millions of drivers). Which state backend fits?',

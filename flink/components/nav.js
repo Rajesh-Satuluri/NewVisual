@@ -7,6 +7,7 @@ export const MODULES = [
   { id: 'm04', title: 'Job Lifecycle',           icon: '🔄', group: 'Architecture',  num: '04' },
   { id: 'm05', title: 'Parallelism',             icon: '⚙️', group: 'Architecture',  num: '05' },
   { id: 'm06', title: 'Operators',               icon: '🔧', group: 'Architecture',  num: '06' },
+  { id: 'm06b', title: 'Async I/O & ProcessFunction', icon: '🔀', group: 'Architecture', num: '06b' },
   { id: 'm07', title: 'Sources & Sinks',         icon: '🔗', group: 'Architecture',  num: '07' },
   // Group: Time & Windows
   { id: 'm08', title: 'Time Concepts',           icon: '⏱️', group: 'Time & Windows', num: '08' },
@@ -23,6 +24,7 @@ export const MODULES = [
   { id: 'm15', title: 'Flink SQL & Table API',   icon: '📊', group: 'APIs & Connectors', num: '15' },
   { id: 'm16', title: 'Connectors',              icon: '🔌', group: 'APIs & Connectors', num: '16' },
   { id: 'm17', title: 'Flink SQL · Advanced',    icon: '🧮', group: 'APIs & Connectors', num: '17' },
+  { id: 'm17b', title: 'Complex Event Processing', icon: '🧩', group: 'APIs & Connectors', num: '17b' },
   // Group: Optimization
   { id: 'm18', title: 'Performance',             icon: '🚀', group: 'Optimization',    num: '18' },
   // Group: Operations

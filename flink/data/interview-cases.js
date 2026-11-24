@@ -15,6 +15,42 @@
 // =====================================================================
 
 export const INTERVIEW_CASES = [
+  // ---------------- Complex Event Processing (m17b) ----------------
+  {
+    id: 'cep-card-testing', module: 'm17b', concept: 'cep', difficulty: 'hard',
+    scenario: 'Fraud wants an alert when a user has ≥2 failed card attempts followed by a ride start within 2 minutes (classic card-testing). GPS pings and other events stream in between the payment events.',
+    breaks: 'A single-event filter can\'t see the sequence; a tumbling window misses episodes that straddle a boundary and loses the "followed by" ordering. Strict contiguity (next) would break on the GPS pings in between.',
+    answer: `This is textbook <strong>CEP</strong>. Express it as <code>payment-failed.timesOrMore(2).followedBy(ride-started).within(2 min)</code> — or the SQL <code>MATCH_RECOGNIZE (PATTERN (F{2,} R) WITHIN INTERVAL '2' MINUTE)</code>. <strong>followedBy</strong> (relaxed contiguity) lets the GPS pings sit between the failures and the ride without breaking the match; <strong>within</strong> enforces the 2-minute bound and expires stale partial matches by the watermark. Flink compiles this to an NFA over the per-user keyed stream, with partial matches in keyed state.`,
+    config: ['PATTERN (F{2,} R)', 'WITHIN INTERVAL', 'followedBy'],
+    anchor: { stage: 'PAYMENT_COMPLETED' },
+  },
+  {
+    id: 'cep-alert-storm', module: 'm17b', concept: 'cep', difficulty: 'medium',
+    scenario: 'The CEP card-testing detector fires ~15 near-duplicate alerts for one user within seconds during a single fraud episode, flooding the on-call channel.',
+    breaks: 'With the default NO_SKIP strategy, the NFA emits every possible overlapping match of the pattern, so one episode becomes a storm of alerts.',
+    answer: `Set the <strong>after-match skip strategy</strong> to <strong>SKIP_PAST_LAST_EVENT</strong> (SQL: <code>AFTER MATCH SKIP PAST LAST ROW</code>). It resumes the NFA after the matched sequence's last event, producing <strong>non-overlapping</strong> matches — one episode, one alert. NO_SKIP emits all overlaps; SKIP_TO_NEXT only trims matches starting at the same event. A downstream per-user cooldown/dedupe is a reasonable secondary guard, but the root cause is the skip strategy, and widening the <code>within</code> window would make it worse, not better.`,
+    config: ['AFTER MATCH SKIP PAST LAST ROW', 'AfterMatchSkipStrategy'],
+    anchor: { stage: 'PAYMENT_COMPLETED' },
+  },
+
+  // ---------------- Async I/O & ProcessFunction (m06b) ----------------
+  {
+    id: 'async-enrichment', module: 'm06b', concept: 'async-io', difficulty: 'hard',
+    scenario: 'R-4471\'s pings must be enriched with a driver profile from an external store (~8ms/call). The first build uses a synchronous map() and is pinned at a tiny throughput with heavy backpressure, even after scaling parallelism.',
+    breaks: 'A synchronous call blocks the subtask per record, so throughput is 1/latency per subtask no matter how you scale — and more parallelism just opens more idle, blocked connections.',
+    answer: `Replace the blocking <code>map()</code> with <strong>Async I/O</strong> (<code>AsyncDataStream.unordered_wait</code>). It keeps up to <strong>capacity</strong> requests in flight per subtask, so throughput becomes ≈ capacity/latency. Use <strong>unordered</strong> since order doesn't matter downstream; set a <strong>capacity</strong> high enough for throughput but gentle on the store; and implement the <strong>timeout</strong> handler (complete with a default or retry) so a slow response can't fail the job. Crucially the client must be genuinely non-blocking — otherwise you've just moved the blocking into a thread pool.`,
+    config: ['AsyncDataStream.unordered_wait', 'capacity', 'timeout'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'proc-stuck-ride', module: 'm06b', concept: 'processfunction', difficulty: 'medium',
+    scenario: 'Product wants an alert when a ride is marked started but never completes within 30 minutes. R-4471 normally completes; some rides silently never do, and today nothing catches them.',
+    breaks: 'Windowing can\'t express "fire only if a follow-up event is absent" cleanly, and a naive approach forgets that the alert must be replay-safe and survive failures.',
+    answer: `Use a <strong>KeyedProcessFunction</strong>. On <code>RIDE_STARTED</code>, register an <strong>event-time timer</strong> 30 minutes ahead and store the deadline in keyed state; on <code>RIDE_COMPLETED</code>, clear it. If the watermark passes the deadline first, <code>onTimer()</code> fires and emits a "stuck ride" alert. Event-time timers make this correct under replay/out-of-order data, and because timers are per-key and <strong>checkpointed</strong>, pending alerts survive a restart. Route the alerts (or any late pings) through a <strong>side output</strong> to keep the main stream clean.`,
+    config: ['KeyedProcessFunction', 'registerEventTimeTimer', 'OutputTag'],
+    anchor: { stage: 'RIDE_STARTED' },
+  },
+
   // ---------------- State Backends & RocksDB (m11b) ----------------
   {
     id: 'rdb-gc-pauses', module: 'm11b', concept: 'state-backends', difficulty: 'hard',
