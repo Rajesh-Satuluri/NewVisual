@@ -1,6 +1,23 @@
 import { enhanceInterviewEdits } from './interview-edits.js';
 
-export function createModuleShell({ tag, title, subtitle, tabs }) {
+// Optional `definition` card: { formal, easy } — shows a "what this means" card
+// between the hero and the tabs so the plain-language definition is always visible
+// regardless of the active tab. Omit on labs/utility pages.
+function createDefinitionCard(definition) {
+  if (!definition || !definition.formal) return '';
+  const { formal, easy } = definition;
+  return `
+    <div class="module-definition" style="background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--cyan,#06B6D4);border-radius:12px;padding:16px 20px;margin-bottom:22px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--cyan,#06B6D4);margin-bottom:8px">📘 Definition</div>
+      <div style="font-size:13.5px;line-height:1.7;color:var(--text-primary)">${formal}</div>
+      ${easy ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;line-height:1.7;color:var(--text-secondary)">
+        <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--green,#10B981);margin-right:8px">In plain terms</span>${easy}
+      </div>` : ''}
+    </div>`;
+}
+
+export function createModuleShell({ tag, title, subtitle, tabs, definition }) {
   return `
     <div class="module-page">
       <div class="module-hero">
@@ -8,6 +25,7 @@ export function createModuleShell({ tag, title, subtitle, tabs }) {
         <h1 class="module-title">${title}</h1>
         <p class="module-subtitle">${subtitle}</p>
       </div>
+      ${createDefinitionCard(definition)}
       <div class="module-tabs" role="tablist" aria-label="${title} sections">
         ${tabs.map((t, i) => `
           <button class="tab-btn ${i === 0 ? 'active' : ''}" role="tab"

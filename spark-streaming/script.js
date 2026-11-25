@@ -7,7 +7,7 @@ import { maybeRunTour } from './components/tour.js';
 // ── Module loaders (lazy) ──────────────────────────────────────────────────
 // Cache-busting build tag: appended to every lazily-imported module URL so a
 // fresh deploy is fetched immediately. Bump on each deploy that changes code.
-const BUILD = '20261125c';
+const BUILD = '20261125d';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // SCAFFOLD: home has a real page; every other route renders the shared
@@ -19,6 +19,9 @@ const LOADERS = { home: () => imp('./modules/home.js') };
 // Built modules (point their id at a dedicated file, off the shared placeholder):
 LOADERS['output-mode-lab'] = () => imp('./modules/output-mode-lab.js'); // L1
 LOADERS['microbatch-lab'] = () => imp('./modules/microbatch-lab.js');   // L2
+LOADERS['m01'] = () => imp('./modules/m01-intro.js');                   // M01
+LOADERS['m02'] = () => imp('./modules/m02-unbounded-table.js');         // M02
+LOADERS['m03'] = () => imp('./modules/m03-architecture.js');            // M03
 
 // ── State ──────────────────────────────────────────────────────────────────
 const done = new Set(JSON.parse(localStorage.getItem('spark_done') || '[]'));
