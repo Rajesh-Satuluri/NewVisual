@@ -52,6 +52,16 @@ jobs:
           find . -maxdepth 1 -type f \( -name '*.pdf' -o -name '*.ipynb' \) -print -delete || true
           # Not part of the site — never publish the migration kit if present.
           rm -rf migration || true
+          # PWA splash screens (iOS launch images) are large PNGs — ~840 MB
+          # across all tools — and the backup-zip steps below copy them twice
+          # more (per-tool zip + whole-repo zip), pushing the published artifact
+          # past GitHub Pages' ~1 GB limit (deploys have failed since the site
+          # crossed it). They are a cosmetic-only iOS feature. Drop them from the
+          # PUBLISHED site here (they stay in git); doing it before the zips are
+          # built also keeps them out of every backup zip. The apple-touch-
+          # startup-image <link>s in each index.html simply 404 (harmless).
+          echo "== Trimming splash/ before upload: $(du -ch */splash 2>/dev/null | tail -1 | cut -f1) =="
+          find . -type d -name splash -not -path './.git/*' -prune -exec rm -rf {} + || true
           # Ensure Pages serves underscore paths (e.g. _next/) verbatim.
           touch .nojekyll
 
