@@ -58,7 +58,7 @@ vectors. No executors, no network, no real cluster.
 | Watermark / late-drop / window / output-mode semantics | **Real algorithm** | Matches Spark docs; 18 unit tests |
 | Stateful-aggregation state size / eviction (M10) | **Real algorithm (E1)** | Drives the M10 state-size lab from the same engine |
 | Deduplication `dropDuplicates` (M13) | **Simulated** (separate, labeled) | `dropDuplicates` is NOT in the E1 engine; M13 uses a small self-contained deterministic dedup (seen-keys + watermark eviction), shown as *simulated* in the UI |
-| Checkpoint / offset-log recovery | planned (E2) | deterministic model |
+| Checkpoint / offset-log recovery (M15, M16) | **Real algorithm (E2)** | `checkpoint-engine.js`; offset-log-before/commit-log-after, crash at any phase, replay, EOS vs ALO; 12 unit tests |
 | Stream–stream join | planned (E3) | deterministic model |
 | Code execution | not planned | snippets are static + labelled |
 | Real Spark cluster | out of scope | needs a backend |
