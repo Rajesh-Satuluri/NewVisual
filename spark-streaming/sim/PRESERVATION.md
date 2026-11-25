@@ -61,6 +61,8 @@ vectors. No executors, no network, no real cluster.
 | Checkpoint / offset-log recovery (M15, M16) | **Real algorithm (E2)** | `checkpoint-engine.js`; offset-log-before/commit-log-after, crash at any phase, replay, EOS vs ALO; 12 unit tests |
 | Stream–stream join (M18) | **Real algorithm (E3)** | `stream-join-engine.js`; dual-side buffer, equality+time-window match, min watermark, outer-null eviction; 13 unit tests |
 | Stream–static join (M17) | **Simulated** (labeled) | enrichment lookup demo; no dedicated engine (stream-static holds no state) |
+| Arbitrary state / [flat]mapGroupsWithState (M11) | **Simulated** (labeled) | cart state machine; deterministic per-key sim, not an engine |
+| Sinks / foreachBatch (M14), Delta MERGE (M19) | **Illustrative demos** | sink explorer + MERGE upsert; no engine, model Spark semantics |
 | Code execution | not planned | snippets are static + labelled |
 | Real Spark cluster | out of scope | needs a backend |
 
