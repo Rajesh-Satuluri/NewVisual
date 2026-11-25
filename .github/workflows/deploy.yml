@@ -10,6 +10,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read   # read this run's artifacts API in the wait-for-artifact step
 
 concurrency:
   group: pages
@@ -122,6 +123,32 @@ jobs:
           # Each tool is a self-contained static folder, so publishing one
           # never alters another.
           path: .
+
+      - name: Wait for artifact to be queryable
+        # deploy-pages@v4 fetches artifact metadata immediately after upload and
+        # treats "Found 0 artifact(s)" as fatal with no retry. GitHub's artifact
+        # service is eventually consistent, so a back-to-back upload->deploy can
+        # race and fail even though the artifact uploaded fine — it appears in
+        # the REST artifacts API a few seconds later. This was the cause of the
+        # "No artifacts named github-pages were found" deploy failures. Poll the
+        # artifacts API until the github-pages artifact is visible, then add a
+        # small buffer so deploy-pages' own query also succeeds.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 20); do
+            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+                  --jq '[.artifacts[] | select(.name=="github-pages" and .expired==false)] | length' 2>/dev/null || echo 0)
+            if [ "${n:-0}" -ge 1 ]; then
+              echo "github-pages artifact visible after check #${i}; buffering 8s"
+              sleep 8
+              exit 0
+            fi
+            echo "artifact not visible yet (check #${i})…"
+            sleep 6
+          done
+          echo "artifact still not visible after polling; letting deploy-pages try anyway"
 
       - name: Deploy to GitHub Pages
         id: deployment
