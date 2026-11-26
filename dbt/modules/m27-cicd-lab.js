@@ -51,7 +51,7 @@ FAIL unique_fct_orders_order_id (1,241 rows)
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Design a dbt CI pipeline for a team of 20 analysts. What runs on each PR?',
     a: `A Slim CI pipeline keyed on state:
@@ -92,7 +92,7 @@ export function mount(container) {
   });
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm27');
 }
 
 function buildLab(container) {

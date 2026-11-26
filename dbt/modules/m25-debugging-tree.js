@@ -121,7 +121,7 @@ const CLASS_COLOR = {
   'data-quality': '#10B981', performance: '#EC4899', 'data-quality|performance': '#EC4899',
 };
 
-const IQ = [
+export const IQ = [
   {
     q: 'Your scheduled dbt job failed overnight. Walk me through your first five minutes.',
     a: `<ol>
@@ -171,7 +171,7 @@ export function mount(container) {
 
   buildTree(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm25');
 }
 
 function buildTree(container) {

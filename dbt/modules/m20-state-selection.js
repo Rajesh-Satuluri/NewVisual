@@ -61,7 +61,7 @@ function selectSet(sel, n) {
   }
 }
 
-const IQ = [
+export const IQ = [
   {
     q: 'Explain how `dbt build --select state:modified+` makes CI cheap.',
     a: `<code>state:modified</code> diffs the current manifest (the PR branch) against a <strong>deferred manifest</strong> from production (passed via <code>--state</code>) to find which nodes actually changed. The <code>+</code> expands that to all downstream children.
@@ -100,7 +100,7 @@ export function mount(container) {
 
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm20');
 }
 
 function nodeSvg(id, sel) {

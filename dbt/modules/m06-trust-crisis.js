@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'The CEO asks "How many active users?" and gets three different answers from three teams. How do you build a system that prevents this?',
     a: `<strong>The fix has three parts:</strong>
@@ -55,7 +55,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm06');
   return cleanup;
 }
 

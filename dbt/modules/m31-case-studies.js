@@ -52,7 +52,7 @@ const CASES = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Walk me through a modern data stack end to end, using an example you know.',
     a: `Take e-commerce: <strong>Sources</strong> (Shopify, Stripe, clickstream, ad spend) → <strong>EL</strong> (Fivetran loads raw into Snowflake) → <strong>dbt</strong> transforms: <code>staging</code> (one model per source, cleaned/renamed) → <code>intermediate</code> (joins/enrichment, e.g. orders + customers) → <code>marts</code> (<code>fct_orders</code>, <code>fct_revenue</code>, <code>dim_customers</code>) → <strong>consumers</strong> (Looker, reverse-ETL to marketing, an ML churn model). Airflow orchestrates the whole thing daily; dbt owns the transform + tests; artifacts feed observability.
@@ -91,7 +91,7 @@ export function mount(container) {
   });
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm31');
 }
 
 function buildLab(container) {

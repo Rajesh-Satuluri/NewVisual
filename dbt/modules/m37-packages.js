@@ -118,7 +118,7 @@ packages:
   # 3) a local path — a sibling package in a monorepo
   - local: ../shared_macros`;
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is a dbt package, and how is it different from a Python/pip package?',
     a: `A dbt package is <strong>reusable dbt code</strong> — macros, models, seeds and generic tests — that you pull
@@ -173,7 +173,7 @@ export function mount(container) {
 
   buildExplorer(container);
   buildInstall(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm37');
 }
 
 function buildExplorer(container) {

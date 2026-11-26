@@ -36,7 +36,7 @@ const QA = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Explain the division of responsibility between Airflow and dbt in one pipeline.',
     a: `<strong>Airflow = orchestration</strong>: when things run, in what order across systems, retries, SLAs, backfills, sensors/events, and alerting. It coordinates ingestion, dbt, reverse-ETL and ML as one DAG.
@@ -72,7 +72,7 @@ export function mount(container) {
   });
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm30');
 }
 
 function buildLab(container) {

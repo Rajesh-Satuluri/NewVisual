@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is a dbt macro, and how does Jinja templating enable it?',
     a: `A dbt macro is a reusable block of SQL logic defined with Jinja templating. When dbt compiles your project, it renders Jinja into plain SQL before executing.
@@ -135,7 +135,7 @@ export function mount(container) {
   const cleanup = buildVisual(container);
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm14');
   return cleanup;
 }
 

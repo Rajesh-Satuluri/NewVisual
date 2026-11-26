@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is the difference between ref(), source(), and a seed? When do you use each?',
     a: `<strong>ref('model_name')</strong>
@@ -108,7 +108,7 @@ export function mount(container) {
   const cleanup = buildVisual(container);
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm10');
   return cleanup;
 }
 

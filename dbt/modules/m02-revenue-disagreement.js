@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'Finance shows revenue as $9.8M but Marketing shows $12.4M for the same period. How do you investigate and resolve this as the data engineering lead?',
     a: `<ol>
@@ -54,7 +54,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm02');
   return cleanup;
 }
 

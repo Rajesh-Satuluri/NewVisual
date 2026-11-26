@@ -110,7 +110,7 @@ MERGE: 512,000 rows inserted, 1,204 updated.   ✓
   },
 };
 
-const IQ = [
+export const IQ = [
   {
     q: 'Does `dbt compile` execute any SQL? What is it actually for?',
     a: `No. <code>dbt compile</code> renders Jinja to pure SQL and writes it to <code>target/compiled/</code> — the warehouse is never touched.
@@ -149,7 +149,7 @@ export function mount(container) {
 
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm18');
 }
 
 function buildLab(container) {

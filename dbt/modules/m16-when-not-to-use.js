@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'A team wants to use dbt to power their real-time fraud detection pipeline. What do you tell them?',
     a: `<strong>dbt is the wrong tool. Here's why and what to use instead.</strong>
@@ -63,7 +63,7 @@ export function mount(container) {
 
   buildDecisionGuide(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm16');
   return () => {};
 }
 

@@ -86,7 +86,7 @@ const PITFALLS = [
   ['Accidental full-refresh', 'A stray --full-refresh rebuilds history, recomputing load-time-derived columns with today\'s values. Fix: keep the flag out of prod jobs; snapshot load-time inputs.'],
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Compare merge vs insert_overwrite. When would you pick each?',
     a: `<strong>merge</strong> upserts row-by-row on a <code>unique_key</code> — update matched, insert new. Ideal for mutable records (orders whose status changes) where individual rows update. Default on Snowflake.
@@ -127,7 +127,7 @@ export function mount(container) {
 
   buildStrategies(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm21');
 }
 
 function buildStrategies(container) {

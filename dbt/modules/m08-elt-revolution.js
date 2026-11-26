@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'Explain the architectural shift from ETL to ELT. What specifically changed in the data infrastructure landscape that made ELT viable?',
     a: `<strong>The ETL → ELT shift:</strong>
@@ -72,7 +72,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm08');
   return cleanup;
 }
 
