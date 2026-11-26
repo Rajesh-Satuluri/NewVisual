@@ -7,7 +7,7 @@ import { maybeRunTour } from './components/tour.js';
 // ── Module loaders (lazy) ──────────────────────────────────────────────────
 // Cache-busting build tag: appended to every lazily-imported module URL so a
 // fresh deploy is fetched immediately. Bump on each deploy that changes code.
-const BUILD = '20261125k';
+const BUILD = '20261126a';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // SCAFFOLD: home has a real page; every other route renders the shared
@@ -40,6 +40,7 @@ LOADERS['m14'] = () => imp('./modules/m14-sinks.js');                   // M14
 LOADERS['m19'] = () => imp('./modules/m19-delta-merge.js');             // M19
 LOADERS['m20'] = () => imp('./modules/m20-performance.js');             // M20
 LOADERS['m21'] = () => imp('./modules/m21-monitoring.js');              // M21
+LOADERS['m22'] = () => imp('./modules/m22-capstone.js');                // M22
 LOADERS['watermark-lab'] = () => imp('./modules/watermark-lab.js');     // L3
 
 // ── State ──────────────────────────────────────────────────────────────────

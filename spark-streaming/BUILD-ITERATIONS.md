@@ -194,7 +194,7 @@ P1 P2 P3                                                   (polish)
 - [x] E1 ✅ `microbatch-engine.js` + 18 Node tests green (shipped)  [x] E2 ✅ `checkpoint-engine.js` + 12 Node tests green (offset/commit log, crash/replay, EOS vs ALO)  [x] E3 ✅ `stream-join-engine.js` + 13 Node tests green (dual-side buffer, time-window match, min watermark, outer-null eviction)
 - [x] L1 ✅ Output-Mode Lab live  [x] L2 ✅ Micro-Batch Lab live (author stream, trigger/window/mode, batch trace)  [x] L3 ✅ Watermark Lab (E1 completeness/latency/state trade-off)
 - [x] M01 ✅ [x] M02 ✅ [x] M03 ✅ [x] M04 ✅ [x] M05 ✅ (E1-driven trigger planner) [x] M06 ✅ [x] M07 ✅ [x] M08 ✅ (E1 watermark stepper) [x] M09 ✅ (E1 window builder) [x] M10 ✅ (E1 state-size lab) [x] M11 ✅ (simulated cart state machine — labeled)
-- [x] M12 ✅ (E1 three-modes live) [x] M13 ✅ (simulated dedup — labeled) [x] M14 ✅ (sink explorer) [x] M15 ✅ (E2 WAL stepper) [x] M16 ✅ (E2 crash/recover) [x] M17 ✅ (enrichment lookup) [x] M18 ✅ (E3 join engine) [x] M19 ✅ (MERGE upsert demo) [x] M20 ✅ (tuning sandbox) [x] M21 ✅ (E1 live dashboard) [ ] M22
+- [x] M12 ✅ (E1 three-modes live) [x] M13 ✅ (simulated dedup — labeled) [x] M14 ✅ (sink explorer) [x] M15 ✅ (E2 WAL stepper) [x] M16 ✅ (E2 crash/recover) [x] M17 ✅ (enrichment lookup) [x] M18 ✅ (E3 join engine) [x] M19 ✅ (MERGE upsert demo) [x] M20 ✅ (tuning sandbox) [x] M21 ✅ (E1 live dashboard) [x] M22 ✅ (E1+E2+E3 end-to-end pipeline — all three engines composed)
 - [ ] R1  [ ] R2  [ ] R3  [ ] R4  [ ] R5
 - [ ] B1  [ ] B2  [ ] B3  [ ] B4  [ ] B5  [ ] B6  [ ] B7  [ ] B8
 - [ ] V1  [ ] V2  [ ] V3  [ ] V4  [ ] V5
