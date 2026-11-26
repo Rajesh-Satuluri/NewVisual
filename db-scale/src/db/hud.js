@@ -47,6 +47,11 @@ export const METRICS = {
   throughput: { label: 'Throughput', fmt: v => v + ' MB/s', good: 'high', ic: 'bolt' },
   height:     { label: 'Tree height', fmt: v => v, good: 'low', ic: 'layers' },
   fanout:     { label: 'Fan-out', fmt: v => v, good: 'high', ic: 'merge' },
+  splits:     { label: 'Node splits', fmt: v => v, ic: 'scale' },
+  indexes:    { label: 'Indexes', fmt: v => v, ic: 'search' },
+  blocks:     { label: 'Blocks', fmt: v => v, ic: 'file' },
+  fpr:        { label: 'False positives', fmt: v => v + '%', good: 'low', ic: 'alert' },
+  bits:       { label: 'Bits / key', fmt: v => v, ic: 'listOrdered' },
 };
 
 export function renderHud(metrics, show, prev) {
