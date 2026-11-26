@@ -154,7 +154,7 @@ Each atom = the data file + its viewer page wired. Parity targets from
 - **V2 · Learning Path** (`modules/learning-path.js`) — ordered route. *Dep:* module set.
 - **V3 · Search** (`modules/search.js`) — global, over B8 index. *Dep:* **B8.**
 - **V4 · Review Center** (`modules/review.js`) — spaced repetition over misses. *Dep:* B1–B5.
-- **V5 · Study Hub** (`modules/study.js`) — all IQ aggregated. *Dep:* module set + banks.
+- **V5 · Study Hub** ✅ (`modules/study.js` + `data/iq-aggregate.js`) — all 225 IQ across 22 modules aggregated; section/module/keyword filters + in-place edit (spark:iedit). *Dep:* module set + banks.
 
 ---
 
@@ -197,7 +197,7 @@ P1 P2 P3                                                   (polish)
 - [x] M12 ✅ (E1 three-modes live) [x] M13 ✅ (simulated dedup — labeled) [x] M14 ✅ (sink explorer) [x] M15 ✅ (E2 WAL stepper) [x] M16 ✅ (E2 crash/recover) [x] M17 ✅ (enrichment lookup) [x] M18 ✅ (E3 join engine) [x] M19 ✅ (MERGE upsert demo) [x] M20 ✅ (tuning sandbox) [x] M21 ✅ (E1 live dashboard) [x] M22 ✅ (E1+E2+E3 end-to-end pipeline — all three engines composed)
 - [x] R1 ✅ (22-node clickable dependency graph + ShopStream overlay) [x] R2 ✅ (SS vs Flink vs KStreams vs DStreams) [x] R3 ✅ (110 terms, searchable, module-linked) [x] R4 ✅ (API surface + decision rules) [x] R5 ✅ (35 config knobs, searchable)
 - [x] B1 ✅ (103 quiz Qs + flow) [x] B2 ✅ (31 coding problems) [x] B3 ✅ (16 decision drills) [x] B4 ✅ (13 incident labs) [x] B5 ✅ (16 tiered answers) [x] B6 ✅ (22 self-explain prompts) [x] B7 ✅ (45-min mock interview) [x] B8 ✅ (188-entry search index + viewer; V3 search surface delivered)
-- [ ] V1  [ ] V2  [ ] V3  [ ] V4  [ ] V5
+- [ ] V1  [ ] V2  [x] V3  [ ] V4  [x] V5
 - [ ] P1  [ ] P2  [ ] P3
 
 **Start here:** E1 (the micro-batch keystone engine + tests) — then L1 proves the
