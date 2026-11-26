@@ -45,6 +45,16 @@ import { renderPageCacheScene } from './db/page-cache-scene.js';
 import { renderDiskIoScene } from './db/disk-io-scene.js';
 import { renderSequentialVsRandomIoScene } from './db/sequential-vs-random-io-scene.js';
 import { renderBTreeScene } from './db/b-tree-scene.js';
+import { renderBPlusTreeScene } from './db/b-plus-tree-scene.js';
+import { renderBPlusTreeSearchScene } from './db/b-plus-tree-search-scene.js';
+import { renderBPlusTreeInsertScene } from './db/b-plus-tree-insert-scene.js';
+import { renderBPlusTreeDeleteScene } from './db/b-plus-tree-delete-scene.js';
+import { renderBPlusTreeRootSplitScene } from './db/b-plus-tree-root-split-scene.js';
+import { renderMemtableWalScene } from './db/memtable-wal-scene.js';
+import { renderSstableScene } from './db/sstable-scene.js';
+import { renderBloomFilterScene } from './db/bloom-filter-scene.js';
+import { renderLsmCompactionScene } from './db/lsm-compaction-scene.js';
+import { renderIndexTypesScene } from './db/index-types-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -87,6 +97,16 @@ import { pageCacheLesson } from './content/page-cache.js';
 import { diskIoLesson } from './content/disk-io.js';
 import { sequentialVsRandomIoLesson } from './content/sequential-vs-random-io.js';
 import { bTreeLesson } from './content/b-tree.js';
+import { bPlusTreeLesson } from './content/b-plus-tree.js';
+import { bPlusTreeSearchLesson } from './content/b-plus-tree-search.js';
+import { bPlusTreeInsertLesson } from './content/b-plus-tree-insert.js';
+import { bPlusTreeDeleteLesson } from './content/b-plus-tree-delete.js';
+import { bPlusTreeRootSplitLesson } from './content/b-plus-tree-root-split.js';
+import { memtableWalLesson } from './content/memtable-wal.js';
+import { sstableLesson } from './content/sstable.js';
+import { bloomFilterLesson } from './content/bloom-filter.js';
+import { lsmCompactionLesson } from './content/lsm-compaction.js';
+import { indexTypesLesson } from './content/index-types.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -131,6 +151,16 @@ const LESSONS = {
   'disk-io': diskIoLesson,
   'sequential-vs-random-io': sequentialVsRandomIoLesson,
   'b-tree': bTreeLesson,
+  'b-plus-tree': bPlusTreeLesson,
+  'b-plus-tree-search': bPlusTreeSearchLesson,
+  'b-plus-tree-insert': bPlusTreeInsertLesson,
+  'b-plus-tree-delete': bPlusTreeDeleteLesson,
+  'b-plus-tree-root-split': bPlusTreeRootSplitLesson,
+  'memtable-wal': memtableWalLesson,
+  'sstable': sstableLesson,
+  'bloom-filter': bloomFilterLesson,
+  'lsm-compaction': lsmCompactionLesson,
+  'index-types': indexTypesLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -174,6 +204,16 @@ const SCENES = {
   'disk-io': renderDiskIoScene,
   'sequential-vs-random-io': renderSequentialVsRandomIoScene,
   'b-tree': renderBTreeScene,
+  'b-plus-tree': renderBPlusTreeScene,
+  'b-plus-tree-search': renderBPlusTreeSearchScene,
+  'b-plus-tree-insert': renderBPlusTreeInsertScene,
+  'b-plus-tree-delete': renderBPlusTreeDeleteScene,
+  'b-plus-tree-root-split': renderBPlusTreeRootSplitScene,
+  'memtable-wal': renderMemtableWalScene,
+  'sstable': renderSstableScene,
+  'bloom-filter': renderBloomFilterScene,
+  'lsm-compaction': renderLsmCompactionScene,
+  'index-types': renderIndexTypesScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };

@@ -256,31 +256,31 @@ export const CATALOG = [
         "slug": "b-plus-tree",
         "title": "B+ Tree",
         "icon": "🌳",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-search",
         "title": "B+ Tree Search",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-insert",
         "title": "B+ Tree Insert",
         "icon": "➕",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-delete",
         "title": "B+ Tree Delete",
         "icon": "➖",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-root-split",
         "title": "B+ Tree Split",
         "icon": "✂️",
-        "built": false
+        "built": true
       },
       {
         "slug": "lsm-tree",
@@ -292,31 +292,31 @@ export const CATALOG = [
         "slug": "memtable-wal",
         "title": "MemTable & WAL",
         "icon": "🧠",
-        "built": false
+        "built": true
       },
       {
         "slug": "sstable",
         "title": "SSTable",
         "icon": "🗄️",
-        "built": false
+        "built": true
       },
       {
         "slug": "bloom-filter",
         "title": "Bloom Filter",
         "icon": "🌸",
-        "built": false
+        "built": true
       },
       {
         "slug": "lsm-compaction",
         "title": "LSM Compaction",
         "icon": "🗜️",
-        "built": false
+        "built": true
       },
       {
         "slug": "index-types",
         "title": "Index Types",
         "icon": "🗂️",
-        "built": false
+        "built": true
       },
       {
         "slug": "connection-pooling",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 40;
+export const BUILT_COUNT = 50;
