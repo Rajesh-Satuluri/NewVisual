@@ -40,8 +40,8 @@ export function renderBPlusTreeScene(snap, opts = {}) {
 
   const grid = isoGrid(VW / 2, 250, 30, 20, 30);
 
-  const bottomTip = (n) => V(n.cx, n.cy + n.ry * 0.5 + n.bodyH);
-  const topCorner = (n) => V(n.cx, n.cy - n.ry * 0.5);
+  const bottomTip = (n) => V(n.verts.Sb.x, n.verts.Sb.y - 2);
+  const topCorner = (n) => V(n.verts.N.x, n.verts.N.y + 2);
 
   /* draw a node cube; returns the rendered ref with its spec merged in */
   function node(spec, mat, { sub, halo, ghost } = {}) {
