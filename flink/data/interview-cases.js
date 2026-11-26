@@ -15,6 +15,96 @@
 // =====================================================================
 
 export const INTERVIEW_CASES = [
+  // ---------------- Complex Event Processing (m17b) ----------------
+  {
+    id: 'cep-card-testing', module: 'm17b', concept: 'cep', difficulty: 'hard',
+    scenario: 'Fraud wants an alert when a user has ≥2 failed card attempts followed by a ride start within 2 minutes (classic card-testing). GPS pings and other events stream in between the payment events.',
+    breaks: 'A single-event filter can\'t see the sequence; a tumbling window misses episodes that straddle a boundary and loses the "followed by" ordering. Strict contiguity (next) would break on the GPS pings in between.',
+    answer: `This is textbook <strong>CEP</strong>. Express it as <code>payment-failed.timesOrMore(2).followedBy(ride-started).within(2 min)</code> — or the SQL <code>MATCH_RECOGNIZE (PATTERN (F{2,} R) WITHIN INTERVAL '2' MINUTE)</code>. <strong>followedBy</strong> (relaxed contiguity) lets the GPS pings sit between the failures and the ride without breaking the match; <strong>within</strong> enforces the 2-minute bound and expires stale partial matches by the watermark. Flink compiles this to an NFA over the per-user keyed stream, with partial matches in keyed state.`,
+    config: ['PATTERN (F{2,} R)', 'WITHIN INTERVAL', 'followedBy'],
+    anchor: { stage: 'PAYMENT_COMPLETED' },
+  },
+  {
+    id: 'cep-alert-storm', module: 'm17b', concept: 'cep', difficulty: 'medium',
+    scenario: 'The CEP card-testing detector fires ~15 near-duplicate alerts for one user within seconds during a single fraud episode, flooding the on-call channel.',
+    breaks: 'With the default NO_SKIP strategy, the NFA emits every possible overlapping match of the pattern, so one episode becomes a storm of alerts.',
+    answer: `Set the <strong>after-match skip strategy</strong> to <strong>SKIP_PAST_LAST_EVENT</strong> (SQL: <code>AFTER MATCH SKIP PAST LAST ROW</code>). It resumes the NFA after the matched sequence's last event, producing <strong>non-overlapping</strong> matches — one episode, one alert. NO_SKIP emits all overlaps; SKIP_TO_NEXT only trims matches starting at the same event. A downstream per-user cooldown/dedupe is a reasonable secondary guard, but the root cause is the skip strategy, and widening the <code>within</code> window would make it worse, not better.`,
+    config: ['AFTER MATCH SKIP PAST LAST ROW', 'AfterMatchSkipStrategy'],
+    anchor: { stage: 'PAYMENT_COMPLETED' },
+  },
+
+  // ---------------- Async I/O & ProcessFunction (m06b) ----------------
+  {
+    id: 'async-enrichment', module: 'm06b', concept: 'async-io', difficulty: 'hard',
+    scenario: 'R-4471\'s pings must be enriched with a driver profile from an external store (~8ms/call). The first build uses a synchronous map() and is pinned at a tiny throughput with heavy backpressure, even after scaling parallelism.',
+    breaks: 'A synchronous call blocks the subtask per record, so throughput is 1/latency per subtask no matter how you scale — and more parallelism just opens more idle, blocked connections.',
+    answer: `Replace the blocking <code>map()</code> with <strong>Async I/O</strong> (<code>AsyncDataStream.unordered_wait</code>). It keeps up to <strong>capacity</strong> requests in flight per subtask, so throughput becomes ≈ capacity/latency. Use <strong>unordered</strong> since order doesn't matter downstream; set a <strong>capacity</strong> high enough for throughput but gentle on the store; and implement the <strong>timeout</strong> handler (complete with a default or retry) so a slow response can't fail the job. Crucially the client must be genuinely non-blocking — otherwise you've just moved the blocking into a thread pool.`,
+    config: ['AsyncDataStream.unordered_wait', 'capacity', 'timeout'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'proc-stuck-ride', module: 'm06b', concept: 'processfunction', difficulty: 'medium',
+    scenario: 'Product wants an alert when a ride is marked started but never completes within 30 minutes. R-4471 normally completes; some rides silently never do, and today nothing catches them.',
+    breaks: 'Windowing can\'t express "fire only if a follow-up event is absent" cleanly, and a naive approach forgets that the alert must be replay-safe and survive failures.',
+    answer: `Use a <strong>KeyedProcessFunction</strong>. On <code>RIDE_STARTED</code>, register an <strong>event-time timer</strong> 30 minutes ahead and store the deadline in keyed state; on <code>RIDE_COMPLETED</code>, clear it. If the watermark passes the deadline first, <code>onTimer()</code> fires and emits a "stuck ride" alert. Event-time timers make this correct under replay/out-of-order data, and because timers are per-key and <strong>checkpointed</strong>, pending alerts survive a restart. Route the alerts (or any late pings) through a <strong>side output</strong> to keep the main stream clean.`,
+    config: ['KeyedProcessFunction', 'registerEventTimeTimer', 'OutputTag'],
+    anchor: { stage: 'RIDE_STARTED' },
+  },
+
+  // ---------------- State Backends & RocksDB (m11b) ----------------
+  {
+    id: 'rdb-gc-pauses', module: 'm11b', concept: 'state-backends', difficulty: 'hard',
+    scenario: 'R-4471\'s fraud job holds per-driver state for millions of drivers on HashMapStateBackend. Latency p99 spikes every few minutes, and the TaskManager logs show multi-second stop-the-world GC pauses; occasionally a TM OOMs.',
+    breaks: 'Hundreds of GB of keyed state as Java objects on the JVM heap is a GC and memory disaster — you cannot tune your way out of it, and full checkpoints serialize the entire heap.',
+    answer: `The root cause is the <strong>state backend</strong>, not the GC flags. Move to <strong>EmbeddedRocksDBStateBackend</strong>: state goes off-heap onto local disk, so the heap stays small and stable (no more stop-the-world pauses), and RocksDB's block cache/write buffers come from <strong>managed memory</strong> sized to the container. Turn on <strong>incremental checkpoints</strong> so snapshots at this scale finish in seconds, and apply <strong>state TTL</strong> (cleanup in the compaction filter) to bound growth. Put the RocksDB local dir on fast NVMe.`,
+    config: ['state.backend.type: rocksdb', 'state.backend.incremental: true', 'taskmanager.memory.managed.fraction'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'rdb-incremental-ckpt', module: 'm11b', concept: 'state-backends', difficulty: 'medium',
+    scenario: 'After moving R-4471 to RocksDB, full checkpoints of ~300 GB of state take around 4 minutes and sometimes overrun the 2-minute interval, causing checkpoint failures.',
+    breaks: 'Re-uploading the entire 300 GB every checkpoint cannot fit a short interval. Lengthening the interval only increases how much you reprocess on recovery.',
+    answer: `Enable <strong>incremental checkpoints</strong>. RocksDB SST files are <strong>immutable</strong>, so an incremental checkpoint uploads only the SSTs created since the last checkpoint and references the already-uploaded ones; full state is rebuilt from the chain. For 300 GB where only a slice changes each interval, upload volume collapses and checkpoints finish in seconds. This is distinct from <em>unaligned</em> checkpoints, which address barrier-alignment stalls under backpressure, not upload volume.`,
+    config: ['state.backend.incremental: true', 'execution.checkpointing.interval'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+
+  // ---------------- Deployment & Kubernetes (m18c) ----------------
+  {
+    id: 'dep-session-blast', module: 'm18c', concept: 'deployment', difficulty: 'medium',
+    scenario: 'To cut cost, R-4471\'s fraud, surge and ETA jobs were all deployed into one Session cluster. One night the ETA job has a memory leak, the TaskManager OOMs, and the JobManager restarts — and fraud scoring goes dark at the same instant.',
+    breaks: 'Session mode shares one JobManager and one TaskManager pool across all jobs. An OOM or JM restart is cluster-wide, so an unrelated job (ETA) takes down the critical one (fraud). "Saving money" bought a shared point of failure.',
+    answer: `The root cause is the <strong>deployment mode</strong>, not the leak. Session mode couples every job's fate through a shared JobManager + slot pool, so the blast radius is the whole cluster. The fix is <strong>Application mode</strong> — one dedicated cluster per job (own JM + TMs + classpath), ideally managed by the Kubernetes Operator so each has an independent lifecycle and upgrade path. Keep Session mode for short/ad-hoc jobs where instant submission matters more than isolation.`,
+    config: ['execution.target=kubernetes-application', 'kubernetes.cluster-id'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'dep-last-state-upgrade', module: 'm18c', concept: 'deployment', difficulty: 'hard',
+    scenario: 'A bad config push puts R-4471\'s fraud job into a crash loop. You have the fix, but the job won\'t stay up long enough to take a savepoint — and you cannot afford to lose the per-driver fraud state.',
+    breaks: 'The default savepoint upgrade mode needs a healthy job to drain and snapshot. A crash-looping job may never get there, so a savepoint-only process stalls while the incident drags on.',
+    answer: `Use the operator's <code>upgradeMode: last-state</code>. Instead of a clean savepoint, it restarts the job from the <strong>latest completed checkpoint</strong> recorded in the Kubernetes HA ConfigMap — which works even when the job is too unhealthy to savepoint. Apply the fixed FlinkDeployment and the operator redeploys the new image and restores state from that checkpoint. Reserve <code>stateless</code> for when state is genuinely disposable; here it is not.`,
+    config: ['upgradeMode: last-state', 'high-availability.type: kubernetes'],
+    anchor: { stage: 'JOB_UPGRADE' },
+  },
+
+  // ---------------- Monitoring & Observability (m18b) ----------------
+  {
+    id: 'mon-frozen-windows', module: 'm18b', concept: 'monitoring', difficulty: 'hard',
+    scenario: 'During R-4471’s ride, the Grafana dashboard shows throughput steady at ~1M pings/sec, but downstream nobody has seen a new surge-price update in 90 seconds. On-call is told "throughput is fine, must be a UI bug."',
+    breaks: 'Throughput measures volume, not freshness. Windows can stop firing while records still flow — so a volume-only view declares the job healthy while event-time results are frozen.',
+    answer: `This is a <strong>watermark lag</strong> incident, not a throughput one. The tell is <code>currentOutputWatermark</code> stalling while <code>numRecordsInPerSecond</code> stays high. The usual cause is an <strong>idle source partition</strong> (an operator’s watermark is the MIN across inputs, so one silent partition pins the global watermark) or a watermark held back by out-of-orderness. Confirm by charting <code>now() − currentOutputWatermark</code>; fix the idle-partition case with <code>WatermarkStrategy.withIdleness(...)</code>. Lesson for the dashboard: <strong>watermark lag belongs next to throughput</strong>, and it is the one you page on for freshness.`,
+    config: ['currentOutputWatermark', 'WatermarkStrategy.withIdleness', 'metrics.reporter.prom'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+  {
+    id: 'mon-locate-bottleneck', module: 'm18b', concept: 'monitoring', difficulty: 'medium',
+    scenario: 'R-4471’s pipeline (Kafka Source → Parse → KeyBy·Fraud Window → Alerts Sink) is lagging. The backpressure tab shows Source and Parse HIGH, the Fraud Window busy ~100% with LOW backpressure, and the Sink idle.',
+    breaks: 'Teams often "fix" the operator with the highest backpressure (Source/Parse) and scale it up — which does nothing, because those operators are merely blocked waiting on something downstream.',
+    answer: `Read it from the <strong>sink backward</strong>: the bottleneck is the <strong>first operator that is busy but NOT backpressured</strong> — here, the <strong>Fraud Window</strong>. Source and Parse are backpressured because they are blocked handing records to the window; the Sink is idle because it is starved. The fix targets the window: raise its parallelism, or reduce its per-key state cost (RocksDB tuning, lighter state). Scaling the Source would only feed the same bottleneck faster.`,
+    config: ['busyTimeMsPerSecond', 'backPressuredTimeMsPerSecond'],
+    anchor: { stage: 'LOCATION_UPDATED' },
+  },
+
   // ---------------- Watermarks (m09) ----------------
   {
     id: 'wm-late-event', module: 'm09', concept: 'watermarks', difficulty: 'medium',

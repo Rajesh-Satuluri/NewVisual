@@ -1,3 +1,5 @@
+import { applyOverrideTo } from './iq-overrides.js';
+
 export function createModuleShell({ tag, title, subtitle, tabs }) {
   return `
     <div class="module-shell">
@@ -18,15 +20,19 @@ export function createModuleShell({ tag, title, subtitle, tabs }) {
 // more than one IQ list.
 let iqSeq = 0;
 
-export function createIQSection(IQ) {
+export function createIQSection(IQ, moduleId) {
   const p = `iq${++iqSeq}`;
+  // When a moduleId is given, merge in any edits the user made in the Study Hub
+  // so a question reads the same in both places. Original content is untouched.
+  const view = (item, i) => (moduleId ? applyOverrideTo(item, moduleId, i) : item);
   return `
     <div class="iq-list">
-      ${IQ.map((item, i) => `
-        <div class="iq-item">
+      ${IQ.map((raw, i) => { const item = view(raw, i); return `
+        <div class="iq-item${item.edited ? ' iqe-edited' : ''}">
           <button class="iq-question" aria-expanded="false" aria-controls="${p}-a${i}" id="${p}-q${i}">
             <span class="iq-num">Q${i + 1}</span>
             <span>${item.q}</span>
+            ${item.edited ? '<span class="iqe-badge" title="You edited this in the Study Hub">edited</span>' : ''}
             <span class="iq-chevron" aria-hidden="true">▾</span>
           </button>
           <div class="iq-answer" id="${p}-a${i}" role="region" aria-labelledby="${p}-q${i}">
@@ -34,7 +40,7 @@ export function createIQSection(IQ) {
             ${item.tip ? `<div class="iq-tip">💡 ${item.tip}</div>` : ''}
           </div>
         </div>
-      `).join('')}
+      `; }).join('')}
     </div>
   `;
 }

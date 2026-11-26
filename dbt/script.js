@@ -7,6 +7,8 @@ import { maybeRunTour } from './components/tour.js';
 import { createQuiz, initQuiz } from './components/quiz.js';
 import { QUIZ_BANK } from './data/quiz-bank.js';
 import { MODULE_FILES } from './data/loader-map.js';
+import { initCloudSync } from './components/cloudsync.js';
+import { initCloudSyncUI } from './components/cloudsync-ui.js';
 
 const done = new Set(JSON.parse(localStorage.getItem('dbt-done') || '[]'));
 let currentId = null;
@@ -201,5 +203,9 @@ document.getElementById('search-btn')?.addEventListener('click', () => palette.o
 document.getElementById('help-btn')?.addEventListener('click', () => {
   try { maybeRunTour({ force: true }); } catch (e) {}
 });
+
+// Cross-device cloud sync (optional; inert until a sync code is linked).
+try { initCloudSyncUI(); } catch (e) {}
+try { initCloudSync(); } catch (e) {}
 
 navigate(getHash()).then(() => { try { maybeRunTour(); } catch (e) {} });

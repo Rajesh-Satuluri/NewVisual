@@ -9,7 +9,7 @@
 // exact SQL/DDL varies by adapter (run real SQL in the Coding Studio).
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'Walk me through what actually happens between typing `dbt run` and SQL hitting the warehouse.',
     a: `Four stages, and only the last one touches the warehouse:
@@ -421,5 +421,5 @@ export function mount(container) {
   container.querySelector('#tab-jinja').innerHTML     = jinjaHTML();
   container.querySelector('#tab-state').innerHTML     = stateHTML();
   container.querySelector('#tab-elt').innerHTML       = eltHTML();
-  container.querySelector('#tab-iq').innerHTML        = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML        = createIQSection(IQ, 'concepts');
 }

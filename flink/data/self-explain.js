@@ -3,6 +3,134 @@
 // words, then reveals the model answer and checks their explanation against keyPoints.
 
 export const SELF_EXPLAIN = {
+  m17b: [
+    {
+      prompt: 'Explain to a teammate why detecting "2 failed card attempts then a ride start within 2 minutes" needs CEP rather than a filter or a window aggregate.',
+      keyPoints: [
+        'The signal is a sequence with order + timing, not a single event',
+        'CEP compiles a pattern to an NFA over a keyed, watermarked stream',
+        'within() bounds the whole match; partial matches expire by watermark',
+        'followedBy allows unrelated events (GPS pings) between the stages',
+      ],
+      modelAnswer: `<p>A filter only looks at one event at a time, and a plain window aggregate counts/sums — neither captures an <strong>ordered sequence with a timing constraint</strong>. The fraud signal here is relational: <em>failure, then another failure, then a ride start, all close together in time</em>.</p>
+<p><strong>CEP</strong> expresses that directly: a pattern of <code>payment-failed{2,}</code> <code>followedBy</code> <code>ride-started</code> <code>within 2 minutes</code>. Flink compiles it to an <strong>NFA</strong> that runs per user over the <strong>watermarked</strong> stream, keeping partial matches in keyed state. <code>followedBy</code> (relaxed contiguity) means harmless events like GPS pings between the failures and the ride don't break the match, and <code>within</code> expires partial matches once the window passes — so only a genuine burst fires an alert.</p>
+<p>Doing this by hand with state + timers is possible but error-prone; CEP (or SQL MATCH_RECOGNIZE) makes the pattern declarative and readable.</p>`,
+    },
+    {
+      prompt: 'In your own words, explain how after-match skip strategy and the within window together keep fraud alerts clean, and why CEP depends on watermarks.',
+      keyPoints: [
+        'within bounds the match in event time; stale partials expire',
+        'SKIP_PAST_LAST_EVENT = non-overlapping matches (one alert per episode)',
+        'CEP sorts by event time and advances on the watermark',
+        'Idle partitions / out-of-orderness affect CEP like windows',
+      ],
+      modelAnswer: `<p><code>within</code> keeps each match inside an event-time window, so a partial match (say one failed attempt) that ages out is discarded instead of lingering. The <strong>after-match skip strategy</strong> controls overlaps: with <code>SKIP_PAST_LAST_EVENT</code> the NFA resumes after the matched sequence, so one card-testing episode raises <strong>one</strong> alert rather than a flood of overlapping ones (<code>NO_SKIP</code> would emit every overlap).</p>
+<p>CEP is fundamentally <strong>watermark-driven</strong>: the engine sorts events into event-time order and only advances matches — and fires <code>within</code> timeouts — as the watermark progresses, so out-of-order events are handled correctly. That means the watermark lessons carry over: an idle source partition holding the watermark back will stall matching, and events beyond the allowed out-of-orderness count as late. Tune watermarks for CEP exactly as you would for windows.</p>`,
+    },
+  ],
+  m06b: [
+    {
+      prompt: 'Explain to a teammate why enriching R-4471\'s GPS pings with a synchronous map() call to the driver store fails at 1M pings/sec, and what you would do instead.',
+      keyPoints: [
+        'Sync map blocks per record — throughput = 1/latency per subtask',
+        'Async I/O keeps many requests in flight — throughput ≈ capacity/latency',
+        'Set capacity and a timeout handler; backpressure kicks in at capacity',
+        'Needs a genuinely non-blocking client to help',
+      ],
+      modelAnswer: `<p>A synchronous <code>map()</code> issues the lookup and <strong>waits</strong> for the reply before touching the next record, so each subtask does one request at a time. Throughput is pinned at <strong>1 / latency</strong> — with a 10ms lookup that is ~100 records/sec per subtask, nowhere near 1M/sec. The incoming queue just backs up.</p>
+<p>The fix is <strong>Async I/O</strong>: issue many lookups concurrently and complete each via a future, so throughput rises to roughly <strong>capacity / latency</strong>. I would use <code>unordered_wait</code> (unless downstream needs input order), set a <strong>capacity</strong> high enough for throughput but kind to the store, and always implement the <strong>timeout</strong> handler (default/retry) so a slow response can't fail the job. Flink backpressures once capacity is full.</p>
+<p>Crucial caveat: this only helps with a <strong>genuinely non-blocking client</strong> — wrapping a blocking JDBC call in Async I/O just hides the blocking in a thread pool.</p>`,
+    },
+    {
+      prompt: 'In your own words, explain how you would detect a "stuck ride" (started but never completed) and how side outputs help keep the pipeline robust.',
+      keyPoints: [
+        'KeyedProcessFunction with an event-time timer set at ride start',
+        'onTimer fires if no completion arrived → emit alert',
+        'Timers are per-key and checkpointed',
+        'Side outputs route late/bad records instead of dropping/crashing',
+      ],
+      modelAnswer: `<p>I would use a <strong>KeyedProcessFunction</strong> keyed by ride. On a <code>RIDE_STARTED</code> event I register an <strong>event-time timer</strong> 30 minutes out and store the deadline in keyed state. If a <code>RIDE_COMPLETED</code> arrives first I clear it; otherwise the watermark passes the deadline, <code>onTimer</code> fires, and I emit a "stuck ride" alert. Because timers are per-key and checkpointed, this survives failures.</p>
+<p><strong>Side outputs</strong> make the same pipeline robust: pings that arrive later than <code>allowedLateness</code> go to a late-data side output (kept for reconciliation, not dropped), and un-parseable pings go to a dead-letter side output so one malformed record never crashes the job. The main stream stays clean, and I read each branch with <code>get_side_output(tag)</code> — all in a single pass over the data.</p>`,
+    },
+  ],
+  m11b: [
+    {
+      prompt: 'In your own words, explain to a teammate why R-4471\'s per-driver fraud state (hundreds of GB) uses RocksDB rather than the heap-based HashMap backend.',
+      keyPoints: [
+        'HashMap keeps state on the JVM heap — bounded by RAM, heavy GC',
+        'RocksDB is off-heap + on local disk — holds far more than RAM',
+        'RocksDB supports incremental checkpoints (immutable SSTs)',
+        'Tradeoff: per-access serialization + possible disk read',
+      ],
+      modelAnswer: `<p>With millions of drivers, the fraud state is hundreds of GB — far more than we can or should keep on the JVM heap. <strong>HashMapStateBackend</strong> stores state as Java objects on heap, so that much state would blow memory and cause brutal GC pauses.</p>
+<p><strong>EmbeddedRocksDBStateBackend</strong> keeps state <strong>off-heap in an embedded RocksDB on local disk</strong>, so it scales well beyond RAM and its working memory (block cache, write buffers) comes from Flink's managed memory rather than the heap — no GC storm. Crucially, it supports <strong>incremental checkpoints</strong>: because SST files are immutable, each checkpoint uploads only the SSTs created since the last one, turning a multi-minute snapshot into seconds.</p>
+<p>The price is a serialization step (and sometimes a disk read) on every state access — a fair trade for unbounded, operable state. A tiny per-city counter could stay on HashMap for raw speed; the big per-driver state belongs in RocksDB.</p>`,
+    },
+    {
+      prompt: 'Explain how a write travels through RocksDB\'s LSM tree and why "write amplification" is the price of keeping reads fast.',
+      keyPoints: [
+        'Write → WAL + active memtable',
+        'Full memtable flushes to an immutable SST in L0',
+        'Leveled compaction merges files down L0→L1→L2 (rewrites data)',
+        'Rewrites = write amplification; the payoff is low read/space amplification',
+      ],
+      modelAnswer: `<p>A write first appends to the <strong>WAL</strong> (for durability) and updates the in-memory <strong>active memtable</strong>. When the memtable fills, it becomes immutable and is <strong>flushed</strong> to a new immutable <strong>SST file</strong> in level <strong>L0</strong>.</p>
+<p>Over time L0 accumulates files, so <strong>leveled compaction</strong> merges them into fewer, larger, sorted SSTs in L1, then L2, and so on. Each merge <strong>rewrites</strong> the data, so a single logical byte ends up physically written several times — that is <strong>write amplification</strong>.</p>
+<p>The payoff is that reads stay fast: data is sorted into a few non-overlapping files per level, and bloom filters let a lookup skip files that can't contain the key. So we spend background write I/O (amplification) to buy low read amplification and bounded space — the fundamental LSM bargain.</p>`,
+    },
+  ],
+  m18c: [
+    {
+      prompt: 'A teammate wants to run R-4471\'s long-running fraud, surge and ETA jobs all together in one Session cluster "to save money." Explain, in your own words, the risk and what you would do instead.',
+      keyPoints: [
+        'Session shares one JobManager (single point of failure) + a TaskManager pool',
+        'No isolation: one job\'s OOM/classloader leak or slot hunger hurts the others',
+        'Application mode gives each job its own cluster + independent upgrades',
+        'Session is right for many short/ad-hoc jobs, not critical long-running ones',
+      ],
+      modelAnswer: `<p>Session mode runs all jobs on a <strong>shared JobManager and a shared TaskManager slot pool</strong>. That couples their fates: if the JobManager pod dies, <em>every</em> job goes down at once; a classloader leak or OOM in the ETA job can destabilize fraud and surge; and a greedy job can consume slots the others need.</p>
+<p>For <strong>critical, long-running</strong> jobs I would use <strong>Application mode</strong> (one dedicated cluster per application) — ideally via the Kubernetes Operator. Each job then has its own JobManager and TaskManagers, its own classpath, and an independent upgrade/rollback lifecycle, so a problem in one is contained.</p>
+<p>Session mode is the right tool for <em>many short or ad-hoc jobs</em> (notebooks, backfills) where instant submission matters more than isolation — not for the production pipelines that page you at 3am.</p>`,
+    },
+    {
+      prompt: 'Explain how the Flink Kubernetes Operator upgrades a running job when you change its image tag, and how that relates to savepoints.',
+      keyPoints: [
+        'You edit the FlinkDeployment spec and kubectl apply it',
+        'Operator reconciliation detects the diff and drives an upgrade',
+        'savepoint upgradeMode = stop-with-savepoint → redeploy → restore',
+        'last-state uses the latest checkpoint when the job can\'t savepoint',
+      ],
+      modelAnswer: `<p>Upgrades are <strong>declarative</strong>. You change the image tag (or parallelism) in the <code>FlinkDeployment</code> YAML and <code>kubectl apply</code> it. The operator's <strong>reconciliation loop</strong> observes that desired state no longer matches actual state and drives the upgrade.</p>
+<p>With <code>upgradeMode: savepoint</code>, it performs a clean <strong>stop-with-savepoint</strong> (drain in-flight records, take a canonical savepoint), redeploys the new image, and restores state from that savepoint — exactly the planned-upgrade flow from the savepoints module, now automated. With <code>upgradeMode: last-state</code>, it instead restarts from the latest completed checkpoint via HA metadata, which works even if the job is too unhealthy to savepoint.</p>
+<p>Rollback is symmetric: <code>git revert</code> the YAML and re-apply, and the operator brings the old version back from state.</p>`,
+    },
+  ],
+  m18b: [
+    {
+      prompt: 'An engineer says "throughput looks fine, so the job is healthy." Explain, in your own words, why that is not enough for ride R-4471, and what else you would check.',
+      keyPoints: [
+        'Throughput measures volume, not freshness',
+        'Watermark lag can be high while throughput is healthy (idle partition, held-back watermarks)',
+        'Backpressure can clamp throughput below input rate — check input vs throughput',
+        'Checkpoint duration/failures signal recovery risk even when flowing',
+      ],
+      modelAnswer: `<p>Throughput only tells you how many records per second are moving — it says nothing about whether the <strong>event-time results are current</strong> or whether the job is <strong>keeping up with its input</strong>.</p>
+<p>For R-4471, I would add three checks. First, <strong>watermark lag</strong> (now − currentOutputWatermark): a single idle Kafka partition or a held-back watermark can freeze window firing while throughput looks normal — surge pricing would then act on stale data. Second, <strong>input rate vs throughput</strong>: if throughput is pinned below the input rate, a bottleneck is clamping the job and backlog is silently growing. Third, <strong>checkpoint duration and failures</strong>: a climbing duration warns that barrier alignment is stalling under backpressure, risking a restart from an old checkpoint.</p>
+<p>"Healthy" means fresh results, keeping up with input, and safe recovery — not just a high records/sec number.</p>`,
+    },
+    {
+      prompt: 'Explain how you would locate the bottleneck in a slow Source → Map → Window → Sink job using only busyTime and backpressure metrics.',
+      keyPoints: [
+        'Walk the chain from the sink backward',
+        'Bottleneck = first operator busy (~100%) but NOT backpressured',
+        'Everything upstream of it is backpressured (blocked handing off)',
+        'Everything downstream is idle (starved)',
+      ],
+      modelAnswer: `<p>I read two metrics per operator: <code>busyTimeMsPerSecond</code> (time spent processing) and <code>backPressuredTimeMsPerSecond</code> (time blocked because output buffers were full), and I walk the graph <strong>from the sink backward</strong>.</p>
+<p>The <strong>bottleneck is the first operator that is busy (~1000ms/s) but not backpressured</strong>: it is working flat out and nothing downstream is holding it back. Every operator <em>upstream</em> of it will show high backpressure — they are blocked waiting to hand records off — and everything <em>downstream</em> will be idle, starved for input.</p>
+<p>So if the Window operator is pegged busy with low backpressure while Source and Map are backpressured and the Sink is idle, the fraud window is the bottleneck: add parallelism or optimize its state access. The metrics localize the problem without guessing.</p>`,
+    },
+  ],
   m01: [
     {
       prompt: 'In your own words, explain why Uber would reach for Apache Flink instead of a nightly batch job to power surge pricing and fraud detection on ride R-4471.',

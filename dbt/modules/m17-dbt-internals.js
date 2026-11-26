@@ -137,7 +137,7 @@ const STAGES = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Walk me through what happens internally when you run `dbt run`.',
     a: `A senior answer names the stages in order and what each produces:
@@ -186,7 +186,7 @@ export function mount(container) {
 
   buildPipeline(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm17');
 }
 
 function buildPipeline(container) {

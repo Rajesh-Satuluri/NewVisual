@@ -137,7 +137,7 @@ const FILE_ORDER = [
 ];
 const ICON = { sql: '🔹', yml: '⚙️', yaml: '⚙️' };
 
-const IQ = [
+export const IQ = [
   {
     q: 'Walk me through what `dbt run` actually does with your models.',
     a: `dbt <strong>compiles</strong> each model — Jinja like <code>{{ ref('stg_orders') }}</code> and
@@ -195,7 +195,7 @@ export function mount(container) {
 
   buildIDE(container);
   buildHow(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'project-ide');
 }
 
 function buildIDE(container) {

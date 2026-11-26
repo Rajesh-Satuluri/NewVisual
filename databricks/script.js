@@ -1,4 +1,4 @@
-import { MODULES, renderNav, updateProgress } from './components/nav.js';
+import { MODULES, SCENARIOS, SPECIAL_IDS, renderNav, updateProgress } from './components/nav.js';
 import { initTabs, initIQ } from './components/module-shell.js';
 import { initCommandPalette } from './components/command-palette.js';
 import { renderPager } from './components/pager.js';
@@ -6,6 +6,8 @@ import { toast } from './components/toast.js';
 import { maybeRunTour } from './components/tour.js';
 import { createQuiz, initQuiz } from './components/quiz.js';
 import { QUIZ_BANK } from './data/quiz-bank.js';
+import { initCloudSync } from './components/cloudsync.js';
+import { initCloudSyncUI } from './components/cloudsync-ui.js';
 
 // ── State ──────────────────────────────────────────────────────────────────
 const done = new Set(JSON.parse(localStorage.getItem('databricks-done') || '[]'));
@@ -15,6 +17,9 @@ let cleanupFn = null;
 // ── Module loaders ─────────────────────────────────────────────────────────
 const LOADERS = {
   study: () => import('./modules/study.js'),
+  decisions: () => import('./modules/decisions.js'),
+  incidents: () => import('./modules/incidents.js'),
+  tiered: () => import('./modules/tiered.js'),
   m01: () => import('./modules/m01-why-databricks.js'),
   m02: () => import('./modules/m02-lakehouse-architecture.js'),
   m03: () => import('./modules/m03-delta-lake-internals.js'),
@@ -28,12 +33,15 @@ const LOADERS = {
   m11: () => import('./modules/m11-mlflow-model-serving.js'),
   m12: () => import('./modules/m12-cost-performance.js'),
   m13: () => import('./modules/m13-interview.js'),
+  m14: () => import('./modules/m14-serverless.js'),
+  m15: () => import('./modules/m15-asset-bundles.js'),
+  m16: () => import('./modules/m16-genie-aibi.js'),
 };
 
 // ── Navigate ───────────────────────────────────────────────────────────────
 async function navigate(id) {
   let mod = MODULES.find(m => m.id === id);
-  if (!mod && id !== 'study') { id = MODULES[0].id; mod = MODULES[0]; }
+  if (!mod && !SPECIAL_IDS.has(id)) { id = MODULES[0].id; mod = MODULES[0]; }
 
   if (currentId === id) return;
 
@@ -42,11 +50,12 @@ async function navigate(id) {
   currentId = id;
   renderNav(id, done);
 
+  const scenario = SCENARIOS.find(s => s.id === id);
   const breadcrumb = document.getElementById('breadcrumb');
   if (breadcrumb) {
-    breadcrumb.innerHTML = id === 'study'
-      ? `Review &rsaquo; <strong>📚 Study Hub</strong>`
-      : `${mod.group} &rsaquo; <strong>${mod.label}</strong>`;
+    if (id === 'study') breadcrumb.innerHTML = `Review &rsaquo; <strong>📚 Study Hub</strong>`;
+    else if (scenario) breadcrumb.innerHTML = `Scenarios &rsaquo; <strong>${scenario.icon} ${scenario.label}</strong>`;
+    else breadcrumb.innerHTML = `${mod.group} &rsaquo; <strong>${mod.label}</strong>`;
   }
 
   const canvas = document.getElementById('module-canvas');
@@ -59,7 +68,7 @@ async function navigate(id) {
     const m = await loader();
     canvas.innerHTML = '';
     cleanupFn = m.mount(canvas) || null;
-    if (id !== 'study') { initTabs(canvas); initIQ(canvas); }
+    if (!SPECIAL_IDS.has(id)) { initTabs(canvas); initIQ(canvas); }
     enhanceModule(id);
     if (mod) markDone(id); // Study Hub is not a trackable module
   } catch (e) {
@@ -95,14 +104,14 @@ function markDone(id) {
     const mod = MODULES.find(m => m.id === id);
     if (mod) toast(`Module complete — ${mod.label}`, { icon: '✅' });
     const real = [...done].filter(x => MODULES.some(m => m.id === x)).length;
-    if (real === MODULES.length) toast('All 13 modules complete!', { icon: '🏆', duration: 4200 });
+    if (real === MODULES.length) toast(`All ${MODULES.length} modules complete!`, { icon: '🏆', duration: 4200 });
   }
 }
 
 // ── Router ─────────────────────────────────────────────────────────────────
 function getHash() {
   const h = location.hash.slice(1);
-  if (h === 'study') return 'study';
+  if (SPECIAL_IDS.has(h)) return h;
   return MODULES.find(m => m.id === h) ? h : MODULES[0].id;
 }
 
@@ -190,4 +199,6 @@ renderNav(null, done);
 updateProgress(done);
 navigate(getHash());
 initCommandPalette();
+initCloudSyncUI();
+initCloudSync();
 setTimeout(() => maybeRunTour(), 1000);

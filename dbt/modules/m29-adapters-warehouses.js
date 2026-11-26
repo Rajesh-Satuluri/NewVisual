@@ -63,7 +63,7 @@ const WH = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'How does dbt run the same model on Snowflake and BigQuery? What is the adapter\'s job?',
     a: `The <strong>adapter</strong> (dbt-snowflake, dbt-bigquery, …) translates dbt\'s materialization and config into each warehouse\'s dialect and DDL, and manages the connection/transaction.
@@ -101,7 +101,7 @@ export function mount(container) {
   });
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm29');
 }
 
 function buildLab(container) {

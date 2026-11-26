@@ -43,7 +43,7 @@
       outline: [
         { section: "Spark Execution Guide", topics: ["The Big Picture", "Submission & the Cluster Manager", "The Driver", "Lazy Evaluation & Lineage", "Actions vs Transformations", "Catalyst & Tungsten", "Jobs, Stages & Tasks", "Partitions & Tasks", "Narrow vs Wide & the Shuffle", "Executors & Containers", "Memory, Spill & OOM", "Data Locality", "Results & Teardown", "Adaptive Query Execution (AQE)", "Reading the Spark UI & explain()", "Failure & Resilience", "End to End — A Job's Complete Journey"] },
         { section: "Foundations",     topics: ["DataFrame Model & Lazy Eval", "Transformations vs Actions", "Schemas & Types"] },
-        { section: "Transformations", topics: ["Narrow vs Wide (Shuffle)", "GroupBy & Aggregations", "Joins & Broadcast", "Window Functions"] },
+        { section: "Transformations", topics: ["Narrow vs Wide (Shuffle)", "GroupBy & Aggregations", "Joins & Broadcast", "Join Strategies Lab", "Window Functions"] },
         { section: "Performance",     topics: ["Partitioning & Skew", "Caching & Persistence", "AQE & Tuning"] },
         { section: "Execution & Internals", topics: ["RDD API & reduceByKey vs groupByKey", "Jobs, Stages & Tasks", "Read Partitioning & Splits", "Reading explain()"] },
         { section: "Infrastructure & Deployment", topics: ["Cluster Sizing & Executor Config", "HDFS & Cloud Storage", "Deploy Modes & spark-submit", "File Formats & Compression"] },

@@ -37,7 +37,7 @@ const ENVS = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'One dbt project needs to run in dev and prod without changing code. How?',
     a: `Through <strong>targets</strong> in <code>profiles.yml</code> plus environment variables — the code never changes, only the resolved connection and output location.
@@ -77,7 +77,7 @@ export function mount(container) {
   });
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm28');
 }
 
 function buildLab(container) {

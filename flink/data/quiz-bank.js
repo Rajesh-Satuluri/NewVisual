@@ -3,6 +3,281 @@
 // Each: { q, options:[...], answer:<0-based index>, explanation }
 
 export const QUIZ_BANK = {
+  m17b: [
+    {
+      q: 'Flink CEP compiles a pattern into what, and where are partial matches kept?',
+      options: [
+        'A SQL view; in a database',
+        'A non-deterministic finite automaton (NFA); in keyed state',
+        'A thread pool; on the heap only',
+        'A window operator; in the block cache',
+      ],
+      answer: 1,
+      explanation: 'A Pattern compiles to an NFA that runs over the keyed, watermarked stream. Partial matches live in keyed state and are advanced/expired by the watermark.',
+    },
+    {
+      q: 'You want "two failed payments, then eventually a ride start (other events may occur in between)". Which contiguity do you use?',
+      options: [
+        'next (strict)',
+        'followedBy (relaxed)',
+        'notFollowedBy',
+        'union',
+      ],
+      answer: 1,
+      explanation: 'followedBy is relaxed contiguity — non-matching events between the stages are skipped. next would require the ride start to be the very next event, breaking on any GPS ping in between.',
+    },
+    {
+      q: 'What does within(Time) do, and what happens to partial matches that exceed it?',
+      options: [
+        'Nothing; it is advisory only',
+        'Bounds the whole pattern to an event-time window; over-age partial matches are discarded (optionally to a timed-out side output)',
+        'Deletes the whole stream after the time',
+        'Converts the pattern to processing time',
+      ],
+      answer: 1,
+      explanation: 'within bounds the entire match to an event-time window measured against the watermark. Partial matches older than the window are discarded; you can capture them via a timed-out side output instead of losing them.',
+    },
+    {
+      q: 'For a fraud alert, which after-match skip strategy gives one alert per episode (non-overlapping matches)?',
+      options: [
+        'NO_SKIP',
+        'SKIP_TO_NEXT',
+        'SKIP_PAST_LAST_EVENT',
+        'There is no such control',
+      ],
+      answer: 2,
+      explanation: 'SKIP_PAST_LAST_EVENT resumes the NFA after the matched sequence\'s last event, producing non-overlapping matches — so one card-testing episode raises one alert instead of a flood of overlapping ones.',
+    },
+    {
+      q: 'MATCH_RECOGNIZE in Flink SQL is:',
+      options: [
+        'A different engine unrelated to the CEP library',
+        'A declarative SQL surface for CEP using the same NFA engine underneath',
+        'Only for batch queries',
+        'A way to define windows',
+      ],
+      answer: 1,
+      explanation: 'MATCH_RECOGNIZE expresses patterns declaratively (PARTITION BY / ORDER BY / PATTERN / DEFINE / MEASURES / AFTER MATCH SKIP / WITHIN) and runs on the same NFA engine as the Pattern API — just far more readable.',
+    },
+  ],
+  m06b: [
+    {
+      q: 'You enrich 1M pings/sec with a 10ms external lookup using a synchronous map(). Throughput per subtask is capped at roughly:',
+      options: ['1,000,000/sec', '100/sec (1 / 10ms)', 'Unlimited', '10,000/sec'],
+      answer: 1,
+      explanation: 'A synchronous call blocks the subtask until it returns, so throughput = 1/latency = 1/10ms = 100 records/sec per subtask. Async I/O keeps many requests in flight, lifting this to ~capacity/latency.',
+    },
+    {
+      q: 'Which Async I/O mode gives the highest throughput, and what is its tradeoff?',
+      options: [
+        'Ordered — it preserves input order with no cost',
+        'Unordered — emits results as they return, but output order ≠ input order',
+        'They are identical',
+        'Ordered — it is always faster',
+      ],
+      answer: 1,
+      explanation: 'unordered_wait emits each result the moment it completes (fastest, lowest latency) but does not preserve input order. ordered_wait buffers completed results until predecessors finish, adding head-of-line latency.',
+    },
+    {
+      q: 'In Async I/O, what happens when the number of in-flight requests reaches capacity?',
+      options: [
+        'New records are dropped',
+        'The job fails',
+        'Flink applies backpressure upstream until a slot frees',
+        'Capacity is automatically doubled',
+      ],
+      answer: 2,
+      explanation: 'Capacity bounds in-flight requests per subtask. Once full, Flink backpressures upstream rather than issuing more requests — which is why capacity (not just latency) governs throughput.',
+    },
+    {
+      q: 'You need to emit a "stuck ride" alert if no RIDE_COMPLETED event arrives within 30 minutes of RIDE_STARTED. The right tool is:',
+      options: [
+        'A tumbling window',
+        'A KeyedProcessFunction with an event-time timer and onTimer callback',
+        'A filter()',
+        'Async I/O',
+      ],
+      answer: 1,
+      explanation: 'Register an event-time timer at ride start; if the completion event clears it first, cancel/ignore, otherwise onTimer fires and emits the alert. Timers + keyed state are exactly what ProcessFunction provides.',
+    },
+    {
+      q: 'What is the idiomatic way to keep un-parseable records from crashing the job while preserving them for later?',
+      options: [
+        'Wrap everything in try/except and log',
+        'Route them to a side output (OutputTag) as a dead-letter stream',
+        'Increase parallelism',
+        'Drop them silently',
+      ],
+      answer: 1,
+      explanation: 'A side output (OutputTag) gives a separate typed stream for bad records — a dead-letter queue — so the main stream stays clean and nothing is lost. Late window data uses the same mechanism.',
+    },
+  ],
+  m11b: [
+    {
+      q: 'Your Flink job keeps hundreds of GB of keyed state (per-driver history for millions of drivers). Which state backend fits?',
+      options: [
+        'HashMapStateBackend — it is always fastest',
+        'EmbeddedRocksDBStateBackend — off-heap, on-disk, with incremental checkpoints',
+        'Neither; Flink cannot hold that much state',
+        'It does not matter, they are identical',
+      ],
+      answer: 1,
+      explanation: 'RocksDB stores state off-heap and spills to local disk, so it holds far more than RAM, and it supports incremental checkpoints. HashMap keeps everything on the JVM heap and would OOM / cause huge GC pauses at that size.',
+    },
+    {
+      q: 'In RocksDB, what happens when the active memtable fills up?',
+      options: [
+        'It is discarded to make room',
+        'It is flushed to an immutable SST file in L0',
+        'It is merged directly into L2',
+        'The job fails with an out-of-memory error',
+      ],
+      answer: 1,
+      explanation: 'A full memtable becomes immutable and is flushed as a new immutable SST file into level L0. Later, leveled compaction merges L0 files into larger sorted SSTs in deeper levels.',
+    },
+    {
+      q: 'Why can RocksDB do incremental checkpoints while HashMapStateBackend cannot?',
+      options: [
+        'RocksDB compresses state and HashMap does not',
+        'RocksDB SST files are immutable, so a checkpoint uploads only new SSTs and references the rest',
+        'HashMap state is encrypted',
+        'RocksDB runs on a separate server',
+      ],
+      answer: 1,
+      explanation: 'Because SSTs never change once written, an incremental checkpoint uploads only the SSTs created since the last checkpoint and reuses the already-uploaded ones. On-heap HashMap state has no immutable file structure to diff, so its checkpoints are always full.',
+    },
+    {
+      q: 'Write amplification in RocksDB is primarily caused by:',
+      options: [
+        'The WAL being written twice',
+        'Compaction rewriting data as it moves down the LSM levels',
+        'Network replication of state',
+        'Bloom filters being rebuilt on every read',
+      ],
+      answer: 1,
+      explanation: 'Leveled compaction rewrites SSTs as data sinks from L0→L1→L2, so one logical byte is physically written several times. This is the cost that keeps read and space amplification low.',
+    },
+    {
+      q: 'RocksDB\'s block cache and write buffers are allocated from Flink\'s managed memory (off-heap). The main benefit is:',
+      options: [
+        'Faster network transfers',
+        'Large state does not drive JVM garbage collection or compete with operator heap',
+        'State is automatically encrypted',
+        'It removes the need for checkpoints',
+      ],
+      answer: 1,
+      explanation: 'Off-heap managed memory means hundreds of GB of state do not sit on the JVM heap, avoiding long GC pauses and heap contention with your operators — the key reason RocksDB scales to large state.',
+    },
+  ],
+  m18c: [
+    {
+      q: 'In which deployment mode does the job\'s main() method run on the JobManager rather than the client?',
+      options: ['Session mode', 'Per-Job mode', 'Application mode', 'Standalone mode'],
+      answer: 2,
+      explanation: 'Application mode ships the JAR to the cluster and runs main() on the JobManager — the client just submits. Session and (deprecated) Per-Job mode run main() on the client.',
+    },
+    {
+      q: 'You run 6 jobs in a single Session-mode cluster. The JobManager pod crashes. What happens?',
+      options: [
+        'Only the most recently submitted job fails',
+        'All 6 jobs are affected — the JobManager is shared',
+        'Nothing; each job has its own JobManager',
+        'The jobs migrate to another cluster automatically',
+      ],
+      answer: 1,
+      explanation: 'Session mode shares one JobManager across all jobs, so it is a single point of failure for the whole cluster. Application mode gives each job its own JobManager and isolates this blast radius.',
+    },
+    {
+      q: 'Why is Per-Job mode deprecated/removed in favour of Application mode?',
+      options: [
+        'Per-Job mode could not use checkpoints',
+        'Application mode runs main() on the JobManager and is better for GitOps/CI, with the same isolation',
+        'Per-Job mode only worked on YARN',
+        'Application mode is faster at runtime',
+      ],
+      answer: 1,
+      explanation: 'Both give a dedicated cluster per job (full isolation), but Per-Job ran main() on the client. Application mode moves main() to the JobManager — lighter client, better for operators/CI — so it supersedes Per-Job.',
+    },
+    {
+      q: 'The Flink Kubernetes Operator manages jobs primarily through which mechanism?',
+      options: [
+        'A cron job that runs flink run every minute',
+        'A reconciliation loop driving a FlinkDeployment custom resource toward desired state',
+        'Manual kubectl exec into the JobManager',
+        'A Helm chart re-applied on every commit',
+      ],
+      answer: 1,
+      explanation: 'You declare a FlinkDeployment CRD; the operator continuously observes, validates and reconciles actual state to the spec — deploying, upgrading (via savepoint), recovering and autoscaling.',
+    },
+    {
+      q: 'A job is crash-looping and cannot take a savepoint, but you must deploy a fix without losing state. Which operator upgrade mode fits?',
+      options: [
+        'stateless',
+        'savepoint',
+        'last-state (restart from the latest checkpoint via HA metadata)',
+        'None — you must discard state',
+      ],
+      answer: 2,
+      explanation: 'last-state upgrade restores from the latest completed checkpoint using HA metadata, so it works even when the job is too broken to take a clean savepoint. savepoint mode requires a healthy job to drain and snapshot.',
+    },
+  ],
+  m18b: [
+    {
+      q: 'In a Source → Map → Window → Sink job, the Sink is busy ~100% and NOT backpressured, while Map and Source are heavily backpressured. Where is the bottleneck?',
+      options: [
+        'The Source — it is reading too fast',
+        'The Sink — it is busy but not backpressured, so it is the limiting operator',
+        'The Map — it has the most backpressure',
+        'There is no bottleneck; this is normal',
+      ],
+      answer: 1,
+      explanation: 'The bottleneck is the first operator (walking from the sink backward) that is busy but NOT backpressured. The Sink is working flat out and nothing downstream holds it back; everything upstream is backpressured waiting to hand off. Speed up or parallelize the Sink.',
+    },
+    {
+      q: 'What does watermark lag measure?',
+      options: [
+        'How many records are waiting in Kafka',
+        'How long checkpoints take',
+        'How far the event-time frontier is behind wall-clock time (result freshness)',
+        'The network latency between TaskManagers',
+      ],
+      answer: 2,
+      explanation: 'Watermark lag = now() − currentOutputWatermark. It measures how stale windowed results are. A job can have healthy throughput but large watermark lag — meaning it is processing volume but its event-time results are old.',
+    },
+    {
+      q: 'A job\'s checkpoint duration has been climbing for an hour and is approaching the checkpoint timeout. The most likely root cause is:',
+      options: [
+        'The disk is full',
+        'Barrier alignment is stalling because an operator is backpressured',
+        'Too many TaskManagers',
+        'The Prometheus reporter interval is too short',
+      ],
+      answer: 1,
+      explanation: 'Under backpressure, checkpoint barriers queue behind buffered data, so alignment — and the whole checkpoint — takes longer. Relieve the backpressure, or enable unaligned checkpoints so barriers overtake buffered records.',
+    },
+    {
+      q: 'Which reporter do you configure to get Flink metrics into Grafana?',
+      options: [
+        'The Slf4j reporter',
+        'The JMX reporter only',
+        'The Prometheus reporter (metrics.reporter.prom), scraped by Prometheus',
+        'Grafana reads Flink\'s REST API directly',
+      ],
+      answer: 2,
+      explanation: 'The Prometheus reporter exposes a /metrics endpoint on each TaskManager that Prometheus scrapes; Grafana then queries Prometheus. Keep metrics.scope.operator stable so dashboards survive redeploys.',
+    },
+    {
+      q: 'Which of these is the BEST thing to page an on-call engineer on?',
+      options: [
+        'Per-operator CPU usage above 70%',
+        'Any GC pause over 50ms',
+        'Watermark lag above the freshness SLO for several minutes',
+        'Checkpoint size increased by 5%',
+      ],
+      answer: 2,
+      explanation: 'Page on user-visible symptoms (stale results, job down, rising lag, sustained backpressure, checkpoint failures). CPU/GC/size details are diagnostics you consult AFTER a page — alerting on them creates noise and alert fatigue.',
+    },
+  ],
   m01: [
     {
       q: 'What is the core reason Flink achieves lower latency than Spark Streaming?',

@@ -79,7 +79,7 @@ const CAPS = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Is dbt Cloud a different tool from dbt Core?',
     a: `No — dbt Cloud <strong>runs dbt Core under the hood</strong>. It is the same open-source transformation engine (same models, tests, macros, <code>ref()</code>, materializations), hosted on managed infrastructure and kept continuously on the latest version. What Cloud adds is a <strong>platform around</strong> the engine: a job scheduler, a browser IDE, CI jobs, hosted APIs, the hosted Semantic Layer, dbt Explorer, and governance (SSO/RBAC). So anything you build in Core runs unchanged in Cloud — you are choosing a <em>runtime and platform</em>, not a dialect.`,
@@ -116,7 +116,7 @@ export function mount(container) {
 
   buildMatrix(container);
   buildExplorer(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm36');
 }
 
 function buildMatrix(container) {

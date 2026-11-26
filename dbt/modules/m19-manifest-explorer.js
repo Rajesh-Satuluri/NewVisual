@@ -19,7 +19,7 @@ const ARTIFACTS = {
   catalog:     { label: 'catalog.json', data: CATALOG, open: 3, highlight: ['columns', 'stats'], blurb: 'Column types & table stats from the warehouse (dbt docs generate). Powers the docs site. (Illustrative — the one artifact whose data comes from the warehouse, not your code.)' },
 };
 
-const IQ = [
+export const IQ = [
   {
     q: 'Name the three main dbt artifacts and what each one is used for.',
     a: `<ul>
@@ -57,7 +57,7 @@ export function mount(container) {
 
   buildExplorer(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm19');
 }
 
 function buildExplorer(container) {

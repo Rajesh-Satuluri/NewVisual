@@ -247,7 +247,7 @@ const STAGES = [
   { key: 'prevention', label: 'Prevent',     color: '#06B6D4' },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Walk me through how you triage a failed production dbt run.',
     a: `A structured on-call answer:
@@ -292,7 +292,7 @@ export function mount(container) {
 
   buildSim(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm24');
 }
 
 function buildSim(container) {

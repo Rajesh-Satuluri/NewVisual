@@ -174,7 +174,7 @@ const ANATOMY = [
   ['Metrics', 'The queryable number. <code>simple</code> (one measure), <code>ratio</code> (numerator/denominator), <code>derived</code> (expression of other metrics), <code>cumulative</code> (running totals). Defined once, queried every way.'],
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'What problem does the dbt Semantic Layer actually solve?',
     a: `Metric <strong>inconsistency</strong> — the exact pain from Module 02. Without it, "revenue" is re-implemented in every dashboard, notebook and query, so three teams get three numbers. The Semantic Layer lets you define a metric <strong>once</strong> in YAML (on top of your dbt models), and <strong>MetricFlow</strong> compiles any requested slice into warehouse SQL at query time. Every consumer — BI tool, notebook, API — asks the Semantic Layer for <code>total_revenue by month</code> and gets the <em>same</em> definition, so the numbers finally agree.`,
@@ -211,7 +211,7 @@ export function mount(container) {
 
   buildDesigner(container);
   buildModel(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm34');
 }
 
 function buildDesigner(container) {

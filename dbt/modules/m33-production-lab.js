@@ -664,7 +664,7 @@ function buildInterview(container) {
   tab.innerHTML = `
     <p class="lab-intro">Fifteen questions grounded in <em>this</em> project — the exact answers you would give after walking the
     pipeline. Each has the expected one-liner, the in-depth answer, a follow-up, and the senior-level angle.</p>
-    ${createIQSection(IQ)}
+    ${createIQSection(IQ, 'm33')}
     ${zeroToProd()}`;
   // IQ accordion is wired by the module-shell initIQ() in script.js after mount.
 }
