@@ -36,6 +36,17 @@ export const METRICS = {
   workers:    { label: 'Workers', fmt: v => v, ic: 'server' },
   groups:     { label: 'Groups', fmt: v => v, ic: 'layers' },
   memory:     { label: 'Memory', fmt: v => v + ' MB', good: 'low', ic: 'database' },
+  // ── storage engine ──
+  pageSize:   { label: 'Page size', fmt: v => v + ' KB', ic: 'file' },
+  slots:      { label: 'Slots used', fmt: v => v, ic: 'grid' },
+  fillFactor: { label: 'Fill factor', fmt: v => v + '%', good: 'high', ic: 'gauge' },
+  hitRate:    { label: 'Cache hit rate', fmt: v => v + '%', good: 'high', ic: 'check' },
+  evictions:  { label: 'Evictions', fmt: v => v, good: 'low', ic: 'trash' },
+  ioOps:      { label: 'Disk I/O ops', fmt: v => v.toLocaleString(), good: 'low', ic: 'database' },
+  seeks:      { label: 'Seeks', fmt: v => v.toLocaleString(), good: 'low', ic: 'search' },
+  throughput: { label: 'Throughput', fmt: v => v + ' MB/s', good: 'high', ic: 'bolt' },
+  height:     { label: 'Tree height', fmt: v => v, good: 'low', ic: 'layers' },
+  fanout:     { label: 'Fan-out', fmt: v => v, good: 'high', ic: 'merge' },
 };
 
 export function renderHud(metrics, show, prev) {

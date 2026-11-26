@@ -35,6 +35,16 @@ import { renderExplainAnalyzeScene } from './db/explain-analyze-scene.js';
 import { renderParallelQueryScene } from './db/parallel-query-scene.js';
 import { renderQueryStatisticsScene } from './db/query-statistics-scene.js';
 import { renderCostModelScene } from './db/cost-model-scene.js';
+import { renderDatabaseFilesScene } from './db/database-files-scene.js';
+import { renderPagesScene } from './db/pages-scene.js';
+import { renderRecordsTuplesScene } from './db/records-tuples-scene.js';
+import { renderSlottedPagesScene } from './db/slotted-pages-scene.js';
+import { renderBufferPoolScene } from './db/buffer-pool-scene.js';
+import { renderBufferPoolReplacementScene } from './db/buffer-pool-replacement-scene.js';
+import { renderPageCacheScene } from './db/page-cache-scene.js';
+import { renderDiskIoScene } from './db/disk-io-scene.js';
+import { renderSequentialVsRandomIoScene } from './db/sequential-vs-random-io-scene.js';
+import { renderBTreeScene } from './db/b-tree-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -67,6 +77,16 @@ import { explainAnalyzeLesson } from './content/explain-analyze.js';
 import { parallelQueryLesson } from './content/parallel-query.js';
 import { queryStatisticsLesson } from './content/query-statistics.js';
 import { costModelLesson } from './content/cost-model.js';
+import { databaseFilesLesson } from './content/database-files.js';
+import { pagesLesson } from './content/pages.js';
+import { recordsTuplesLesson } from './content/records-tuples.js';
+import { slottedPagesLesson } from './content/slotted-pages.js';
+import { bufferPoolLesson } from './content/buffer-pool.js';
+import { bufferPoolReplacementLesson } from './content/buffer-pool-replacement.js';
+import { pageCacheLesson } from './content/page-cache.js';
+import { diskIoLesson } from './content/disk-io.js';
+import { sequentialVsRandomIoLesson } from './content/sequential-vs-random-io.js';
+import { bTreeLesson } from './content/b-tree.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -101,6 +121,16 @@ const LESSONS = {
   'parallel-query': parallelQueryLesson,
   'query-statistics': queryStatisticsLesson,
   'cost-model': costModelLesson,
+  'database-files': databaseFilesLesson,
+  'pages': pagesLesson,
+  'records-tuples': recordsTuplesLesson,
+  'slotted-pages': slottedPagesLesson,
+  'buffer-pool': bufferPoolLesson,
+  'buffer-pool-replacement': bufferPoolReplacementLesson,
+  'page-cache': pageCacheLesson,
+  'disk-io': diskIoLesson,
+  'sequential-vs-random-io': sequentialVsRandomIoLesson,
+  'b-tree': bTreeLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -134,6 +164,16 @@ const SCENES = {
   'parallel-query': renderParallelQueryScene,
   'query-statistics': renderQueryStatisticsScene,
   'cost-model': renderCostModelScene,
+  'database-files': renderDatabaseFilesScene,
+  'pages': renderPagesScene,
+  'records-tuples': renderRecordsTuplesScene,
+  'slotted-pages': renderSlottedPagesScene,
+  'buffer-pool': renderBufferPoolScene,
+  'buffer-pool-replacement': renderBufferPoolReplacementScene,
+  'page-cache': renderPageCacheScene,
+  'disk-io': renderDiskIoScene,
+  'sequential-vs-random-io': renderSequentialVsRandomIoScene,
+  'b-tree': renderBTreeScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
