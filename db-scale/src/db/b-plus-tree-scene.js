@@ -124,9 +124,8 @@ export function renderBPlusTreeScene(snap, opts = {}) {
   const ins = INTERNAL.map(s => node(s, 'blue', { sub: 'keys' }));
   const lvs = LEAVES.map((s, i) => node(s, hotRange.includes(i) ? 'green' : 'green',
     { sub: 'values', halo: hotRange.includes(i) }));
-  ins.forEach((i, ix) => link(r, i, { cls: view === 'range' && ix === 0 ? 'edge-hot' : '' }));
-  CHILDREN.forEach((kids, i) => kids.forEach(k =>
-    link(ins[i], lvs[k], { cls: view === 'range' && k === 1 ? 'edge-hot' : '' })));
+  ins.forEach((i) => link(r, i));
+  CHILDREN.forEach((kids, i) => kids.forEach(k => link(ins[i], lvs[k])));
 
   // sibling pointers: leaf[i] → leaf[i+1] along the leaf row
   let chainD = null;
@@ -137,7 +136,7 @@ export function renderBPlusTreeScene(snap, opts = {}) {
       V(a.verts.E.x - 2, a.front[1]),
       V((a.verts.E.x + b.verts.W.x) / 2, a.front[1] + 14),
       V(b.verts.W.x + 2, b.front[1]),
-    ], { arrow: true, cls: 'edge-leaf' + (hot ? ' edge-hot' : '') });
+    ], { arrow: true });
     guides.push(e.guide);
     if (hot && !chainD) chainD = e.d;
   }
