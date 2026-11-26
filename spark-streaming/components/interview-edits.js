@@ -18,7 +18,7 @@ function loadStore() {
 }
 function saveStore(store) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (_) {}
-  try { window.Flink && window.Flink.cloud && window.Flink.cloud.onLocalChange(); } catch (_) {}
+  try { window.Spark && window.Spark.cloud && window.Spark.cloud.onLocalChange(); } catch (_) {}
 }
 
 function parts(item) {
