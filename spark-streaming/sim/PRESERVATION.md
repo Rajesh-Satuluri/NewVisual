@@ -60,6 +60,7 @@ vectors. No executors, no network, no real cluster.
 | Deduplication `dropDuplicates` (M13) | **Simulated** (separate, labeled) | `dropDuplicates` is NOT in the E1 engine; M13 uses a small self-contained deterministic dedup (seen-keys + watermark eviction), shown as *simulated* in the UI |
 | Checkpoint / offset-log recovery (M15, M16) | **Real algorithm (E2)** | `checkpoint-engine.js`; offset-log-before/commit-log-after, crash at any phase, replay, EOS vs ALO; 12 unit tests |
 | Stream–stream join (M18) | **Real algorithm (E3)** | `stream-join-engine.js`; dual-side buffer, equality+time-window match, min watermark, outer-null eviction; 13 unit tests |
+| End-to-end capstone pipeline (M22) | **Real algorithm (E1+E2+E3)** | Composes all three real engines on one shared ShopStream dataset — E1 windowed revenue (with a genuine late-drop), E2 crash/replay exactly-once, E3 cart⋈purchase conversions; no new sim code, no mock-ups |
 | Stream–static join (M17) | **Simulated** (labeled) | enrichment lookup demo; no dedicated engine (stream-static holds no state) |
 | Arbitrary state / [flat]mapGroupsWithState (M11) | **Simulated** (labeled) | cart state machine; deterministic per-key sim, not an engine |
 | Sinks / foreachBatch (M14), Delta MERGE (M19) | **Illustrative demos** | sink explorer + MERGE upsert; no engine, model Spark semantics |

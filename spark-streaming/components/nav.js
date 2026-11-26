@@ -47,6 +47,13 @@ export const EXTRAS = [
   { id: 'microbatch-lab', title: 'Micro-Batch Lab', icon: '⏭️', group: 'Labs', num: '' },
   { id: 'watermark-lab',  title: 'Watermark Lab',   icon: '💧', group: 'Labs', num: '' },
   { id: 'output-mode-lab', title: 'Output-Mode Lab', icon: '📤', group: 'Labs', num: '' },
+  { id: 'quiz',           title: 'Quiz Bank',       icon: '❓', group: 'Interview', num: '' },
+  { id: 'coding',         title: 'Coding Problems', icon: '⌨️', group: 'Interview', num: '' },
+  { id: 'decisions',      title: 'Decision Drills', icon: '🔀', group: 'Interview', num: '' },
+  { id: 'incident-bank',  title: 'Incident Labs',   icon: '🚨', group: 'Interview', num: '' },
+  { id: 'tiered',         title: 'Tiered Answers',  icon: '🪜', group: 'Interview', num: '' },
+  { id: 'self-explain',   title: 'Self-Explain',    icon: '🗣️', group: 'Interview', num: '' },
+  { id: 'mock-interview', title: 'Mock Interview',  icon: '🎤', group: 'Interview', num: '' },
   { id: 'review',         title: 'Review Center',   icon: '🔁', group: 'Review', num: '' },
   { id: 'study',          title: 'Study Hub',       icon: '📚', group: 'Review', num: '★' },
 ];

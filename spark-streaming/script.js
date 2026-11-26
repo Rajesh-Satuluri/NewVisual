@@ -7,7 +7,7 @@ import { maybeRunTour } from './components/tour.js';
 // ── Module loaders (lazy) ──────────────────────────────────────────────────
 // Cache-busting build tag: appended to every lazily-imported module URL so a
 // fresh deploy is fetched immediately. Bump on each deploy that changes code.
-const BUILD = '20261125k';
+const BUILD = '20261126k';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 
 // SCAFFOLD: home has a real page; every other route renders the shared
@@ -40,7 +40,22 @@ LOADERS['m14'] = () => imp('./modules/m14-sinks.js');                   // M14
 LOADERS['m19'] = () => imp('./modules/m19-delta-merge.js');             // M19
 LOADERS['m20'] = () => imp('./modules/m20-performance.js');             // M20
 LOADERS['m21'] = () => imp('./modules/m21-monitoring.js');              // M21
+LOADERS['m22'] = () => imp('./modules/m22-capstone.js');                // M22
 LOADERS['watermark-lab'] = () => imp('./modules/watermark-lab.js');     // L3
+LOADERS['master-map'] = () => imp('./modules/master-map.js');           // R1
+LOADERS['comparison'] = () => imp('./modules/comparison.js');           // R2
+LOADERS['glossary'] = () => imp('./modules/glossary.js');               // R3
+LOADERS['cheatsheet'] = () => imp('./modules/cheatsheet.js');           // R4
+LOADERS['config-reference'] = () => imp('./modules/config-reference.js'); // R5
+LOADERS['quiz'] = () => imp('./modules/quiz.js');                       // B1
+LOADERS['coding'] = () => imp('./modules/coding.js');                   // B2
+LOADERS['decisions'] = () => imp('./modules/decisions.js');             // B3
+LOADERS['incident-bank'] = () => imp('./modules/incident-bank.js');     // B4
+LOADERS['tiered'] = () => imp('./modules/tiered.js');                   // B5
+LOADERS['self-explain'] = () => imp('./modules/self-explain.js');       // B6
+LOADERS['mock-interview'] = () => imp('./modules/mock-interview.js');   // B7
+LOADERS['search'] = () => imp('./modules/search.js');                   // B8 (search index + viewer)
+LOADERS['study'] = () => imp('./modules/study.js');                     // V5 Study Hub (aggregates all module IQ)
 
 // ── State ──────────────────────────────────────────────────────────────────
 const done = new Set(JSON.parse(localStorage.getItem('spark_done') || '[]'));
