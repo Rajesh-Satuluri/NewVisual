@@ -28,7 +28,7 @@
   const CHEATS = [
     ['Query a warehouse', 'SELECT country, SUM(minutes) FROM dbo.watch_events GROUP BY country;'],
     ['Cross-database join', 'SELECT * FROM sales_wh.dbo.sales s JOIN events_lakehouse.dbo.plays p ON p.id=s.id;'],
-    ['Dedup (no QUALIFY)', 'SELECT * FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY ts DESC) rn FROM t) WHERE rn=1;'],
+    ['Dedup (no QUALIFY)', 'SELECT * FROM (SELECT *, ROW_NUMBER() OVER(PARTITION BY id ORDER BY ts DESC) rn FROM t) d WHERE d.rn=1;'],
     ['Idempotent upsert', 'MERGE tgt USING src ON tgt.id=src.id WHEN MATCHED ... WHEN NOT MATCHED ...;'],
     ['Row-level security', 'CREATE SECURITY POLICY ... ADD FILTER PREDICATE ... ON dbo.t;'],
     ['Dynamic data masking', 'ALTER TABLE t ALTER COLUMN email ADD MASKED WITH (FUNCTION = \'email()\');'],

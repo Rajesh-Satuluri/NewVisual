@@ -1,0 +1,16 @@
+{
+  "name": "Data Engineering Coding Stack — Python · SQL · PySpark · NumPy · Pandas",
+  "short_name": "DE Stack",
+  "description": "An interactive study tool for data-engineering interviews across Python, SQL, PySpark, NumPy and Pandas.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0A0F1A",
+  "theme_color": "#4F8CFF",
+  "icons": [
+    { "src": "favicon.svg",  "sizes": "any",     "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png",     "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png",     "purpose": "any maskable" }
+  ]
+}

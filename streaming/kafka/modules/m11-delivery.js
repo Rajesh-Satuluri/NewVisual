@@ -41,10 +41,37 @@ function buildLanes(container) {
       </div>
     </div>
     <div class="canvas-explainer">
-      <h3>What you're watching</h3>
-      <p>The three lanes run the same consume-process-produce workflow under different delivery semantics. <strong>Red (at-most-once)</strong> commits the offset before processing — if the consumer crashes after the commit but before finishing work, that record is permanently gone. Zero duplicates, possible data loss. Producers use <code>acks=0</code> or <code>acks=1</code> and never retry. This is acceptable for sensor telemetry where the latest reading overwrites the last anyway.</p>
-      <p><strong>Amber (at-least-once)</strong> commits only after successful processing — a crash before the commit causes the consumer to restart from the last committed offset and reprocess. No data loss, but duplicates are possible. Your downstream system must be idempotent: a database upsert keyed on <code>order_id</code> is safe to run twice, a bank transfer is not. This is Amazon's default for most non-financial pipelines including clickstream, inventory sync, and notifications.</p>
-      <p><strong>Green (exactly-once)</strong> wraps consume + process + produce-offset into one atomic Kafka transaction. Either all three succeed together, or none are visible. The cost: producer needs <code>enable.idempotence=true</code> and a <code>transactional.id</code>, consumers need <code>isolation.level=read_committed</code>, and each transaction adds ~5ms latency for the two-phase commit round-trip with the transaction coordinator. Amazon uses EOS for payment confirmations. It does not use it for recommendation clicks — the operational cost isn't justified.</p>
+      <h3>The one idea behind all three guarantees</h3>
+      <p>For every message, a consumer does <strong>two separate things</strong>: it <strong>processes</strong> the record (the real work — a DB write, an email, producing to another topic) and it <strong>commits the offset</strong> (moves its bookmark forward — "I've handled everything up to here"; on restart it resumes from that bookmark). A crash can land at any instant. <strong>The entire delivery guarantee is decided by which of these two you do first — and what state you're left in if the crash lands in the gap between them.</strong> That one choice is the whole secret; everything below falls out of it.</p>
+
+      <h3 style="color:#EF4444">🔴 At-most-once — commit <em>before</em> processing</h3>
+      <p>You move the bookmark forward first, then do the work. Crash after the commit but before processing finishes, and the bookmark already says "done" — so on restart that record is <strong>skipped forever</strong>. Every message is delivered <strong>0 or 1 times</strong>: never duplicated, but data can be lost. Producers use <code>acks=0</code>/<code>acks=1</code> and never retry. Good for sensor telemetry or metrics, where a dropped reading is cheaper than a duplicated one and the newest value overwrites the last anyway.</p>
+
+      <h3 style="color:#F59E0B">🟡 At-least-once — process <em>before</em> committing <span style="font-weight:400;font-size:.85em;color:#8A98AE">(Kafka's default)</span></h3>
+      <p>You do the work first, then move the bookmark. Crash after processing but before the commit lands, and the bookmark still points at that record — so on restart it is <strong>processed again</strong>. Every message is delivered <strong>1 or more times</strong>: never lost, but duplicates are possible. The cure for duplicates is <strong>idempotency</strong> — make the handler safe to run twice: <code>UPSERT order_id</code> instead of <code>INSERT</code>, <code>SET balance=100</code> instead of <code>balance += 10</code>. In practice, <strong>at-least-once + an idempotent sink</strong> is how most production pipelines get correct results without the cost of true exactly-once. It is Amazon's default for clickstream, inventory sync, and notifications.</p>
+
+      <h3 style="color:#10B981">🟢 Exactly-once — make process + commit <em>one atomic unit</em></h3>
+      <p>The weakness of the two above is that process and commit are two <em>separate</em> steps, so a crash can fall between them. Exactly-once removes the gap: it wraps the work <em>and</em> the offset commit into a <strong>single Kafka transaction</strong> that either fully commits or fully rolls back — there is no "in between" left to crash into. Either everything lands, or nothing does and it is retried cleanly. The cost: producer needs <code>enable.idempotence=true</code> and a <code>transactional.id</code>, consumers need <code>isolation.level=read_committed</code>, and each transaction adds ~5ms for the two-phase commit round-trip with the transaction coordinator.</p>
+      <p style="background:#F59E0B14;border:1px solid #F59E0B33;border-radius:8px;padding:12px 16px;margin-top:10px"><strong style="color:#F59E0B">⚠️ The interview trap:</strong> Kafka's exactly-once only holds <strong>Kafka-to-Kafka</strong> — the consume → process → <em>produce-to-another-topic</em> pattern, where your "output" is itself a Kafka write. The transaction can roll back Kafka writes and the offset commit together, but it <strong>cannot</strong> undo an external side effect — an email you already sent, a row you already wrote to Postgres. For those sinks you still fall back to at-least-once + idempotency (dedupe on a unique key). "Exactly-once magically de-duplicates everything" is the classic mistake.</p>
+
+      <h3>The shortcut that makes it stick</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin:12px 0 16px">
+        <div style="display:grid;grid-template-columns:1.25fr 1.1fr 1fr 1fr;gap:8px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A98AE;padding:0 10px">
+          <div>Guarantee</div><div>Which do you commit first?</div><div>Crash in the gap →</div><div>You accept</div>
+        </div>
+        ${[
+          { g:'At-most-once',  c:'#EF4444', order:'commit → process',          crash:'message LOST',        accept:'data loss' },
+          { g:'At-least-once', c:'#F59E0B', order:'process → commit',          crash:'message REPROCESSED', accept:'duplicates' },
+          { g:'Exactly-once',  c:'#10B981', order:'process + commit = 1 unit', crash:'rolled back, retried', accept:'cost + Kafka-only' },
+        ].map(r => `
+          <div style="display:grid;grid-template-columns:1.25fr 1.1fr 1fr 1fr;gap:8px;align-items:center;background:#111827;border:1px solid #1E293B;border-left:3px solid ${r.c};border-radius:8px;padding:10px 10px;font-size:11px">
+            <div style="color:${r.c};font-weight:700">${r.g}</div>
+            <div style="color:#CBD5E1"><code style="font-size:10px">${r.order}</code></div>
+            <div style="color:#94A3B8">${r.crash}</div>
+            <div style="color:#94A3B8">${r.accept}</div>
+          </div>`).join('')}
+      </div>
+      <p><strong>Commit before the work → you risk losing it. Commit after the work → you risk repeating it. Fuse them into one atomic unit → you risk neither — but only inside Kafka.</strong></p>
     </div>`;
 
   const canvas = tab.querySelector('#dlv-canvas');

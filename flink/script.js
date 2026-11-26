@@ -10,13 +10,14 @@ import { createSelfExplain, initSelfExplain, createDecisionDrill, initDecisionDr
 import { SELF_EXPLAIN } from './data/self-explain.js';
 import { DECISIONS } from './data/decisions.js';
 import { highlightCodeBlocks } from './components/highlight.js';
+import { applyCodeOverrides, injectEditButtons, bindCloudRefresh } from './components/code-edit.js';
 
 // ── Module loaders (lazy) ─────────────────────────────────────────────────
 // Cache-busting build tag: appended to every lazily-imported module URL so a
 // fresh deploy is fetched immediately instead of served from the browser/CDN
 // cache (a hard-reload does not reliably re-fetch dynamic import() subresources).
 // Bump this on each deploy that changes module code.
-const BUILD = '20261022f';
+const BUILD = '20261124f';
 const imp = (p) => import(`${p}?v=${BUILD}`);
 const LOADERS = {
   home:  () => imp('./modules/home.js'),
@@ -27,11 +28,13 @@ const LOADERS = {
   m04: () => imp('./modules/m04-job-lifecycle.js'),
   m05: () => imp('./modules/m05-parallelism.js'),
   m06: () => imp('./modules/m06-data-flow.js'),
+  m06b: () => imp('./modules/m06b-async-process.js'),
   m07: () => imp('./modules/m07-operators.js'),
   m08: () => imp('./modules/m08-time-concepts.js'),
   m09: () => imp('./modules/m09-watermarks.js'),
   m10: () => imp('./modules/m10-windows.js'),
   m11: () => imp('./modules/m11-state-management.js'),
+  m11b: () => imp('./modules/m11b-state-backends.js'),
   m12: () => imp('./modules/m12-checkpointing.js'),
   m13: () => imp('./modules/m13-savepoints.js'),
   m13b: () => imp('./modules/m13b-savepoints.js'),
@@ -39,7 +42,10 @@ const LOADERS = {
   m15: () => imp('./modules/m15-backpressure.js'),
   m16: () => imp('./modules/m16-connectors.js'),
   m17: () => imp('./modules/m17-flink-sql.js'),
+  m17b: () => imp('./modules/m17b-cep.js'),
   m18: () => imp('./modules/m18-performance.js'),
+  m18b: () => imp('./modules/m18b-monitoring.js'),
+  m18c: () => imp('./modules/m18c-deployment.js'),
   m19: () => imp('./modules/m19-uber-pipeline.js'),
   // Reference & review
   'master-map': () => imp('./modules/master-map.js'),
@@ -86,10 +92,12 @@ async function navigate(id) {
 
     // Auto-inject the "Test Yourself" quiz (where a bank exists) + Prev/Next pager.
     enhanceModule(id);
-    // Syntax-highlight every code block (incl. the just-injected practice ones)
-    // before the copy buttons attach — copy reads innerText, so spans are safe.
+    // Apply saved code edits BEFORE highlighting so overrides get tokenised,
+    // then highlight, add copy buttons, and add the in-place Edit controls.
+    applyCodeOverrides(canvas);
     highlightCodeBlocks(canvas);
     injectCopyButtons(canvas);
+    injectEditButtons(canvas);
 
     // Honest progress: opening a module records a "visit" only. Mastery is
     // earned by passing the module quiz (see the flink:quiz-graded listener).
@@ -348,10 +356,15 @@ window.addEventListener('flink:quiz-graded', e => {
     scheduled = true;
     requestAnimationFrame(() => {
       scheduled = false;
+      applyCodeOverrides(canvasEl);
       highlightCodeBlocks(canvasEl);
       injectCopyButtons(canvasEl);
+      injectEditButtons(canvasEl);
     });
   }).observe(canvasEl, { childList: true, subtree: true });
+
+  // Re-apply code edits that arrive from another device.
+  bindCloudRefresh(() => canvasEl);
 })();
 
 // ── Boot ──────────────────────────────────────────────────────────────────

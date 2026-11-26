@@ -29,6 +29,10 @@ export function mount(container) {
     tag: 'M23 · Change Data Capture',
     title: 'CDC Fundamentals',
     subtitle: 'What change data capture is, the four ways to do it, and the one idea the whole track rests on — a table\'s current state is not its stream of changes.',
+    definition: {
+      formal: "Change Data Capture (CDC) is the practice of capturing every insert, update, and delete made to a database and emitting them as a stream of change events, so downstream systems stay in sync — resting on the idea that a table’s current state is not the same as its stream of changes.",
+      easy: "CDC watches a database and turns every row change into a live event. The key insight: a table only shows where things are now; CDC gives you the full story of how they got there.",
+    },
     tabs: [
       { id: 'why', label: '💡 Why CDC' },
       { id: 'methods', label: '🧭 The Four Methods' },

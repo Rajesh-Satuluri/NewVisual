@@ -27,6 +27,7 @@
         { id: "compression", label: "Compression & Encoding", icon: "🗜️" },
         { id: "vacuum-analyze", label: "VACUUM & ANALYZE", icon: "🧹" },
         { id: "query-execution", label: "Query Execution", icon: "🔍" },
+        { id: "system-tables", label: "System Tables & EXPLAIN", icon: "🩺" },
         { id: "result-caching", label: "Result Caching", icon: "💾" },
         { id: "materialized-views", label: "Materialized Views", icon: "🧱" },
       ],
@@ -44,6 +45,8 @@
     {
       label: "🔌 Ecosystem & Integration",
       items: [
+        { id: "zero-etl", label: "Zero-ETL Integrations", icon: "🔗" },
+        { id: "streaming-ingestion", label: "Streaming Ingestion", icon: "🌊" },
         { id: "spectrum", label: "Redshift Spectrum", icon: "🪣" },
         { id: "federated-query", label: "Federated Query", icon: "🌉" },
         { id: "datashares", label: "Data Sharing (Datashares)", icon: "🤝" },
@@ -56,8 +59,10 @@
       label: "🔐 Security & Governance",
       items: [
         { id: "iam-rbac", label: "IAM & RBAC", icon: "🔑" },
+        { id: "row-level-security", label: "RLS & Column Masking", icon: "🛡️" },
         { id: "kms-encryption", label: "Encryption & KMS", icon: "🔒" },
         { id: "lake-formation", label: "Lake Formation Integration", icon: "🏞️" },
+        { id: "snapshots-dr", label: "Snapshots & DR", icon: "💾" },
       ],
     },
     {

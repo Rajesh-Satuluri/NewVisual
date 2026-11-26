@@ -5,6 +5,8 @@ export const IQ = [
   { q: 'What is the difference between replication factor and ISR?', a: 'Replication factor (RF) is the static number of replicas (leader + followers) configured at topic creation. ISR (In-Sync Replicas) is the dynamic subset that is currently caught up with the leader. RF=3 means there are always 3 replicas; ISR might be {0,1,2} normally, {0,1} if broker 2 is lagging. A partition is considered committed only when all ISR members have written the record (with acks=all). ISR never exceeds RF.', tip: 'Know: replica.lag.time.max.ms (default 30s) — a follower is removed from ISR if it hasn\'t sent a fetch request or has not caught up within this window.' },
   { q: 'What happens when min.insync.replicas is violated?', a: 'If the number of ISR replicas falls below min.insync.replicas, the partition becomes read-only for acks=all producers. A NotEnoughReplicasException is thrown. The partition remains readable by consumers (they can still fetch committed data). With RF=3, min.insync.replicas=2: you can tolerate one broker failure without producer blocking. With min.insync.replicas=1 (default), you can lose data even with acks=all if the ISR contains only the leader and it fails.', tip: 'Amazon production setting: RF=3, min.insync.replicas=2, acks=all. This means: 2 brokers must be alive and in-sync for writes to succeed.' },
   { q: 'Explain unclean leader election and when you would enable it.', a: 'If all ISR members are dead, unclean leader election promotes an out-of-sync replica (one that is behind in offsets) as the new leader. This recovers availability at the cost of data loss — records that were on the old leader but not yet replicated are permanently lost. unclean.leader.election.enable=false (default since 0.11) prevents this, keeping the partition unavailable until an ISR member recovers. Enable only for availability-critical, loss-tolerant topics (e.g., metrics, logs) — never for financial transactions.', tip: 'This is the classic availability vs. durability tradeoff in distributed systems — explicitly connects to CAP theorem.' },
+  { q: 'What is the high watermark and why can consumers not read past it?', a: 'The high watermark is the highest offset replicated to all in-sync replicas — the commit point. (1) Consumers can only read up to the high watermark, never beyond, so they never see a record that is not yet safely replicated. (2) If the leader fails before a record reaches the high watermark, that record may be lost on failover, so hiding it stops consumers from reading data that could vanish. (3) The leader advances the high watermark as followers fetch and confirm. The gap between the leader\'s log-end offset and the high watermark is the records written but not yet fully replicated — in-flight durability.', tip: 'Distinguish three markers: log-end offset (latest written), high watermark (latest committed), and the consumer offset (latest read). Interviewers probe whether you conflate them.', difficulty: 'medium' },
+  { q: 'How does a follower stay in the ISR, and when is it kicked out?', a: 'Followers are not pushed to — they pull. Each follower runs a fetch loop against the leader from its current offset, exactly like a consumer. (1) As long as it keeps fetching and stays caught up within replica.lag.time.max.ms (default 30s), it stays in the ISR. (2) If it stops fetching or falls behind that window — slow disk, long GC pause, network blip — the leader drops it from the ISR, and acks=all writes stop waiting for it. (3) When it catches up, the leader re-adds it. This time-based rule replaced the old message-count lag check, which falsely evicted healthy followers during bursts.', tip: 'Stress that replication is pull-based (followers fetch), and ISR membership is time-based via replica.lag.time.max.ms — not a fixed message-count threshold.', difficulty: 'medium' },
 ];
 
 export function mount(container) {
@@ -12,6 +14,10 @@ export function mount(container) {
     tag: 'M07 · Core Internals',
     title: 'Replication',
     subtitle: 'Leader/follower replication, ISR, and what happens when a Prime Day broker dies',
+    definition: {
+      formal: "Replication keeps copies of each partition on multiple brokers: one leader handles all reads and writes while in-sync follower replicas (the ISR) copy its log — so a broker failure causes no data loss and a follower can be promoted to leader.",
+      easy: "Every lane of data is copied onto other servers. One copy is the “boss” everyone talks to; the backups stay in sync, so if the boss’s server dies a backup takes over with no data lost.",
+    },
     tabs: [
       { id: 'sim',    label: '💀 Kill-Broker Simulation' },
       { id: 'flow',   label: '🔄 Replication Flow' },
@@ -251,6 +257,16 @@ function buildAmazon(container) {
         </div>
       </div>
 
+      <!-- Theory: ISR, HWM, committed -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The theory behind it — ISR, the High-Water Mark, and what "committed" means</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px">The <strong style="color:#3B82F6">in-sync replica set (ISR)</strong> is the subset of replicas fully caught up to the leader. A follower stays in the ISR as long as it keeps fetching within <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">replica.lag.time.max.ms</code> (30 s here); fall behind — a long GC pause, a slow disk — and the leader ejects it until it catches up. The ISR is <strong style="color:#E2E8F0">dynamic</strong>: it shrinks and grows on its own, and that membership is exactly what <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> and <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas</code> are defined against.</p>
+          <p style="margin:0 0 14px">Each replica has a Log-End Offset (its last written record). The leader's <strong style="color:#F59E0B">High-Water Mark</strong> is the <em>minimum</em> LEO across the whole ISR — the highest offset every in-sync replica already holds. Consumers may only read <em>up to</em> the HWM, never past it. That single rule is why a failover can never show a consumer a record that later disappears: an un-replicated record sits above the HWM, so no consumer ever saw it in the first place. No phantom reads, no rollback.</p>
+          <p style="margin:0">A record is <strong style="color:#10B981">committed</strong> once every ISR member has it — that is what <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> waits for. On failover Kafka only ever promotes an ISR member, so the new leader already holds every committed record; a <strong style="color:#E2E8F0">leader epoch</strong> stamped on the log lets a returning broker detect and truncate any records it had that were never committed, so logs can never silently diverge. The durability math falls straight out: with <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">replication.factor=3</code> and <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas=2</code> you lose any <strong style="color:#10B981">1</strong> broker with zero data loss and no downtime; lose <strong style="color:#EF4444">2</strong> and the partition stops accepting writes rather than lose a committed order — availability sacrificed, durability never.</p>
+        </div>
+      </div>
+
       <!-- Unclean election contrast -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <div style="background:#EF444412;border:1.5px solid #EF444444;border-radius:12px;padding:16px 20px">
@@ -340,5 +356,62 @@ function buildFlow(container) {
           </marker>
         </defs>
       </svg>
+    </div>
+
+    <!-- Leader / follower model -->
+    <div style="margin-top:8px;margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">One leader, N followers — per partition</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 14px">Every partition has exactly one <strong style="color:#FF6900">leader</strong> and a set of <strong style="color:#3B82F6">followers</strong> — here the orders partition is led by Broker 1 and followed by Brokers 2 and 3, a <strong style="color:#E2E8F0">replication factor of 3</strong>. All reads and writes go through the leader; the followers exist only to hold identical copies so the partition survives a broker failure. Leadership is per-partition, so across a real topic every broker is leader for some partitions and follower for others — the load spreads out, there is no single "primary" node.</p>
+        <p style="margin:0">Followers are <strong style="color:#E2E8F0">not passive backups</strong> — they pull. Each follower runs a fetch loop against the leader exactly like a consumer does, asking "give me everything after my last offset," and appends what it gets to its own local log. The leader never pushes; it just answers fetch requests. That is why the arrows read <em>fetch → replicate</em>.</p>
+      </div>
+    </div>
+
+    <!-- The write path -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">What happens when the Producer sends with acks=all</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${
+            [
+              { n:'1', color:'#FF6900', step:'Produce to the leader',   detail:'The Producer sends the order to Broker 1 (the leader) and only the leader. It appends the record to its local log at the next offset (off:142) — but does not yet acknowledge the Producer.' },
+              { n:'2', color:'#3B82F6', step:'Followers fetch & replicate', detail:'Brokers 2 and 3 fetch the new record on their next replication round and append it to their own logs. Each then reports back to the leader the highest offset it has persisted.' },
+              { n:'3', color:'#10B981', step:'Leader acks the Producer',  detail:'Because acks=all, the leader waits until every in-sync replica has the record, then sends one acknowledgement back to the Producer. Only now is the write considered "committed" — durable on all three brokers.' },
+            ].map(s => `
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:${s.color}22;border:1.5px solid ${s.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${s.color};margin-top:2px">${s.n}</div>
+              <div style="flex:1;background:#0A0E1A;border-radius:8px;padding:10px 14px">
+                <div style="font-size:12px;font-weight:700;color:${s.color};margin-bottom:4px">${s.step}</div>
+                <div style="font-size:12px;color:#94A3B8;line-height:1.65">${s.detail}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+        <div style="margin-top:14px;padding:10px 14px;background:#0A0E1A;border-radius:8px;font-size:12px;color:#94A3B8;line-height:1.7">
+          <strong style="color:#F59E0B">acks matters:</strong> with <code style="font-size:11px;color:#CBD5E1;background:#111827;padding:2px 5px;border-radius:5px">acks=1</code> the leader acknowledges the moment <em>it</em> has the record — fast, but a leader crash before replication loses the write. With <code style="font-size:11px;color:#CBD5E1;background:#111827;padding:2px 5px;border-radius:5px">acks=all</code> you trade a few milliseconds of latency for the guarantee above: no committed order is lost unless every in-sync replica dies at once.
+        </div>
+      </div>
+    </div>
+
+    <!-- ISR -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The ISR — who "all" actually means</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 14px">"All replicas" really means the <strong style="color:#E2E8F0">in-sync replica set (ISR)</strong> — the leader plus every follower currently caught up with it (within <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">replica.lag.time.max.ms</code>, default 30s). A follower that falls behind — GC pause, slow disk, network blip — is <strong style="color:#E2E8F0">dropped out of the ISR</strong> so it can't hold up acknowledgements, and rejoins once it catches up.</p>
+        <p style="margin:0">This is the safety valve: <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> waits for the ISR, not for all 3 brokers blindly. If Broker 3 is lagging it leaves the ISR and the leader keeps acking on Brokers 1 + 2, so one slow node never stalls the whole partition. The floor is set by <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas</code> (typically 2): if the ISR shrinks below it, the leader rejects writes rather than accept an order it can't make durable.</p>
+      </div>
+    </div>
+
+    <!-- High-water mark -->
+    <div style="margin-bottom:28px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The High-Water Mark — why consumers can't read ahead</div>
+      <div style="background:#111827;border:1px solid #1E293B;border-left:3px solid #F59E0B;border-radius:10px;padding:14px 18px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+        <p style="margin:0 0 12px">The <strong style="color:#F59E0B">High-Water Mark (HWM)</strong> is the highest offset that <em>every</em> ISR member has written. Consumers are only ever allowed to read records <strong style="color:#E2E8F0">at or below the HWM</strong> — the leader hides anything newer, even though it already has it on its own disk.</p>
+        <p style="margin:0">That restriction is what makes a failover safe. If the leader handed out an order that only it had, then crashed before any follower replicated it, a new leader elected from the followers wouldn't have that order — and a consumer would have read a record that no longer exists in the cluster. By releasing records only once they're on every in-sync replica, Kafka guarantees that anything a consumer has seen will survive a leader change. The HWM is the dividing line between "written" and "safe to read."</p>
+      </div>
+    </div>
+
+    <!-- Key takeaway -->
+    <div style="background:#10B98112;border:1.5px solid #10B98133;border-radius:12px;padding:16px 20px;font-size:13px;color:#94A3B8;line-height:1.7">
+      💡 <strong style="color:#10B981">Durability is a handshake, not a copy.</strong> The leader takes the write, the in-sync followers pull it, and only when the ISR agrees does the Producer get its ack and the consumer get to see the record. <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">acks=all</code> + <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.insync.replicas=2</code> + the High-Water Mark are the three settings that stand between "order confirmed" and an order silently lost to a broker crash.
     </div>`;
 }

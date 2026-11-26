@@ -3,6 +3,258 @@
 // Add a `mXX: [...]` entry as each module is built.
 
 export const IQ_BANK = {
+  m17b: [
+    {
+      q: 'What is Complex Event Processing (CEP) and how does Flink implement it?',
+      difficulty: 'medium',
+      a: `CEP detects <strong>patterns across a sequence of events</strong> — ordering and timing relationships — rather than evaluating single events in isolation. Example: "two failed card attempts <em>followed by</em> a ride start within 2 minutes."<br><br>
+      Flink's <code>flink-cep</code> library compiles a <strong>Pattern</strong> into a <strong>non-deterministic finite automaton (NFA)</strong> that it runs over a <strong>keyed, watermarked</strong> stream. It keeps every <strong>partial match</strong> in <strong>keyed state</strong>, advances them as matching events arrive, and <strong>expires</strong> them when the <code>within</code> window passes (by the watermark). On a full match it emits via a <code>PatternSelectFunction</code>; timed-out partials can go to a side output.`,
+      tip: 'Keywords: NFA, partial matches in keyed state, advanced/expired by the watermark. CEP is windowed, stateful pattern matching.',
+    },
+    {
+      q: 'What is the difference between next, followedBy and followedByAny in the Pattern API?',
+      difficulty: 'medium',
+      a: `They define <strong>contiguity</strong> between pattern stages:<br><br>
+      <strong>next</strong> — <em>strict</em> contiguity: the very next event must match the next stage; any other event breaks the partial match.<br><br>
+      <strong>followedBy</strong> — <em>relaxed</em> contiguity: other, non-matching events may occur between the two stages (they're skipped). This is what you usually want — "two failures, then eventually a ride start" tolerates GPS pings in between.<br><br>
+      <strong>followedByAny</strong> — <em>non-deterministic</em> relaxed: like followedBy but it will match <em>every</em> possible subsequent event that satisfies the stage, producing multiple matches rather than just the first.`,
+      tip: 'Strict (next) vs relaxed (followedBy) vs non-deterministic relaxed (followedByAny). Most fraud/sequence patterns use followedBy.',
+    },
+    {
+      q: 'What does within() do in a CEP pattern, and what happens to partial matches that exceed it?',
+      difficulty: 'medium',
+      a: `<code>within(Time)</code> bounds the <strong>entire pattern to a time window</strong> — all stages must complete within it, measured in <strong>event time</strong> against the watermark. It is what makes "within 2 minutes" enforceable.<br><br>
+      Partial matches whose age exceeds the window are <strong>discarded</strong>. If you care about them (e.g. "started a checkout but never finished"), provide a <strong>timed-out side output</strong> via <code>PatternFlatTimeoutFunction</code> / <code>OutputTag</code> — Flink emits the partial match there when it times out instead of silently dropping it. Without <code>within</code>, partial matches can live (and accumulate state) indefinitely.`,
+      tip: 'within = event-time bound on the whole match; timed-out partials go to a side output. Mentioning the timeout side output signals depth.',
+    },
+    {
+      q: 'What are after-match skip strategies and why do they matter?',
+      difficulty: 'hard',
+      a: `When a match fires, the NFA must decide <strong>where to resume</strong> — which controls whether overlapping matches are emitted:<br><br>
+      • <strong>NO_SKIP</strong> — emit all possible matches, including overlaps (most, can be noisy).<br>
+      • <strong>SKIP_TO_NEXT</strong> — discard matches starting at the same event as the one emitted.<br>
+      • <strong>SKIP_PAST_LAST_EVENT</strong> — resume after the match's last event → <strong>non-overlapping</strong> matches (usually what alerts want).<br>
+      • <strong>SKIP_TO_FIRST/LAST(pattern)</strong> — resume relative to a named stage.<br><br>
+      For a fraud alert you typically want SKIP_PAST_LAST so one card-testing episode raises one alert, not a flood of overlapping ones.`,
+      tip: 'It governs overlapping matches. "SKIP PAST LAST ROW for one alert per episode" is the practical takeaway.',
+    },
+    {
+      q: 'What is MATCH_RECOGNIZE and how does it relate to the Pattern API?',
+      difficulty: 'medium',
+      a: `<code>MATCH_RECOGNIZE</code> is the SQL-standard construct for pattern matching over an ordered stream — Flink SQL's way to do CEP <strong>declaratively</strong>, using the <em>same NFA engine</em> as the Pattern API underneath.<br><br>
+      It has: <code>PARTITION BY</code> (the key), <code>ORDER BY</code> (event-time), a regex-like <code>PATTERN</code> (e.g. <code>(F{2,} R)</code>), <code>DEFINE</code> (each pattern variable's condition), <code>MEASURES</code> (values to project out), <code>AFTER MATCH SKIP</code> (the skip strategy), and <code>WITHIN</code> (the time bound). Most PyFlink users reach for MATCH_RECOGNIZE because it's far more readable than hand-building an NFA, with no loss of power for common patterns.`,
+      tip: 'Same engine, SQL surface. Map PATTERN (F{2,} R) ↔ failed.timesOrMore(2).followedBy(ride).',
+    },
+    {
+      q: 'Why does CEP depend on watermarks and event time?',
+      difficulty: 'medium',
+      a: `Because patterns are about <strong>order and timing</strong>, the NFA must process events in <strong>event-time order</strong> and expire partial matches by event time — both of which require <strong>watermarks</strong>.<br><br>
+      Flink CEP buffers and <strong>sorts incoming events by timestamp</strong>, only advancing the match (and firing <code>within</code> timeouts) as the <strong>watermark</strong> progresses, so out-of-order events are handled correctly. The consequences from the watermark modules carry straight over: an <strong>idle partition</strong> that holds the watermark back will stall CEP matching, and events later than the allowed out-of-orderness are treated as late. In short, CEP is watermark-driven windowed state — tune watermarks the same way you would for windows.`,
+      tip: 'CEP sorts by event time and advances on the watermark — so idle partitions and out-of-orderness affect it exactly like windows.',
+    },
+  ],
+  m06b: [
+    {
+      q: 'Why shouldn\'t you call an external service from a plain synchronous map(), and what do you use instead?',
+      difficulty: 'medium',
+      a: `A synchronous <code>map()</code> <strong>blocks the operator subtask</strong> on every record: it issues the request, waits for the response, then handles the next record. Throughput is capped at <strong>1 / latency</strong> per subtask — at 1M GPS pings/sec with even a 10ms lookup, that collapses.<br><br>
+      Use <strong>Async I/O</strong> (<code>AsyncDataStream.unordered_wait / ordered_wait</code>). It keeps many requests <strong>in flight concurrently</strong>, so throughput becomes roughly <strong>capacity / latency</strong>. The catch: the client must be <em>genuinely non-blocking</em> (returns a future). Wrapping a blocking JDBC call in Async I/O just hides the blocking in a thread pool and buys little.`,
+      tip: 'Say "sync map throughput = 1/latency; async = capacity/latency — but only with a truly non-blocking client."',
+    },
+    {
+      q: 'What is the difference between ordered and unordered Async I/O, and when do you use each?',
+      difficulty: 'medium',
+      a: `Both keep multiple requests in flight; they differ in <strong>emit order</strong>.<br><br>
+      <strong>unordered_wait</strong> emits each result the moment it returns — highest throughput and lowest latency, but output order ≠ input order. Use it when nothing downstream depends on order.<br><br>
+      <strong>ordered_wait</strong> preserves input order by <strong>buffering completed results until their predecessors finish</strong> (a reorder buffer). Correct when order matters downstream — e.g. event-time processing where records must stay time-ordered — but one slow request delays everything behind it.<br><br>
+      Default to unordered unless you have a concrete ordering requirement.`,
+      tip: 'Ordered = reorder buffer + head-of-line blocking; unordered = emit on completion. Pick unordered unless downstream needs order.',
+    },
+    {
+      q: 'What do the capacity and timeout parameters control in Async I/O?',
+      difficulty: 'medium',
+      a: `<strong>Capacity</strong> is the maximum number of <strong>in-flight requests per subtask</strong>. It is the real throughput lever (throughput ≈ capacity / latency). When capacity is full, Flink applies <strong>backpressure</strong> upstream rather than issuing more requests — so set it high enough for throughput but not so high that you overwhelm the external system.<br><br>
+      <strong>Timeout</strong> is how long to wait for a response before the request is treated as failed. You <strong>must</strong> implement the timeout handler (retry, or complete with a default/empty result) — an unhandled timeout fails the job. Capacity is also part of operator state, so it participates in checkpoints.`,
+      tip: 'Capacity = in-flight limit + where backpressure starts; timeout must be handled or the job dies. Forgetting the timeout handler is the classic mistake.',
+    },
+    {
+      q: 'What is a ProcessFunction and when would you drop down to it from the DSL?',
+      difficulty: 'medium',
+      a: `<code>ProcessFunction</code> / <code>KeyedProcessFunction</code> is Flink's <strong>low-level primitive</strong> that exposes everything the high-level DSL hides: direct access to <strong>keyed state</strong>, <strong>timers</strong> (event- or processing-time with an <code>onTimer</code> callback), and <strong>side outputs</strong>, plus per-record access to timestamps and watermarks.<br><br>
+      Drop down to it when <code>map/filter/window</code> can't express the logic: custom session/timeout detection (register a timer, fire if no follow-up event arrives), de-duplication with state, complex routing, or emitting multiple typed streams. On R-4471 it powers a "stuck ride" watchdog — a timer set at ride start that alerts if no completion arrives.`,
+      tip: 'Keyed state + timers + side outputs in one operator — that triad is the reason to use ProcessFunction.',
+    },
+    {
+      q: 'What is the difference between event-time and processing-time timers?',
+      difficulty: 'medium',
+      a: `Both schedule an <code>onTimer</code> callback, but fire on different clocks:<br><br>
+      <strong>Event-time timers</strong> fire when the <strong>watermark</strong> passes the registered timestamp. They are aligned with your data's time, so they behave correctly under replay/out-of-order data — use them for windowing and event-time timeouts that must be reproducible.<br><br>
+      <strong>Processing-time timers</strong> fire on <strong>wall-clock</strong> time. Use them for real-world timeouts independent of the data ("no heartbeat seen for 30 real seconds").<br><br>
+      Both are <strong>scoped to a key</strong> and <strong>checkpointed</strong>, so they survive failures and restore with the job.`,
+      tip: 'Event-time timers fire on the watermark (replay-safe); processing-time timers fire on wall-clock. Both are per-key and checkpointed.',
+    },
+    {
+      q: 'What are side outputs and give two production uses.',
+      difficulty: 'easy',
+      a: `A <strong>side output</strong> is an additional, strongly-typed output stream from a single operator, identified by an <code>OutputTag</code> and emitted with <code>ctx.output(tag, value)</code>; downstream you read it with <code>get_side_output(tag)</code>. It avoids a second pass over the data.<br><br>
+      Two canonical uses:<br>
+      1. <strong>Late data</strong> — a window routes events later than <code>allowedLateness</code> to a side output instead of dropping them, so you can reconcile later.<br>
+      2. <strong>Dead-letter queue</strong> — un-parseable or invalid records go to a DLQ side output; the main stream stays clean and one bad record never crashes the job.`,
+      tip: 'Late-data capture and DLQ routing are the two uses interviewers want to hear — both keep the main stream clean.',
+    },
+  ],
+  m11b: [
+    {
+      q: 'When would you choose HashMapStateBackend over EmbeddedRocksDBStateBackend, and vice versa?',
+      difficulty: 'medium',
+      a: `<strong>HashMapStateBackend</strong> keeps state as Java objects on the <strong>JVM heap</strong> — fastest access (no serialization), but bounded by memory and it adds GC pressure. Use it when state comfortably fits in RAM and you need the lowest latency (small keyed aggregates, short windows).<br><br>
+      <strong>EmbeddedRocksDBStateBackend</strong> keeps state <strong>off-heap, in an embedded RocksDB on local disk</strong> — each access pays serialization and possibly a disk read, but state can grow far beyond RAM and it supports <strong>incremental checkpoints</strong>. Use it for large or unbounded state (long TTL, big windows, millions of keys).<br><br>
+      For R-4471's per-driver fraud state across millions of drivers, RocksDB is the answer; a small per-city counter could stay on HashMap.`,
+      tip: 'Frame it as a tradeoff: heap speed + GC + size limit vs off-heap near-unbounded + serialization + incremental checkpoints.',
+    },
+    {
+      q: 'How does RocksDB store state? Walk through the LSM write path.',
+      difficulty: 'hard',
+      a: `RocksDB is a <strong>log-structured merge (LSM) tree</strong>:<br><br>
+      1. A write first appends to the <strong>WAL</strong> (durability) and updates the in-memory <strong>active memtable</strong>.<br>
+      2. When the memtable fills, it becomes immutable and is <strong>flushed</strong> to an immutable <strong>SST file</strong> in level <strong>L0</strong>.<br>
+      3. When a level has too many files, <strong>leveled compaction</strong> merges them into fewer, larger, sorted SSTs in the next level down (L1, then L2…). SSTs are immutable — compaction writes new files and drops old ones.<br><br>
+      Reads check the memtable, then the block cache, then SSTs (using per-SST <strong>bloom filters</strong> to skip files that can't hold the key). This structure makes writes cheap (append + background merge) and keeps reads bounded.`,
+      tip: 'The keywords: memtable → flush → SST → leveled compaction; reads use block cache + bloom filters. Say "SSTs are immutable" — it is why incremental checkpoints work.',
+    },
+    {
+      q: 'What is write amplification in RocksDB and where does it come from?',
+      difficulty: 'medium',
+      a: `<strong>Write amplification</strong> is the ratio of bytes actually written to disk versus the logical bytes you wrote. In RocksDB it comes from <strong>compaction</strong>: as data sinks from L0 → L1 → L2, each level's files are rewritten when merged, so one logical byte is physically written several times.<br><br>
+      It is the core LSM tradeoff: compaction keeps <em>read</em> amplification low (fewer, sorted files to search) and space amplification low (dead/old versions removed), but it costs background write I/O. You tune it with bigger memtables (fewer, larger flushes), compaction style, and level sizing. On fast local NVMe it is usually a good trade; on slow disks it hurts.`,
+      tip: 'Name the three amplifications (write / read / space) — RocksDB tuning is always trading one against the others.',
+    },
+    {
+      q: 'What are incremental checkpoints and why does only RocksDB support them?',
+      difficulty: 'medium',
+      a: `An <strong>incremental checkpoint</strong> uploads only the state that <em>changed</em> since the last checkpoint, instead of the entire state every time. RocksDB can do this because its <strong>SST files are immutable</strong>: once written, an SST never changes, so a checkpoint just uploads the SSTs created since the last one and <strong>references</strong> the already-uploaded older SSTs. Full state is reconstructed from the chain of SSTs.<br><br>
+      HashMapStateBackend cannot — its on-heap state has no immutable file structure to diff, so every checkpoint is full. For hundreds of GB of state, incremental checkpoints turn a multi-minute checkpoint into a few seconds, which is what keeps large-state jobs operable.`,
+      tip: 'The one-liner: "RocksDB SSTs are immutable, so a checkpoint uploads only new SSTs and references the rest."',
+    },
+    {
+      q: 'RocksDB state lives off-heap in Flink\'s managed memory. Why does that matter?',
+      difficulty: 'medium',
+      a: `RocksDB's working memory — the <strong>block cache</strong> and <strong>write buffers (memtables)</strong> — is allocated from Flink's <strong>managed memory</strong> (<code>taskmanager.memory.managed.fraction</code>), which is <strong>off the JVM heap</strong>.<br><br>
+      That matters because it means large state does <strong>not</strong> compete with your operators' heap and does <strong>not</strong> cause long JVM garbage-collection pauses — a job with 100s of GB of RocksDB state can run with a small, stable heap. Flink also sizes RocksDB within that managed budget so it won't OOM the container. With HashMapStateBackend, by contrast, all that state is on heap and directly drives GC.`,
+      tip: 'Connect it to GC: off-heap managed memory is why big RocksDB state avoids the GC pauses that would cripple an on-heap backend.',
+    },
+    {
+      q: 'How do you keep RocksDB state from growing forever and keep read latency low?',
+      difficulty: 'medium',
+      a: `Two sides:<br><br>
+      <strong>Bound growth</strong> — use <strong>state TTL</strong> (<code>StateTtlConfig</code>) to expire entries you no longer need; configure cleanup to run <em>in the RocksDB compaction filter</em> so expired data is dropped during the compaction that is already happening. Avoid unbounded keyspaces and set TTL on long-lived keyed state.<br><br>
+      <strong>Keep reads fast</strong> — give RocksDB a larger <strong>block cache</strong> (more read hits from memory), keep <strong>bloom filters</strong> on (skip SSTs that can't contain a key), put the local dir on <strong>fast NVMe</strong>, and use efficient serializers (never Kryo for long-lived state). Bigger memtables reduce flush/compaction churn.`,
+      tip: 'TTL for growth, block cache + bloom filters + fast local disk for latency — mentioning "cleanup in the compaction filter" signals real RocksDB experience.',
+    },
+  ],
+  m18c: [
+    {
+      q: 'What are Flink\'s deployment modes and how do they differ?',
+      difficulty: 'medium',
+      a: `There are three, distinguished by <strong>cluster lifetime</strong> and <strong>where main() runs</strong>:<br><br>
+      <strong>Application mode</strong> — a dedicated cluster per application; <code>main()</code> runs on the <strong>JobManager</strong>. Full isolation, independent lifecycle. The production default.<br><br>
+      <strong>Session mode</strong> — one long-running cluster that hosts <strong>many jobs sharing</strong> the JobManager and TaskManager slots; <code>main()</code> runs on the <strong>client</strong>. Submission is instant (the cluster already exists), but there is no isolation.<br><br>
+      <strong>Per-Job mode</strong> — a dedicated cluster per job but <code>main()</code> ran on the client. <strong>Deprecated in 1.15 and removed</strong>; use Application mode instead.`,
+      tip: 'Anchor your answer on the two axes: cluster-per-job vs shared, and main() on JM vs client. That framing covers all three modes cleanly.',
+    },
+    {
+      q: 'Where does main() run in Application vs Session mode, and why does it matter?',
+      difficulty: 'medium',
+      a: `In <strong>Session</strong> (and the old Per-Job) mode, <code>main()</code> runs on the <strong>client</strong>: the client executes your code, builds the JobGraph, downloads dependencies, then ships it to the cluster. That makes the client heavy, and if it dies mid-submission the job may never start — awkward for CI/CD at scale.<br><br>
+      In <strong>Application</strong> mode, the JAR is handed to the cluster and <code>main()</code> runs on the <strong>JobManager</strong>. The client just submits and walks away. This is far better for GitOps/operators and for jobs that call <code>execute()</code> multiple times, and it keeps each application fully self-contained with its own classpath.`,
+      tip: 'The phrase "main() on the JobManager, not the client" is the exact detail interviewers are listening for with Application mode.',
+    },
+    {
+      q: 'What is the "blast radius" difference between Session and Application mode?',
+      difficulty: 'medium',
+      a: `In <strong>Session</strong> mode every job shares <strong>one JobManager and one TaskManager pool</strong>, so the blast radius is the whole cluster: a JobManager failure takes down <em>every</em> job, a classloader leak or OOM in one job can destabilize its neighbours, and one greedy job can starve others of slots.<br><br>
+      In <strong>Application</strong> mode each job is its own cluster with its own JobManager and TaskManagers, so a crash, a bad deploy, or a resource spike is <strong>contained to that one application</strong>. This isolation — plus independent upgrades — is why long-running production jobs (like R-4471's fraud pipeline) run in Application mode and reserve Session mode for many short or ad-hoc jobs.`,
+      tip: 'Mention slot contention and shared-classpath conflicts, not just "JM is a SPOF" — it shows you have run shared clusters.',
+    },
+    {
+      q: 'What does the Flink Kubernetes Operator do?',
+      difficulty: 'medium',
+      a: `It turns Flink into a declarative Kubernetes resource. You apply a <code>FlinkDeployment</code> (or <code>FlinkSessionJob</code>) custom resource describing the desired job — image, parallelism, state dirs, upgrade mode — and the operator runs a <strong>reconciliation loop</strong> (observe → validate → reconcile → update status) that makes reality match it.<br><br>
+      It handles the full lifecycle automatically: initial deploy, <strong>savepoint-based upgrades</strong> (stop-with-savepoint, redeploy new image, restore), rollback, HA recovery, and <strong>autoscaling</strong> (it reads backpressure/throughput metrics and rewrites per-vertex parallelism, then triggers a rescale). You manage jobs with <code>kubectl apply</code> / GitOps instead of hand-running <code>flink run</code>.`,
+      tip: 'Name the CRDs (FlinkDeployment / FlinkSessionJob) and the reconcile loop — that specificity separates a real answer from a hand-wave.',
+    },
+    {
+      q: 'What is the difference between "savepoint" and "last-state" upgrade modes in the operator?',
+      difficulty: 'hard',
+      a: `Both preserve state across an upgrade, but differ in how they capture it:<br><br>
+      <strong>savepoint</strong> — the operator does a clean <code>stop-with-savepoint</code>: it drains in-flight records, takes a canonical savepoint, then redeploys and restores. Safest and portable, but requires the job to be healthy enough to take a savepoint (a wedged job can't).<br><br>
+      <strong>last-state</strong> — the operator skips the savepoint and restarts from the <strong>latest completed checkpoint</strong> using HA metadata. Faster, and it works even when the job is unhealthy/crash-looping (you can't savepoint a dead job), at the cost of reprocessing from the last checkpoint rather than a drained point.<br><br>
+      <strong>stateless</strong> discards state entirely. Rule of thumb: <code>savepoint</code> for routine upgrades, <code>last-state</code> to recover a stuck job.`,
+      tip: 'The killer line: "last-state works when the job is too broken to savepoint." That is the real reason it exists.',
+    },
+    {
+      q: 'How does Flink achieve high availability on Kubernetes without ZooKeeper?',
+      difficulty: 'medium',
+      a: `Flink supports <strong>Kubernetes-native HA</strong> (<code>high-availability.type: kubernetes</code>). Instead of ZooKeeper, it uses the Kubernetes API for <strong>leader election</strong> and stores JobManager metadata (the pointer to the latest checkpoint, the JobGraph, completed-checkpoint info) in <strong>ConfigMaps</strong>.<br><br>
+      If the active JobManager pod dies, a standby wins leader election, reads the HA ConfigMap to find the latest checkpoint, and restores the job from it — no separate ZooKeeper ensemble to run or operate. The checkpoints themselves live in durable storage (S3/HDFS); the ConfigMap only holds the small pointers and metadata.`,
+      tip: 'Say "ConfigMap-based leader election + metadata; checkpoints stay in S3" — that is the precise mechanism.',
+    },
+  ],
+  m18b: [
+    {
+      q: 'A Flink job is slow. How do you find which operator is the bottleneck?',
+      difficulty: 'medium',
+      a: `Walk the job graph <strong>from the sink backward</strong> and read two metrics per operator: <code>busyTimeMsPerSecond</code> and <code>backPressuredTimeMsPerSecond</code>.<br><br>
+      The <strong>bottleneck is the first operator that is busy (~1000ms/s) but NOT backpressured</strong> — it is working flat out and nothing downstream is holding it back. Everything <em>upstream</em> of it shows high backpressure (they are blocked waiting to hand records off), and everything <em>downstream</em> is idle (starved of input).<br><br>
+      In the Web UI this is the backpressure tab (OK/LOW/HIGH per subtask); via REST it is <code>/jobs/&lt;jid&gt;/vertices/&lt;vid&gt;/backpressure</code>. Once you have the operator, the fix is operator-specific: add parallelism, remove a sync call (async I/O), or speed up the sink.`,
+      tip: 'The exact phrase interviewers want: "busy but not backpressured = the bottleneck; everything upstream is backpressured."',
+    },
+    {
+      q: 'What is watermark lag and why is it often more important than throughput?',
+      difficulty: 'medium',
+      a: `<strong>Watermark lag = wall-clock time − currentOutputWatermark</strong>. It tells you how far <em>behind real time</em> the event-time frontier is — i.e. how stale your windowed results are.<br><br>
+      Throughput can look perfectly healthy while the job is quietly wrong: if a source partition is idle or watermarks are held back, windows stop firing even though records flow. For Uber's R-4471, a 90s watermark lag means surge pricing is deciding on data that is 90 seconds old. That is a user-visible defect that throughput alone never reveals.<br><br>
+      Monitor it per-operator (<code>currentOutputWatermark</code>), subtract from <code>now()</code>, and alert when it exceeds your freshness SLO (e.g. 60s).`,
+      tip: 'Say "watermark lag measures freshness; throughput measures volume — a job can have great throughput and terrible freshness."',
+    },
+    {
+      q: 'Which checkpoint metrics do you watch, and what does a climbing checkpoint duration mean?',
+      difficulty: 'medium',
+      a: `Watch <code>lastCheckpointDuration</code>, <code>lastCheckpointSize</code>, <code>numberOfFailedCheckpoints</code>, and the alignment time.<br><br>
+      A <strong>rising checkpoint duration is the earliest warning sign you get</strong>. The usual cause is <strong>barrier alignment under backpressure</strong>: when an operator is backpressured, checkpoint barriers queue behind buffered data, so alignment — and thus the whole checkpoint — takes longer. Left unchecked, duration crosses the checkpoint timeout and checkpoints start <em>failing</em>, which eventually causes a restart from an old checkpoint (more reprocessing).<br><br>
+      Fixes: relieve the backpressure (the root cause), or enable <strong>unaligned checkpoints</strong> so barriers overtake buffered data instead of waiting. Alert when duration exceeds ~50% of the checkpoint interval.`,
+      tip: 'Link checkpoint duration to backpressure via barrier alignment, and name unaligned checkpoints as the mitigation.',
+    },
+    {
+      q: 'How does Flink expose metrics, and how do you get them into Grafana?',
+      difficulty: 'easy',
+      a: `Flink has a built-in <strong>metric system</strong>: every JobManager/TaskManager/operator/subtask registers counters, gauges, meters and histograms into a scoped hierarchy. A <strong>reporter</strong> then ships them out on an interval.<br><br>
+      For Grafana you configure the <strong>Prometheus reporter</strong> (<code>metrics.reporter.prom</code>) — each TaskManager exposes a <code>/metrics</code> endpoint that Prometheus scrapes, and Grafana reads Prometheus. Keep <code>metrics.scope.operator</code> stable so dashboards don't break across redeploys. You can add custom business metrics via <code>getRuntimeContext().getMetricGroup().counter(...)</code> and they appear beside the system metrics.`,
+      tip: 'Name the reporter + scope format; mentioning "stable scopes so dashboards survive redeploys" signals real operational experience.',
+    },
+    {
+      q: 'What is the difference between busyTimeMsPerSecond and backPressuredTimeMsPerSecond?',
+      difficulty: 'medium',
+      a: `Both measure, out of each 1000ms, how the operator spent its time.<br><br>
+      <strong>busyTimeMsPerSecond</strong> — time spent actively <em>processing</em> records. ~1000 means the operator itself is the limiting factor (CPU-bound logic, a slow sync call).<br><br>
+      <strong>backPressuredTimeMsPerSecond</strong> — time spent <em>blocked</em> because it could not emit downstream (the output buffers were full). High here means the limiter is <em>downstream</em>, not this operator.<br><br>
+      The remainder (1000 − busy − backpressured) is idle/waiting for input. Reading all three across the chain is how you localize a bottleneck without guessing.`,
+      tip: 'busy = "I am the slow one"; backpressured = "someone after me is the slow one".',
+    },
+    {
+      q: 'What would you actually page (alert) on for a production streaming job, versus just dashboard?',
+      difficulty: 'hard',
+      a: `Page on <strong>symptoms the user feels</strong>, not raw noise:<br><br>
+      • <strong>Job state != RUNNING</strong> — the bluntest, most important check.<br>
+      • <strong>Watermark lag &gt; SLO</strong> (e.g. 60s for 5 min) — results are stale.<br>
+      • <strong>Consumer/source lag rising</strong> for 15 min — falling behind input; backlog won't self-drain.<br>
+      • <strong>Sustained backpressure</strong> (&gt;50% on any subtask for 10 min) — throughput clamped below input.<br>
+      • <strong>Checkpoint failures</strong> or duration &gt; 50% of interval — recovery is at risk.<br>
+      • <strong>numRestarts &gt; 0</strong> in a short window — crash loop.<br><br>
+      Everything else (per-operator CPU, GC details, buffer pool stats) is a <em>dashboard</em> you consult <em>after</em> a page, not a page itself. Alerting on noise trains people to ignore alerts.`,
+      tip: 'Framing it as "page on user-visible symptoms, dashboard on diagnostics" is exactly the SRE-grade answer interviewers reward.',
+    },
+  ],
   m01: [
     {
       q: 'Why did Uber choose Apache Flink over Spark Streaming?',

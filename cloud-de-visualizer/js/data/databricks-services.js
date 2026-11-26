@@ -1905,6 +1905,173 @@
         { q: 'How is access secured in Delta Sharing?', a: 'The provider defines shares and recipients in Unity Catalog. A sharing server authorizes each request (via a bearer token for open sharing, or identity for Databricks-to-Databricks) and returns short-lived signed URLs to the underlying files — so storage credentials are never exposed. All access is logged and the share can be revoked at any time, keeping the provider in control.' },
       ],
     },
+
+    /* ── DEVOPS & CI/CD (deploy Databricks as code) ───────── */
+    {
+      id: 'databricks-cicd', name: 'Databricks CI/CD (Asset Bundles & Repos)', category: 'devops',
+      aka: 'DABs · Databricks Asset Bundles · Git folders (Repos) · databricks.yml',
+      tagline: 'Deploy Databricks work as code: Databricks Asset Bundles (DABs) package jobs, DLT pipelines, notebooks and config in a versioned databricks.yml, promoted dev → staging → prod by a CI/CD pipeline (Azure Pipelines or GitHub Actions) using the Databricks CLI and OIDC auth — no click-ops in production.',
+      keyFacts: [
+        { k: 'Unit', v: 'Bundle = databricks.yml + resources' },
+        { k: 'Deploy CLI', v: 'databricks bundle validate/deploy/run' },
+        { k: 'Promotion', v: 'targets: dev / staging / prod' },
+        { k: 'Auth in CI', v: 'OAuth (M2M) service principal / OIDC' },
+      ],
+      what: {
+        lead: 'Databricks CI/CD is the practice of defining Databricks resources — jobs, DLT pipelines, notebooks, clusters, ML models — declaratively and deploying them through a pipeline instead of by hand. Databricks Asset Bundles (DABs) are the native packaging format: one databricks.yml describes the resources and per-environment targets, and the Databricks CLI validates and deploys it.',
+        bullets: [
+          { h: 'Asset Bundles (DABs)', d: 'A databricks.yml declares resources (jobs, pipelines, experiments) plus targets (dev/staging/prod) with per-target overrides and variables — infrastructure-as-code for the workspace.' },
+          { h: 'Databricks Repos / Git folders', d: 'Git-backed folders in the workspace let notebooks be version-controlled and pulled at deploy time; the bundle references source by path.' },
+          { h: 'Databricks CLI', d: 'databricks bundle validate / deploy / run / destroy is the command surface that CI invokes; the same bundle deploys to any target.' },
+          { h: 'Definition as code', d: 'Jobs and pipelines live in git next to transformation code, reviewed by PR — the opposite of editing a job in the UI and hoping prod matches.' },
+        ],
+      },
+      why: {
+        lead: 'Hand-edited jobs drift between environments and have no audit trail or rollback. Treating Databricks resources as code gives reproducible promotion, PR review, and a single source of truth that a pipeline deploys identically to every environment.',
+        bullets: [
+          { h: 'No environment drift', d: 'The same bundle deploys to dev/staging/prod; differences are explicit target overrides, not undocumented manual edits.' },
+          { h: 'Review & audit', d: 'Every change to a job or pipeline is a git commit reviewed in a PR, with history and blame — governance interviewers look for.' },
+          { h: 'Safe promotion & rollback', d: 'Promote by deploying a tagged commit; roll back by redeploying the previous one. Bundle deploys are repeatable.' },
+          { h: 'Isolation per developer', d: 'The dev target prefixes resources per user so many engineers deploy private copies of the same job without collisions.' },
+        ],
+      },
+      how: {
+        lead: 'You author a databricks.yml with resources and targets, validate it locally, then let a CI/CD pipeline authenticate as a service principal and run databricks bundle deploy against the right target on merge. Notebooks come from git; the bundle wires them into jobs/pipelines and sets the run-as identity.',
+        bullets: [
+          { h: 'Author + validate', d: 'databricks bundle validate checks the databricks.yml and resolves variables/targets before anything is deployed.' },
+          { h: 'Deploy per target', d: 'databricks bundle deploy -t staging uploads artifacts and creates/updates the jobs & pipelines in that workspace; -t prod does the same for production.' },
+          { h: 'Run / smoke-test', d: 'databricks bundle run <job> triggers a job from CI to smoke-test the deployment before promoting further.' },
+          { h: 'CI auth without secrets', d: 'CI authenticates as a Databricks service principal via OAuth machine-to-machine (client id/secret) or OIDC federation from Azure DevOps/GitHub — no personal access token in the pipeline.' },
+        ],
+      },
+      deUseCase: {
+        lead: 'A data team keeps its medallion pipeline — Auto Loader ingest, a DLT pipeline, and a Workflows job — in one bundle. A pull request changes the transformation; on merge to main, Azure Pipelines deploys the bundle to staging, runs it, and (after approval) deploys the identical bundle to prod, all as the team’s service principal.',
+        bullets: [
+          { h: 'One bundle, three environments', d: 'dev (per-engineer isolated), staging (integration), prod (approved) — same databricks.yml, different targets.' },
+          { h: 'Bridges to Azure DevOps', d: 'Azure Pipelines/GitHub Actions run the Databricks CLI; this is the Databricks end of the same CI/CD story as ADF’s adf_publish promotion.' },
+        ],
+      },
+      integrations: [
+        { id: 'workflows', label: 'Workflows (Jobs)', note: 'the job a bundle deploys' },
+        { id: 'delta-live-tables', label: 'Delta Live Tables', note: 'pipeline resource in the bundle' },
+        { id: 'unity-catalog', label: 'Unity Catalog', note: 'grants the run-as SP needs' },
+        { id: 'azure-pipelines', format: 'azure', label: 'Azure Pipelines', note: 'runs the Databricks CLI deploy' },
+        { id: 'github-actions', format: 'azure', label: 'GitHub Actions', note: 'alternative CI runner' },
+        { id: 'azure-repos', format: 'azure', label: 'Azure Repos', note: 'hosts the bundle + notebooks' },
+      ],
+      runtime: {
+        lead: 'A bundle deploy is a control-plane operation: the CLI uploads artifacts and reconciles job/pipeline definitions in the target workspace — it does not run compute. The deployed jobs run later on their own job clusters or serverless. CI compute is just a runner executing the CLI.',
+        bullets: [
+          { h: 'Deploy ≠ run', d: 'bundle deploy creates/updates definitions; the workloads consume DBUs only when the jobs actually run.' },
+          { h: 'Per-target state', d: 'Each target tracks what it deployed, so re-deploys are incremental updates to the same resources, not duplicates.' },
+        ],
+      },
+      architecture: {
+        lead: 'A bundle is a directory with a databricks.yml at its root: resources (jobs, DLT pipelines, experiments, model-serving), targets (named environments with workspace host + overrides), and variables. The Databricks CLI reads it, resolves the chosen target, uploads notebook/wheel artifacts, and reconciles the resource definitions in that workspace under a deployment identity.',
+        bullets: [
+          { h: 'Resources', d: 'Declarative job/pipeline/experiment definitions (YAML) that map to Workflows jobs, DLT pipelines and other workspace objects.' },
+          { h: 'Targets & overrides', d: 'Named environments (dev/staging/prod) each pin a workspace host, a run-as identity, a mode (development prefixes + pauses schedules; production enforces), and per-target variable overrides.' },
+          { h: 'Variables & substitution', d: 'Variables and ${} substitutions parameterize hosts, catalog names, cluster sizes and schedules so one file fits every environment.' },
+          { h: 'Deployment identity', d: 'In CI the deploy runs as a service principal (OAuth M2M or OIDC-federated), so production is never deployed under a personal account.' },
+        ],
+      },
+      security: {
+        lead: 'The deploy identity and the run-as identity are the two security pivots. CI should deploy as a service principal with only the workspace + UC grants it needs, and the deployed jobs should run as a least-privileged service principal — not the developer who merged the PR.',
+        bullets: [
+          { h: 'Service principal, not PAT', d: 'Authenticate CI with OAuth machine-to-machine (client credentials) or OIDC federation from Azure DevOps/GitHub; avoid long-lived personal access tokens in pipeline variables.' },
+          { h: 'Run-as least privilege', d: 'Set the job run_as to a service principal and grant it explicit Unity Catalog privileges on the catalogs/schemas/tables it touches — a bundle that deploys cleanly can still fail at run time if run-as lacks grants.' },
+          { h: 'Secrets stay in scopes', d: 'Jobs read credentials from Databricks secret scopes (optionally Key Vault-backed); the bundle references scope names, never secret values.' },
+          { h: 'Production mode guardrails', d: 'A production target’s mode enforces that resources are not prefixed/paused like dev, and can require the deploy identity to be a service principal.' },
+        ],
+      },
+      operations: {
+        lead: 'Operating Databricks CI/CD is about repeatable promotion, drift prevention, and clean teardown. The bundle is the source of truth; the UI is read-only in prod.',
+        bullets: [
+          { h: 'Promote by commit', d: 'Deploy a tagged/approved commit to staging, smoke-test with bundle run, then deploy the same commit to prod behind an approval gate.' },
+          { h: 'Prevent drift', d: 'Treat manual UI edits to deployed jobs as incidents; re-deploy from the bundle to restore the declared state.' },
+          { h: 'Per-developer dev targets', d: 'Development mode prefixes resources with the user, so engineers deploy and test private copies without stepping on each other or on prod.' },
+          { h: 'Teardown', d: 'bundle destroy removes a target’s deployed resources — useful for ephemeral/PR environments so they don’t linger and cost money.' },
+        ],
+      },
+      cost: {
+        lead: 'The CI/CD layer itself is just the Databricks CLI running on a pipeline agent — the cost is the CI runner minutes plus whatever DBUs the deployed jobs consume when they run (and any smoke-test run from CI). The levers are cheap deploys (control-plane only), ephemeral PR environments torn down with bundle destroy, and not leaving smoke-test clusters running. (DBU and agent rates vary — price against the official pricing pages.)',
+        bullets: [
+          { h: 'Deploys are cheap', d: 'bundle deploy is a control-plane reconcile; it burns runner minutes, not cluster DBUs.' },
+          { h: 'Tear down PR environments', d: 'Ephemeral targets left deployed can hold scheduled jobs; bundle destroy removes them so they stop incurring cost.' },
+          { h: 'Smoke-test deliberately', d: 'A bundle run from CI spins up job compute — keep it small/targeted and don’t gate every PR on a full production-scale run.' },
+        ],
+      },
+      walkthrough: {
+        lead: 'Lifecycle of a change from pull request to production via an Asset Bundle.',
+        steps: [
+          { h: 'Author & validate locally', d: 'An engineer edits the transformation and the databricks.yml, runs databricks bundle validate, and deploys to their isolated dev target to test.' },
+          { h: 'Open a PR', d: 'The change (code + bundle) is reviewed; branch policy / build validation runs bundle validate in CI so a broken bundle never merges.' },
+          { h: 'Merge → deploy staging', d: 'On merge to main, the pipeline authenticates as the service principal and runs databricks bundle deploy -t staging.' },
+          { h: 'Smoke-test', d: 'CI runs databricks bundle run <job> -t staging and checks it succeeds before promoting.' },
+          { h: 'Approval → deploy prod', d: 'An environment approval gate releases the prod stage, which runs bundle deploy -t prod with the identical commit.' },
+          { h: 'Observe & roll back if needed', d: 'The prod job runs on schedule; if a regression appears, re-deploy the previous tagged commit to roll back.' },
+        ],
+        note: 'Illustrative; exact stages/gates depend on your Azure Pipelines or GitHub Actions setup.',
+      },
+      examples: [{
+        title: 'Promote a medallion job dev → staging → prod with an Asset Bundle in Azure Pipelines',
+        requirement: 'Deploy a Databricks Workflows job (ingest → DLT → publish) through CI/CD so staging and prod are identical and nothing is hand-edited in the workspace.',
+        input: 'A git repo with notebooks, a databricks.yml declaring the job + DLT pipeline, and dev/staging/prod targets.',
+        architecture: 'Azure Pipelines: validate (PR) → deploy staging (on merge) → bundle run smoke-test → approval → deploy prod; auth via a Databricks service principal (OAuth M2M).',
+        code: {
+          lang: 'yaml (databricks.yml + azure-pipelines.yml, illustrative)',
+          text: "# databricks.yml\nbundle: { name: medallion }\nvariables:\n  catalog: { default: main }\nresources:\n  jobs:\n    medallion:\n      name: medallion_${bundle.target}\n      tasks:\n        - task_key: ingest\n          notebook_task: { notebook_path: ./src/ingest.py }\ntargets:\n  dev:     { mode: development, default: true }\n  staging: { mode: production, workspace: { host: ${STAGING_HOST} } }\n  prod:    { mode: production, workspace: { host: ${PROD_HOST} },\n            variables: { catalog: prod } }\n---\n# azure-pipelines.yml (deploy stage)\nsteps:\n  - script: |\n      curl -fsSL https://databricks.com/install.sh | sh\n      databricks bundle validate -t staging\n      databricks bundle deploy -t staging\n      databricks bundle run medallion -t staging\n    env:\n      DATABRICKS_HOST: $(STAGING_HOST)\n      DATABRICKS_CLIENT_ID: $(SP_CLIENT_ID)\n      DATABRICKS_CLIENT_SECRET: $(SP_SECRET)",
+        },
+        steps: [
+          'Declare the job + targets in databricks.yml; keep notebooks in the repo.',
+          'Run bundle validate in PR build validation so a broken bundle cannot merge.',
+          'On merge, deploy to staging as the service principal and bundle run to smoke-test.',
+          'Gate prod behind an environment approval; deploy the same commit to the prod target.',
+        ],
+        output: 'Identical, reviewed, reproducible job definitions in staging and prod with an audit trail and one-commit rollback.',
+        validation: 'Confirm staging and prod jobs match the bundle; change the bundle, re-deploy, and verify the workspace reflects it; test rollback by redeploying the prior commit.',
+        errorHandling: 'bundle validate fails fast on bad config; a failed staging smoke-test blocks promotion; prod is gated by approval.',
+        production: 'Deploy as a least-privileged service principal; grant run-as the UC privileges it needs; store SP secrets in the pipeline’s secret store or use OIDC federation; never deploy prod from a laptop.',
+        cleanup: 'databricks bundle destroy -t <target> removes a target’s resources; delete ephemeral PR targets to stop cost.',
+      }],
+      troubleshooting: [
+        {
+          symptom: 'The bundle deploys successfully but the job fails at run time with Unity Catalog permission errors.',
+          evidence: 'bundle deploy -t prod succeeds; the first prod run errors on a SELECT/CREATE against a UC table; the job’s run_as is a service principal with no grant on that object.',
+          causes: ['Deploy identity has workspace rights but run_as lacks UC grants', 'run_as left as the developer in dev, switched to an SP in prod with fewer grants', 'External location not granted to run_as'],
+          investigation: ['Check the job’s run_as identity in the deployed job', 'Compare UC grants on the failing object for run_as vs the developer', 'Verify external-location/storage-credential grants for run_as'],
+          rootCause: 'Deploying and running are separate identities; the bundle only needs rights to create the job, but the run_as service principal needs explicit UC grants on everything the job reads/writes — which were never granted in prod.',
+          remediation: ['Grant the run_as SP explicit UC privileges on the catalogs/schemas/tables and external locations it uses', 'Automate those grants in the bundle/IaC so every environment gets them', 'Standardize a documented least-privilege run_as per environment'],
+          validation: 'The prod job runs green under its run_as SP with no manual grant needed after a fresh deploy.',
+          prevention: 'Provision run_as grants as part of the bundle/deployment, not by hand; test the staging run under the same SP before promoting.',
+        },
+        {
+          symptom: 'CI deploys work from one engineer’s machine but fail in the pipeline with authentication errors.',
+          evidence: 'databricks bundle deploy returns 401/403 in CI; locally it works because the CLI picks up a personal login; the pipeline has no valid Databricks credentials.',
+          causes: ['Pipeline relying on a personal access token that expired or belongs to the wrong user', 'Service-principal client id/secret not wired as pipeline secrets', 'OIDC federation/trust not configured between the CI system and Databricks'],
+          investigation: ['Check which auth the CLI uses in CI (env vars vs profile)', 'Confirm DATABRICKS_HOST + SP client id/secret (or OIDC) are present as pipeline secrets', 'Verify the SP has workspace access to the target'],
+          rootCause: 'The deploy was authenticating via a developer’s local credentials, which don’t exist in CI; the pipeline needs its own non-interactive service-principal auth.',
+          remediation: ['Authenticate CI as a service principal via OAuth M2M (client id/secret in the secret store) or OIDC federation', 'Grant the SP access to the target workspace', 'Remove dependence on personal access tokens'],
+          validation: 'The pipeline deploys as the service principal with no personal credentials and succeeds on a clean runner.',
+          prevention: 'Make service-principal/OIDC auth the only path for CI; keep PATs out of pipelines; test on an ephemeral runner.',
+        },
+      ],
+      certMapping: {
+        lead: 'CI/CD with Asset Bundles is the productionization/deployment surface Databricks certifications (and any product-company DE loop) expect for shipping Databricks work safely.',
+        items: [
+          { label: 'Databricks Data Engineer Associate', certId: 'dbx-de-associate', objectives: ['Version notebooks with Repos/Git folders', 'Deploy jobs as code (bundles)', 'Dev vs prod promotion basics'] },
+          { label: 'Databricks Data Engineer Professional', certId: 'dbx-de-professional', objectives: ['Asset Bundles across environments', 'Service-principal/OIDC deploy auth', 'run_as least privilege + rollback'] },
+        ],
+      },
+      interview: [
+        { q: 'What are Databricks Asset Bundles (DABs) and what problem do they solve?', a: 'DABs are Databricks’ native infrastructure-as-code format: a databricks.yml declares resources (jobs, DLT pipelines, experiments) and per-environment targets (dev/staging/prod) with variable overrides, deployed by the Databricks CLI. They solve environment drift and click-ops — instead of hand-editing jobs in each workspace’s UI, you version one definition in git, review it in a PR, and deploy the identical bundle to every environment, with history and rollback.' },
+        { q: 'How do you deploy Databricks work through Azure Pipelines or GitHub Actions without storing a personal token?', a: 'The CI job runs the Databricks CLI (databricks bundle validate/deploy/run) and authenticates as a Databricks service principal using OAuth machine-to-machine (client id/secret held as pipeline secrets) or OIDC federation from Azure DevOps/GitHub — a short-lived token, no long-lived PAT. On merge it deploys to staging, smoke-tests with bundle run, and after an environment approval deploys the same commit to prod.' },
+        { q: 'Why can a bundle deploy succeed but the job still fail at run time?', a: 'Because deploying and running use different identities. The deploy identity only needs rights to create/update the job; the job’s run_as service principal needs explicit Unity Catalog grants on every table, schema and external location the job touches. A bundle that deploys cleanly will fail on the first run if run_as was never granted that access — so grants for run_as must be provisioned as part of the deployment, per environment.' },
+        { q: 'How do you give each engineer isolation while sharing one bundle definition?', a: 'Use the development target mode: it prefixes deployed resources with the user’s name and pauses schedules, so each engineer runs a private copy of the same job in the same workspace without colliding. Staging/prod use production mode with no prefixing. One databricks.yml, different targets.' },
+        { q: 'How does Databricks CI/CD relate to the rest of an Azure DevOps setup?', a: 'It’s the Databricks end of the same story: notebooks and the databricks.yml live in Azure Repos/GitHub, PRs run build validation (bundle validate), and Azure Pipelines/GitHub Actions deploy the bundle per environment behind approvals — exactly how ADF changes promote via adf_publish/ARM. One pipeline can promote both so the whole platform moves together.' },
+        { q: 'What does Databricks Repos (Git folders) give you, and where do bundles fit?', a: 'Repos/Git folders make notebooks version-controlled inside the workspace — you commit, branch and pull against a remote. That covers the source; Asset Bundles cover the resources (jobs/pipelines/config) and the deployment. In a mature setup CI deploys bundles from git rather than relying on a workspace Repo being manually pulled, so the source of truth is the repository, not the workspace.' },
+      ],
+    },
   ];
 
   TV.DatabricksServices = DATABRICKS_SERVICES;

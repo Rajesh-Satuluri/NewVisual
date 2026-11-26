@@ -4,6 +4,252 @@
 // Exactly one option per card is the 'best'.
 
 export const DECISIONS = {
+  // ------------------------------------------------------------------ m17b
+  m17b: [
+    {
+      scenario:
+        'You must flag "≥2 failed card attempts followed by a ride start within 2 minutes" per user on R-4471. The team debates how to implement it: hand-rolled state, a window aggregate, or CEP.',
+      options: [
+        {
+          label: 'Use CEP / MATCH_RECOGNIZE with a followedBy pattern and within(2 min)',
+          verdict: 'best',
+          why: 'The signal is an ordered, time-bounded sequence — exactly what CEP is for. A followedBy pattern tolerates unrelated events between stages, within() enforces the 2-minute bound and expires stale partials, and MATCH_RECOGNIZE keeps it readable. The NFA + keyed state handle per-user tracking for you.'
+        },
+        {
+          label: 'Use a 2-minute tumbling window that counts failures and checks for a ride',
+          verdict: 'ok',
+          why: 'A window can approximate it, but tumbling windows have fixed boundaries — a sequence straddling a boundary is missed, and you lose the ordering/"followed by" semantics. It is a blunt instrument for a sequence pattern.'
+        },
+        {
+          label: 'Hand-roll it in a KeyedProcessFunction with state and timers',
+          verdict: 'ok',
+          why: 'Entirely possible and sometimes warranted for very custom logic, but you re-implement the NFA, ordering, and timeout handling yourself — more code and more bugs than expressing the pattern declaratively with CEP for a standard sequence like this.'
+        }
+      ],
+      takeaway:
+        'Ordered, time-bounded sequences are CEP\'s job. Prefer CEP/MATCH_RECOGNIZE over windows (which miss boundary-straddling sequences and lose ordering) or hand-rolled NFAs (which you then own).'
+    },
+    {
+      scenario:
+        'Your CEP card-testing detector works, but on a real episode it fires a burst of ~15 near-identical alerts for the same user within seconds, overwhelming the on-call channel.',
+      options: [
+        {
+          label: 'Set the after-match skip strategy to SKIP_PAST_LAST_EVENT (non-overlapping matches)',
+          verdict: 'best',
+          why: 'The burst comes from overlapping matches (the default NO_SKIP emits every possible combination). SKIP_PAST_LAST_EVENT resumes the NFA after the matched sequence, so one episode yields one alert — the correct fix at the pattern level.'
+        },
+        {
+          label: 'Add a downstream dedupe/throttle keyed by user with a cooldown window',
+          verdict: 'ok',
+          why: 'A reasonable secondary guard, but it treats the symptom with extra state/logic downstream. The overlaps are a CEP configuration issue; fix them at the source with the skip strategy, then throttle only if still needed.'
+        },
+        {
+          label: 'Increase the within window so fewer matches complete',
+          verdict: 'bad',
+          why: 'A larger window makes matching MORE permissive, not less — it would generally produce more matches and more overlaps, and weaken the "within 2 minutes" business rule. It addresses neither the cause nor the rule.'
+        }
+      ],
+      takeaway:
+        'A flood of overlapping CEP matches is an after-match skip-strategy problem. SKIP_PAST_LAST_EVENT gives one alert per episode; downstream throttling is a secondary guard, and widening within() makes it worse.'
+    }
+  ],
+  // ------------------------------------------------------------------ m06b
+  m06b: [
+    {
+      scenario:
+        'R-4471\'s pipeline must enrich 1M GPS pings/sec with a driver-profile lookup from an external store (~8ms per call). A first version uses a synchronous map() and is hopelessly backpressured. Downstream does NOT depend on ping order.',
+      options: [
+        {
+          label: 'Use Async I/O (unordered_wait) with a tuned capacity and a timeout handler',
+          verdict: 'best',
+          why: 'Async I/O keeps many lookups in flight, so throughput becomes ≈ capacity/latency instead of 1/latency. Unordered is correct because order doesn\'t matter downstream, and it is the fastest. Set capacity for throughput and always handle the timeout.'
+        },
+        {
+          label: 'Keep the synchronous map() but raise the operator\'s parallelism a lot',
+          verdict: 'bad',
+          why: 'Each subtask still does one blocking call at a time, so you are throwing machines at a 1/latency ceiling. You would need absurd parallelism to match what a single Async I/O operator does — wasteful and it hammers the store with connections.'
+        },
+        {
+          label: 'Use Async I/O but with ordered_wait to be safe',
+          verdict: 'ok',
+          why: 'It works and is still far better than sync, but ordered adds a reorder buffer and head-of-line latency you don\'t need here (order doesn\'t matter downstream). Unordered is the better fit; reserve ordered for when order is actually required.'
+        }
+      ],
+      takeaway:
+        'External enrichment on a high-throughput stream = Async I/O. Prefer unordered unless downstream needs order, tune capacity, and always handle the timeout. Scaling a blocking map() is fighting a 1/latency ceiling.'
+    },
+    {
+      scenario:
+        'Some GPS pings arrive after allowedLateness, and a few are malformed JSON. The current job silently drops late pings and throws on bad ones (crashing the task). You must make it robust without losing data.',
+      options: [
+        {
+          label: 'Route late events and malformed records to side outputs (late-data tag + dead-letter tag)',
+          verdict: 'best',
+          why: 'Side outputs give separate typed streams: late pings go to a late-data output for reconciliation instead of being dropped, and bad records go to a DLQ output so the main stream stays clean and one bad record never crashes the job. Single pass, nothing lost.'
+        },
+        {
+          label: 'Wrap parsing in try/except and just log errors; increase allowedLateness a lot',
+          verdict: 'ok',
+          why: 'Catching parse errors stops the crash, but logging loses the records, and inflating allowedLateness makes every window hold state far longer and still drops anything beyond it. It is a patch, not the clean mechanism.'
+        },
+        {
+          label: 'Drop late and malformed records to keep the pipeline simple',
+          verdict: 'bad',
+          why: 'This throws away data you may need (late pings matter for accurate distance/fraud) and hides data-quality problems. "Simple" here means silently wrong.'
+        }
+      ],
+      takeaway:
+        'Side outputs are the idiomatic robustness tool: capture late data and dead-letter bad records as separate streams instead of dropping them or crashing. Keep the main stream clean.'
+    }
+  ],
+  // ------------------------------------------------------------------ m11b
+  m11b: [
+    {
+      scenario:
+        'R-4471\'s fraud job keeps per-driver history for millions of drivers — easily hundreds of GB of keyed state. The job is on HashMapStateBackend and now suffers multi-second GC pauses and occasional TaskManager OOMs. You must fix the state layer.',
+      options: [
+        {
+          label: 'Switch to EmbeddedRocksDBStateBackend with incremental checkpoints and managed memory',
+          verdict: 'best',
+          why: 'RocksDB keeps state off-heap on local disk, so hundreds of GB no longer sit on the JVM heap — the GC pauses and OOMs disappear. Incremental checkpoints keep snapshot time bounded at that scale, and its block cache/write buffers come from managed memory, sized to not OOM the container.'
+        },
+        {
+          label: 'Keep HashMapStateBackend but add more heap and tune the garbage collector',
+          verdict: 'bad',
+          why: 'This only delays the wall. Hundreds of GB of on-heap objects cannot be GC-tuned into health, and every full checkpoint still serializes the entire heap. You are scaling the wrong axis.'
+        },
+        {
+          label: 'Keep HashMap but shrink state aggressively with a very short TTL',
+          verdict: 'ok',
+          why: 'Bounding state with TTL is good hygiene and may help, but if the business genuinely needs long per-driver history you will fight it forever. TTL complements RocksDB; it is not a substitute for moving large state off-heap.'
+        }
+      ],
+      takeaway:
+        'Large keyed state belongs in RocksDB (off-heap, on-disk, incremental checkpoints). You cannot GC-tune hundreds of GB of on-heap state into health — change the backend, then apply TTL.'
+    },
+    {
+      scenario:
+        'With RocksDB enabled, full checkpoints of R-4471\'s 300 GB state take ~4 minutes and sometimes overrun the interval. You need checkpoints to finish in seconds without shrinking the state.',
+      options: [
+        {
+          label: 'Enable incremental checkpoints so only SSTs created since the last checkpoint are uploaded',
+          verdict: 'best',
+          why: 'RocksDB SSTs are immutable, so an incremental checkpoint uploads just the new SSTs and references the already-uploaded ones. For 300 GB where only a slice changes per interval, upload volume (and time) drops by orders of magnitude.'
+        },
+        {
+          label: 'Increase the checkpoint interval to 10 minutes so the 4-minute checkpoint fits',
+          verdict: 'bad',
+          why: 'This hides the symptom and increases recovery cost: on failure you reprocess up to 10 minutes of data. It does nothing about the real problem — re-uploading the entire state every time.'
+        },
+        {
+          label: 'Switch to unaligned checkpoints',
+          verdict: 'ok',
+          why: 'Unaligned checkpoints help when the delay is barrier alignment under backpressure, not when it is the sheer volume of state being uploaded. Here the bottleneck is upload size, so incremental checkpoints are the direct fix.'
+        }
+      ],
+      takeaway:
+        'For large RocksDB state, incremental checkpoints are the direct lever on checkpoint duration. Unaligned checkpoints fix alignment stalls, not upload volume; a longer interval just trades duration for recovery pain.'
+    }
+  ],
+  // ------------------------------------------------------------------ m18c
+  m18c: [
+    {
+      scenario:
+        'You are productionizing R-4471\'s fraud pipeline — a critical, long-running job that will be upgraded every sprint. You must pick a deployment mode for it (not for ad-hoc analytics).',
+      options: [
+        {
+          label: 'Application mode (one dedicated cluster for this job), ideally via the Kubernetes Operator',
+          verdict: 'best',
+          why: 'A critical long-running job wants <strong>isolation and an independent lifecycle</strong>: its own JobManager + TaskManagers, its own classpath, and savepoint-based upgrades that don\'t touch other jobs. Application mode is exactly this and is the production default.'
+        },
+        {
+          label: 'Session mode, sharing one cluster with the surge and ETA jobs to save resources',
+          verdict: 'bad',
+          why: 'Session mode shares one JobManager (a single point of failure for all jobs) and a slot pool. A crash, OOM, classloader leak, or slot-hungry neighbour in any job hits fraud too. Fine for short/ad-hoc jobs; wrong for a critical pipeline.'
+        },
+        {
+          label: 'Per-Job mode for isolation',
+          verdict: 'ok',
+          why: 'Per-Job also isolates, but it ran main() on the client and is <strong>deprecated/removed</strong>. Application mode supersedes it (main() on the JobManager, better for operators/CI) — so choosing Per-Job today is choosing a dead end.'
+        }
+      ],
+      takeaway:
+        'Critical long-running jobs → Application mode (isolation + independent upgrades). Session mode is for many short/ad-hoc jobs. Per-Job is removed; don\'t reach for it.'
+    },
+    {
+      scenario:
+        'R-4471\'s fraud job is crash-looping after a bad config push. You have a fix, but the job is too unhealthy to take a savepoint. The operator must redeploy the fix without discarding per-driver state.',
+      options: [
+        {
+          label: 'Set upgradeMode: last-state so the operator restores from the latest completed checkpoint via HA metadata',
+          verdict: 'best',
+          why: 'last-state does not need a clean savepoint — it restarts from the most recent checkpoint recorded in the HA ConfigMap. That is precisely the mode designed for a job too broken to savepoint, and it preserves state.'
+        },
+        {
+          label: 'Keep upgradeMode: savepoint and wait for the job to stabilize enough to drain',
+          verdict: 'bad',
+          why: 'A crash-looping job may never reach a healthy point to stop-with-savepoint, so you could wait indefinitely while the incident continues. savepoint mode assumes a healthy job.'
+        },
+        {
+          label: 'Use upgradeMode: stateless to force a clean restart',
+          verdict: 'ok',
+          why: 'It will deploy the fix, but it <strong>discards all keyed state</strong> — the fraud model loses its per-driver history and must warm up again. Acceptable only if the state is truly disposable; here it is not.'
+        }
+      ],
+      takeaway:
+        'last-state upgrade exists for exactly this: recover a job that is too unhealthy to savepoint by restoring from its latest checkpoint. Reserve stateless for genuinely disposable state.'
+    }
+  ],
+  // ------------------------------------------------------------------ m18b
+  m18b: [
+    {
+      scenario:
+        'The R-4471 fraud job\'s checkpoint duration has been climbing all evening and is now at 8s against a 10s timeout. The backpressure tab shows the Alerts Sink at ~90%. You must act before checkpoints start failing.',
+      options: [
+        {
+          label: 'Find and fix the sink backpressure (scale the sink / downstream), treating it as the root cause',
+          verdict: 'best',
+          why: 'Rising checkpoint duration here is a <em>symptom</em> of barrier alignment stalling under backpressure. The sink is busy/backpressured, so the real fix is downstream throughput — scale the sink or its target. Relieve that and alignment time (and checkpoint duration) drops back on its own.'
+        },
+        {
+          label: 'Immediately raise the checkpoint timeout to 60s so checkpoints stop failing',
+          verdict: 'bad',
+          why: 'This hides the warning light. Longer timeouts mean a failure recovers from an even older checkpoint (more reprocessing), and the underlying backpressure keeps growing. You have treated the alarm, not the fire.'
+        },
+        {
+          label: 'Enable unaligned checkpoints to let barriers overtake buffered data',
+          verdict: 'ok',
+          why: 'A legitimate mitigation — unaligned checkpoints decouple checkpoint duration from alignment time and are the right tool when backpressure is unavoidable/bursty. But it increases checkpoint size (in-flight data is stored) and does not fix the clamped throughput, so pair it with addressing the sink.'
+        }
+      ],
+      takeaway:
+        'Checkpoint duration climbing under backpressure is an <strong>alignment</strong> problem. Fix the backpressure (root cause) first; use unaligned checkpoints as a mitigation — never just raise the timeout and look away.'
+    },
+    {
+      scenario:
+        'You are defining the pager (not dashboard) alerts for the R-4471 location pipeline. The team wants to "be alerted about everything" — CPU, GC, buffer pools, watermark lag, job state, checkpoint failures.',
+      options: [
+        {
+          label: 'Page only on user-visible symptoms (job down, watermark lag > SLO, rising source lag, sustained backpressure, checkpoint failures); keep CPU/GC/buffers as dashboards',
+          verdict: 'best',
+          why: 'Alerts must map to "the product is now wrong or late." Symptom-based paging catches real incidents and stays quiet otherwise; diagnostics like CPU/GC are what you open <em>after</em> a page to find the cause.'
+        },
+        {
+          label: 'Page on all of them to be safe — more coverage is better',
+          verdict: 'bad',
+          why: 'This is how you get alert fatigue. A GC blip or a 71% CPU reading that harms nothing will page at 3am; people learn to ignore alerts, and the one that matters gets missed. Noise reduces real coverage.'
+        },
+        {
+          label: 'Page only on job state != RUNNING and nothing else',
+          verdict: 'ok',
+          why: 'It is the single most important check and a fine minimum, but it misses the "quietly broken" class — a RUNNING job with 5-minute watermark lag or a crash-looping restart that still reports RUNNING between restarts. Add the freshness/lag/backpressure symptoms.'
+        }
+      ],
+      takeaway:
+        'Page on symptoms the user feels; dashboard the diagnostics. "Alert on everything" is the same as alerting on nothing once fatigue sets in.'
+    }
+  ],
+
   // ------------------------------------------------------------------ m05
   m05: [
     {

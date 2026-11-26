@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Resume Builder — NewVisual</title>
   <meta name="description" content="Keep a master library of your resume content and compose multiple role-tailored resumes from it — same template, live preview, one-page PDF. Static site, your data stays in your browser." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -10,8 +10,160 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..800;1,14..32,400..600&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400..700;1,400..600&display=swap" />
   <link rel="stylesheet" href="css/styles.css" />
+  <style id="ipad-polish">
+  /* iPad / touch polish — additive, non-destructive. Safe on all devices. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html,body{overscroll-behavior:none}
+  body{-webkit-tap-highlight-color:transparent}
+  button,a,label,summary,select,[role="button"],[role="tab"],[role="link"],.tab,.btn{touch-action:manipulation}
+  img,svg,canvas{-webkit-user-drag:none}
+  @media (hover:none) and (pointer:coarse){
+    button,summary,select,[role="button"],[role="tab"],.tab,.btn{
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none
+    }
+    input,select,textarea{font-size:max(16px,1em)!important}
+  }
+  @supports (padding:env(safe-area-inset-left)){
+    @media (display-mode:standalone){
+      body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+    }
+  }
+  </style>
+
+  <meta name="theme-color" content="#10B981" />
+
+  <!-- Icons & PWA -->
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- iOS standalone web-app -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Resume" />
+
+  <!-- iOS launch (startup) images -->
+  <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/iphone-se-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 568px) and (device-height: 320px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/iphone-se-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/iphone-8-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 667px) and (device-height: 375px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/iphone-8-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/iphone-8plus-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 736px) and (device-height: 414px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash/iphone-8plus-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/iphone-x-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 812px) and (device-height: 375px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash/iphone-x-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/iphone-xr-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 896px) and (device-height: 414px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/iphone-xr-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/iphone-xsmax-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 896px) and (device-height: 414px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash/iphone-xsmax-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/iphone-12-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 844px) and (device-height: 390px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash/iphone-12-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/iphone-12promax-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 926px) and (device-height: 428px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash/iphone-12promax-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/iphone-14pro-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 852px) and (device-height: 393px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash/iphone-14pro-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/iphone-14promax-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 932px) and (device-height: 430px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash/iphone-14promax-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/ipad-97-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 768px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/ipad-97-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/ipad-102-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1080px) and (device-height: 810px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/ipad-102-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/ipad-mini6-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1133px) and (device-height: 744px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/ipad-mini6-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/ipad-105-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1112px) and (device-height: 834px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/ipad-105-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/ipad-air109-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1180px) and (device-height: 820px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/ipad-air109-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/ipad-pro11-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1194px) and (device-height: 834px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/ipad-pro11-landscape.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/ipad-pro129-portrait.png" />
+  <link rel="apple-touch-startup-image" media="(device-width: 1366px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash/ipad-pro129-landscape.png" />
+
+  <!-- Animated launch splash (paints before modules load; removed on app ready) -->
+  <style>
+    #splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:26px;
+      background:radial-gradient(circle at 50% 42%, #141B2E 0%, #0A0E1A 70%);
+      transition:opacity .5s ease, visibility .5s ease;}
+    #splash.hide{opacity:0;visibility:hidden;}
+    #splash .sp-ic{width:132px;height:132px;transform-origin:center;opacity:0;
+      filter:drop-shadow(0 12px 32px rgba(0,0,0,.45));
+      animation:sp-pop .6s cubic-bezier(.2,1.4,.4,1) .05s forwards, sp-breathe 2.6s ease-in-out 1.1s infinite;}
+    #splash .sp-ic svg{width:100%;height:100%;display:block;overflow:visible;}
+    #splash .sp-word{font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:30px;
+      letter-spacing:-1px;color:#fff;opacity:0;transform:translateY(10px);
+      animation:sp-word .5s ease .55s forwards;}
+    @keyframes sp-pop{0%{opacity:0;transform:scale(.4) rotate(-8deg);}60%{opacity:1;}100%{opacity:1;transform:scale(1) rotate(0);}}
+    @keyframes sp-breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+    @keyframes sp-word{to{opacity:1;transform:translateY(0);}}
+    @media (prefers-reduced-motion:reduce){
+      #splash *{animation:none!important;opacity:1!important;transform:none!important;}
+    }
+  </style>
+
+  <script>
+    /* HiDPI canvas rendering — upscale every 2D canvas backing store to the device
+       pixel ratio so visuals stay crisp on Retina screens. Draw code uses logical coords. */
+    (function () {
+      try {
+        var dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+        if (dpr === 1 || !window.HTMLCanvasElement) return;
+        var proto = HTMLCanvasElement.prototype;
+        var wDesc = Object.getOwnPropertyDescriptor(proto, 'width');
+        var hDesc = Object.getOwnPropertyDescriptor(proto, 'height');
+        if (!wDesc || !hDesc || !wDesc.set || !hDesc.set) return;
+        var origGetContext = proto.getContext;
+        proto.getContext = function (type) {
+          var ctx = origGetContext.apply(this, arguments);
+          if ((type === '2d' || type === '2D') && ctx && !this.__hidpi) {
+            this.__hidpi = true;
+            var el = this, logicalW = wDesc.get.call(el), logicalH = hDesc.get.call(el);
+            if (!el.style.width)  el.style.width  = logicalW + 'px';
+            if (!el.style.height) el.style.height = logicalH + 'px';
+            function applyBacking(){ wDesc.set.call(el, Math.round(logicalW*dpr)); hDesc.set.call(el, Math.round(logicalH*dpr)); ctx.setTransform(dpr,0,0,dpr,0,0); }
+            Object.defineProperty(el,'width',{configurable:true,get:function(){return logicalW;},set:function(v){logicalW=v;applyBacking();}});
+            Object.defineProperty(el,'height',{configurable:true,get:function(){return logicalH;},set:function(v){logicalH=v;applyBacking();}});
+            applyBacking();
+          }
+          return ctx;
+        };
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
+  <div id="splash" role="img" aria-label="Resume loading">
+    <div class="sp-ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs>
+ <linearGradient id="sp_resumebuilder_bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#141B2E"/><stop offset="1" stop-color="#0A0E1A"/></linearGradient>
+ <linearGradient id="sp_resumebuilder_arm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#64d2ad"/><stop offset="1" stop-color="#10B981"/></linearGradient>
+ <radialGradient id="sp_resumebuilder_glow" cx="0.5" cy="0.38" r="0.6"><stop offset="0" stop-color="#10B981" stop-opacity="0.22"/><stop offset="1" stop-color="#10B981" stop-opacity="0"/></radialGradient>
+</defs>
+ <rect width="512" height="512" rx="96" fill="url(#sp_resumebuilder_bg)"/><rect width="512" height="512" rx="96" fill="url(#sp_resumebuilder_glow)"/>
+
+ <rect x="158" y="150" width="196" height="214" rx="18" fill="none" stroke="url(#sp_resumebuilder_arm)" stroke-width="16"/>
+ <circle cx="208" cy="208" r="22" fill="#fff"/><path d="M180 254 a28 22 0 0 1 56 0 Z" fill="#fff"/>
+ <g stroke="url(#sp_resumebuilder_arm)" stroke-width="12" stroke-linecap="round"><line x1="256" y1="196" x2="326" y2="196"/><line x1="256" y1="224" x2="326" y2="224"/><line x1="188" y1="300" x2="324" y2="300"/><line x1="188" y1="330" x2="324" y2="330"/></g>
+</svg></div>
+    <div class="sp-word">Resume</div>
+  </div>
+  <script>
+    (function(){
+      var s=document.getElementById('splash'); if(!s) return;
+      var start=Date.now();
+      function done(){
+        var wait=Math.max(0, 1000-(Date.now()-start));
+        setTimeout(function(){
+          s.classList.add('hide');
+          setTimeout(function(){ if(s&&s.parentNode) s.parentNode.removeChild(s); }, 600);
+        }, wait);
+      }
+      if(document.readyState==='complete') done();
+      else window.addEventListener('load', done);
+      setTimeout(done, 4000); // hard fallback
+    })();
+  </script>
+
   <!-- Top bar -->
   <header class="topbar no-print">
     <div class="topbar-left">
@@ -30,13 +182,29 @@
       <span class="save-state" id="saveState" aria-live="polite">Saved</span>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-icon" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
-      <button class="btn btn-icon" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
-      <button class="btn" id="btnImport" title="Import all data (JSON)">Import</button>
-      <button class="btn" id="btnExport" title="Export all data (JSON)">Export</button>
-      <button class="btn" id="btnReset" title="Reset to sample data">Reset</button>
-      <button class="btn btn-primary" id="btnPdf" title="Download the active resume as a print-quality PDF">⬇ PDF</button>
-      <button class="btn btn-primary" id="btnDocx" title="Download the active resume as an editable Word .docx">⬇ DOCX</button>
+      <button class="btn btn-icon" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled></button>
+      <button class="btn btn-icon" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled></button>
+      <div class="menu-wrap" id="downloadWrap">
+        <button class="btn btn-primary btn-menu" id="btnDownload" aria-haspopup="menu" aria-expanded="false" title="Download this resume">
+          <span class="btn-menu-label">Download</span>
+        </button>
+        <div class="menu" id="downloadMenu" role="menu" aria-label="Download" hidden>
+          <button class="menu-item" role="menuitem" id="miPdf"><span class="mi-title">PDF</span><span class="mi-sub">Print-quality, ATS-safe</span></button>
+          <button class="menu-item" role="menuitem" id="miDocx"><span class="mi-title">Word (.docx)</span><span class="mi-sub">Editable document</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item" role="menuitem" id="miJson"><span class="mi-title">Data backup (.json)</span><span class="mi-sub">All resumes &amp; library</span></button>
+        </div>
+      </div>
+      <div class="menu-wrap" id="moreWrap">
+        <button class="btn btn-icon" id="btnMore" aria-haspopup="menu" aria-expanded="false" aria-label="More actions" title="More actions"></button>
+        <div class="menu menu-right" id="moreMenu" role="menu" aria-label="More actions" hidden>
+          <button class="menu-item" role="menuitem" id="miImportResume"><span class="mi-title">Import existing resume…</span><span class="mi-sub">From .docx, .pdf, or pasted text</span></button>
+          <button class="menu-item" role="menuitem" id="miImport"><span class="mi-title">Import data…</span><span class="mi-sub">Restore from a .json backup</span></button>
+          <button class="menu-item" role="menuitem" id="miPrint"><span class="mi-title">Print…</span><span class="mi-sub">Use the browser print dialog</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-item menu-danger" role="menuitem" id="miReset"><span class="mi-title">Reset to sample…</span><span class="mi-sub">Replace everything with the demo</span></button>
+        </div>
+      </div>
       <input type="file" id="fileImport" accept="application/json" hidden />
     </div>
   </header>
@@ -64,6 +232,13 @@
       <div class="ai-pane no-print" id="aiPane"><!-- big editor for AI Assist, built by JS --></div>
     </section>
   </main>
+
+  <!-- Mobile-only: switch between editing and the live preview (the split
+       layout is cramped on phones; this shows one pane at a time) -->
+  <div class="mobile-switch no-print" id="mobileSwitch" role="group" aria-label="Edit or preview">
+    <button class="msw-btn active" id="mswEdit" type="button" aria-pressed="true">Edit</button>
+    <button class="msw-btn" id="mswPreview" type="button" aria-pressed="false">Preview</button>
+  </div>
 
   <script src="js/app.js"></script>
   <!-- Offline backup: one-click .zip download of this project (top-right) -->

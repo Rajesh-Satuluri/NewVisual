@@ -250,3 +250,84 @@
 @media (max-width: 600px) { .dl2-outcome-metrics { grid-template-columns: repeat(2, 1fr); } }
 .dl2-outcome-explain { font-size: .8rem; line-height: 1.6; color: var(--text-secondary, var(--text-primary)); margin: 0 0 .6rem; }
 .dl2-outcome-config { display: inline-block; font-family: var(--font-mono, monospace); font-size: .72rem; color: var(--dl2-accent); background: rgba(var(--blue-rgb), .06); border: 1px solid var(--border); border-radius: var(--radius-sm, 6px); padding: .25rem .5rem; word-break: break-word; }
+
+/* ============================================================
+   Loading Deep Dive (interview masterclass) — ldd-* scoped UI.
+   Reuses the shared loading tokens; inherits light/dark.
+   ============================================================ */
+:root { --ldd-accent: var(--snowflake, #29b5e8); }
+
+/* ---- Pipeline map chain ---- */
+.ldd-chain {
+  display: flex; flex-wrap: wrap; align-items: stretch; gap: .5rem;
+  margin: 1rem 0 1.25rem;
+}
+.ldd-chain-node {
+  flex: 1 1 150px; min-width: 150px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-top: 3px solid var(--ldd-accent);
+  border-radius: var(--radius); padding: .7rem .75rem;
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.ldd-chain-role { font-size: .6rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ldd-accent); }
+.ldd-chain-icon { font-size: 1.5rem; line-height: 1; }
+.ldd-chain-name { font-size: .95rem; font-weight: 700; color: var(--text-primary); }
+.ldd-chain-one { font-size: .72rem; font-weight: 600; color: var(--text-secondary, var(--text-muted)); }
+.ldd-chain-what { font-size: .74rem; line-height: 1.5; color: var(--text-muted); margin-top: .1rem; }
+.ldd-chain-arrow { align-self: center; color: var(--ldd-accent); font-size: 1.2rem; font-weight: 700; flex: 0 0 auto; }
+@media (max-width: 860px) {
+  .ldd-chain { flex-direction: column; }
+  .ldd-chain-arrow { transform: rotate(90deg); align-self: flex-start; margin-left: 1.5rem; }
+}
+
+.ldd-objtable td, .ldd-objtable th { vertical-align: top; }
+
+/* ---- Concept cards ---- */
+.ldd-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--ldd-accent);
+  border-radius: var(--radius-lg, 14px); padding: 1rem 1.1rem;
+  margin: 0 0 1rem;
+}
+.ldd-card-head { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; margin-bottom: .5rem; }
+.ldd-card-icon { font-size: 1.25rem; line-height: 1; }
+.ldd-card-title { font-size: 1.02rem; font-weight: 700; color: var(--text-primary); }
+.ldd-card-tag {
+  margin-left: auto; font-size: .64rem; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--ldd-accent);
+  background: rgba(var(--blue-rgb), .08); border: 1px solid var(--border);
+  border-radius: var(--radius-full, 999px); padding: .18rem .55rem; white-space: nowrap;
+}
+.ldd-when { font-size: .78rem; color: var(--text-secondary, var(--text-primary)); margin: 0 0 .5rem; line-height: 1.5; }
+.ldd-when-lbl { font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-right: .35rem; }
+.ldd-p { font-size: .83rem; line-height: 1.65; color: var(--text-secondary, var(--text-primary)); margin: 0 0 .6rem; }
+
+.ldd-block { margin: .6rem 0; padding: .55rem .75rem; border-radius: var(--radius); border: 1px solid var(--border); }
+.ldd-block-tag { font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; margin-bottom: .35rem; }
+.ldd-ul { margin: 0; padding-left: 1.1rem; }
+.ldd-ul li { font-size: .8rem; line-height: 1.6; color: var(--text-secondary, var(--text-primary)); margin: .15rem 0; }
+.ldd-points { background: rgba(var(--blue-rgb), .05); }
+.ldd-points .ldd-block-tag { color: var(--ldd-accent); }
+.ldd-gotchas { background: rgba(240, 136, 62, .07); border-color: rgba(240, 136, 62, .3); }
+.ldd-gotchas .ldd-block-tag { color: var(--orange, #f0883e); }
+
+.ldd-code { margin: .7rem 0 .2rem; }
+
+.ldd-interview {
+  margin-top: .75rem; padding: .6rem .8rem;
+  background: rgba(163, 113, 247, .08); border: 1px solid rgba(163, 113, 247, .28);
+  border-radius: var(--radius);
+}
+.ldd-interview-tag { font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #a371f7; margin-bottom: .3rem; }
+.ldd-interview p { margin: 0; font-size: .8rem; line-height: 1.6; color: var(--text-secondary, var(--text-primary)); }
+
+/* ---- Q&A group heads are not navigable here (unlike interview-prep) ---- */
+.ldd-qa-head { cursor: default; }
+.ldd-qa-head:hover { background: var(--surface); }
+
+/* ---- Interview masterclass: STAR story cards (shared renderer) ---- */
+.ldd-results { background: rgba(63, 185, 80, .06); }
+.ldd-results .ldd-block-tag { color: #3fb950; }
+.ldd-story-nums { margin-top: .75rem; }
+.ldd-story-nums table { font-size: .78rem; }
+.ldd-story .ldd-when { background: rgba(var(--blue-rgb), .05); }

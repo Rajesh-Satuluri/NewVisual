@@ -21,6 +21,12 @@ export const IQ = [
     a: 'RabbitMQ excels at: (1) Complex routing — exchanges (direct, topic, fanout, headers) with flexible binding rules that Kafka cannot express natively. (2) Per-message TTL and priority queues — Kafka has no priority semantics. (3) Task queues where you want competing consumers and exactly-one processing (the queue model). (4) Very low latency for short-lived RPC-style messages (sub-millisecond). Kafka is not suited for: routing based on message content, task-queue patterns where messages should be deleted on ACK, or scenarios where you never need replay. Many production systems use both: Kafka for event streams, RabbitMQ for inter-service RPC and task queues.',
     tip: 'Say: "RabbitMQ is a message broker; Kafka is a distributed log. They solve different problems." This framing prevents the interviewer from thinking it is a direct replacement.'
   },
+  {
+    q: 'How do you choose between self-managed Kafka, Amazon MSK, and Confluent Cloud?',
+    a: 'The axis is how much operational burden you want to own. (1) Self-managed brokers on EC2 or Kubernetes: maximum control and lowest per-GB cost, but you own upgrades, scaling, patching, and on-call — worth it only with a dedicated platform team. (2) Amazon MSK: AWS runs the brokers and the control plane, you still size and tune the cluster; strong AWS integration (IAM, VPC) but fewer higher-level features. (3) Confluent Cloud: fully managed, with Schema Registry, connectors, and ksqlDB included — highest abstraction and fastest to ship, but priciest with some lock-in. The tradeoff: control and cost versus operational toil and time-to-market.',
+    tip: 'Frame it as a spectrum from control to convenience: self-managed → MSK → Confluent Cloud. Match the choice to team size and how core Kafka is to the business.',
+    difficulty: 'medium'
+  },
 ];
 
 const COMPARISON = [

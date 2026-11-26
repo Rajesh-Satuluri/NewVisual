@@ -1,4 +1,22 @@
-export function createModuleShell({ tag, title, subtitle, tabs }) {
+// `definition` (optional): { formal, easy } — renders a "what this module means"
+// card between the hero and the tabs so the plain-language definition is always
+// visible no matter which tab is active. Omit it on utility/lab pages that aren't
+// teaching a single named concept.
+function createDefinitionCard(definition) {
+  if (!definition || !definition.formal) return '';
+  const { formal, easy } = definition;
+  return `
+    <div class="module-definition" style="background:#111827;border:1px solid #1E293B;border-left:3px solid #06B6D4;border-radius:12px;padding:16px 20px;margin-bottom:22px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#06B6D4;margin-bottom:8px">📘 Definition</div>
+      <div style="font-size:13.5px;line-height:1.7;color:#E2E8F0">${formal}</div>
+      ${easy ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #1E293B;font-size:12.5px;line-height:1.7;color:#94A3B8">
+        <span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#10B981;margin-right:8px">In plain terms</span>${easy}
+      </div>` : ''}
+    </div>`;
+}
+
+export function createModuleShell({ tag, title, subtitle, tabs, definition }) {
   return `
     <div class="module-page">
       <div class="module-hero">
@@ -6,6 +24,7 @@ export function createModuleShell({ tag, title, subtitle, tabs }) {
         <h1 class="module-title">${title}</h1>
         <p class="module-subtitle">${subtitle}</p>
       </div>
+      ${createDefinitionCard(definition)}
       <div class="module-tabs" role="tablist" aria-label="Module sections">
         ${tabs.map((t, i) => `
           <button class="tab-btn ${i === 0 ? 'active' : ''}" data-tab="${t.id}" role="tab"
@@ -62,6 +81,14 @@ export function initTabs(container) {
   });
 }
 
+import { renderMarkdown } from './md.js';
+
+// An answer is HTML by default. Opt into Markdown rendering with `md: true`
+// on the question object (used for answers authored or pasted as Markdown).
+export function renderAnswer(q) {
+  return q && q.md ? renderMarkdown(q.a) : (q ? q.a : '');
+}
+
 export function createIQSection(questions) {
   return `
     <div class="section-header">
@@ -76,9 +103,11 @@ export function createIQSection(questions) {
             <span style="flex:1">${q.q}</span>
             <span class="q-chevron" aria-hidden="true">▼</span>
           </div>
-          <div class="iq-answer" id="iqa-${i}">
-            ${q.a}
-            ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+          <div class="iq-answer-wrap">
+            <div class="iq-answer" id="iqa-${i}">
+              ${renderAnswer(q)}
+              ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+            </div>
           </div>
         </div>
       `).join('')}
@@ -87,14 +116,16 @@ export function createIQSection(questions) {
 }
 
 export function initIQ(container) {
+  // Multi-open accordion: each question toggles independently and opening one
+  // never collapses another. The old single-open behaviour collapsed the open
+  // item above the one just clicked, which yanked the clicked header upward (the
+  // answer looked like it "opened upward") — worst at the top of the list, where
+  // there is no scroll room to absorb the shift. Toggling in place means the
+  // answer always expands straight down. Matches the Study Hub's behaviour.
   const toggle = q => {
     const item = q.closest('.iq-item');
-    const wasOpen = item.classList.contains('open');
-    container.querySelectorAll('.iq-item').forEach(i => {
-      i.classList.remove('open');
-      i.querySelector('.iq-question')?.setAttribute('aria-expanded', 'false');
-    });
-    if (!wasOpen) { item.classList.add('open'); q.setAttribute('aria-expanded', 'true'); }
+    const nowOpen = item.classList.toggle('open');
+    q.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
   };
   container.querySelectorAll('.iq-question').forEach(q => {
     q.addEventListener('click', () => toggle(q));

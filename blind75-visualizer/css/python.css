@@ -728,13 +728,17 @@ mark.sx-hit {
    The topbar "🎯 Focus" button toggles global; a per-problem "🎯 Focus" chip
    in the problem header toggles the transient local focus. */
 
-/* --- topbar global focus button (sits in the empty topbar center) --- */
-/* In-flow (never absolute) so it can't overlap the Home / Backup / right-side
-   tools. margin-left:auto + the topbar-right's own margin-left:auto split the
-   free space, so it floats roughly centred between the mode switch and the
-   right-side toolbar and simply slides left as that toolbar grows. */
+/* --- topbar global focus button --- */
+/* Anchored to the LEFT group (mode switch) with a fixed gap, NOT margin:auto.
+   Using auto here used to split the free space 50/50 with .topbar-right's own
+   margin:auto, so toggling focus — which hides the right-side tools and shrinks
+   that toolbar — changed the split and made the focus buttons slide. A fixed
+   margin glues the cluster to the (stable) left group, so it stays put when
+   focus is toggled. .topbar-right keeps its own margin:auto and absorbs all the
+   remaining space, staying flush right. In-flow (never absolute) so it can't
+   overlap the right-side tools. */
 .focus-global-btn {
-  margin-left: auto;
+  margin-left: 14px;
   display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px;
   color: var(--text); font-size: 12.5px; font-weight: 700;
@@ -747,8 +751,8 @@ mark.sx-hit {
   box-shadow: 0 0 12px var(--brand-glow);
 }
 @media (max-width: 1540px) { .focus-global-btn .btx { display: none; } }
-/* The PySpark code-only global button sits right after the focus button (whose
-   margin-left:auto pushes the pair toward the centre), not auto-pushed itself. */
+/* The PySpark/SQL code-only global button sits right after the focus button with
+   a small gap, so the two move together as one steady cluster. */
 .focus-code-global-btn { margin-left: 8px; }
 
 /* --- per-problem local focus chip (always available, even under global focus) --- */
@@ -812,4 +816,93 @@ mark.sx-hit {
 /* Touch (iPad / phones): comfortable tap targets for the focus controls. */
 @media (pointer: coarse) {
   .focus-global-btn { min-height: 40px; }
+}
+
+/* ===== Join Strategies Execution Lab (joinlab.js / viz type joinExecLab) ===== */
+.viz-joinlab { padding: 14px 16px 16px; }
+.jl-svg { display: block; width: 100%; height: auto; margin: 4px 0 2px; }
+
+/* strategy tabs */
+.jl-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.jl-tab { background: var(--bg-1); border: 1px solid var(--border); color: var(--text-2);
+  font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.jl-tab:hover { color: var(--text); border-color: var(--brand); }
+.jl-tab.on { background: var(--brand); border-color: var(--brand); color: #06111f; box-shadow: 0 0 10px var(--brand-glow); }
+
+/* source + executor boxes */
+.jl-card-box { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.3; }
+.jl-big .jl-card-box { stroke: color-mix(in srgb, #4c8dff 55%, var(--border)); }
+.jl-small .jl-card-box { stroke: color-mix(in srgb, var(--brand) 55%, var(--border)); }
+.jl-small.broadcastable .jl-card-box { stroke: #37b24d; }
+.jl-card.dim { opacity: .5; }
+.jl-card-t { fill: var(--text); font-size: 12.5px; font-weight: 800; }
+.jl-card-tag { fill: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+.jl-small.broadcastable .jl-card-tag { fill: #37b24d; }
+.jl-exec-box { fill: var(--bg-1); stroke: var(--border); stroke-width: 1.2; }
+.jl-exec-t { fill: var(--text-2); font-size: 11px; font-weight: 800; }
+.jl-col-cap { fill: var(--muted); font-size: 9px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .4px; }
+.jl-exec-mode { fill: var(--brand-2); font-size: 10.5px; font-weight: 700; }
+.jl-band { fill: var(--muted); font-size: 11px; font-weight: 600; font-style: italic; }
+
+/* record tokens, colored by join key */
+.jl-tok { transition: opacity .25s ease; }
+.jl-tok-box { stroke-width: 1.1; }
+.jl-tok-t { fill: #06111f; font-family: var(--mono); font-size: 9.5px; font-weight: 800; }
+.jl-tok[data-key="A"] .jl-tok-box { fill: #4c8dff; stroke: #2f6fe0; }
+.jl-tok[data-key="B"] .jl-tok-box { fill: #37b24d; stroke: #2b9440; }
+.jl-tok[data-key="C"] .jl-tok-box { fill: #f59f00; stroke: #d98a00; }
+.jl-tok[data-key="D"] .jl-tok-box { fill: #e64980; stroke: #d63384; }
+.jl-tok.ghost .jl-tok-box { stroke-dasharray: 3 2; opacity: .92; }
+.jl-tok.matched .jl-tok-box { stroke: #06111f; stroke-width: 2; filter: drop-shadow(0 0 3px rgba(55,178,77,.8)); }
+.jl-tok.scan .jl-tok-box { filter: drop-shadow(0 0 3px rgba(245,159,0,.9)); }
+
+/* movement arrows */
+.jl-arrow { stroke-width: 2; opacity: .9; }
+.jl-arrow.shuf { stroke: var(--brand); stroke-dasharray: 5 4; }
+.jl-arrow.bcast { stroke: #37b24d; }
+.jl-ah.shuf { fill: var(--brand); }
+.jl-ah.bcast { fill: #37b24d; }
+.jl-ah.local { fill: var(--muted); }
+
+/* transport */
+.jl-transport { display: flex; align-items: center; gap: 8px; margin: 10px 0 8px; flex-wrap: wrap; }
+.jl-btn { background: var(--bg-1); border: 1px solid var(--border); color: var(--text-2);
+  font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 7px; cursor: pointer; }
+.jl-btn:hover { color: var(--text); border-color: var(--brand); }
+.jl-btn.on { background: var(--brand); border-color: var(--brand); color: #06111f; }
+.jl-dots { display: flex; gap: 5px; flex-wrap: wrap; margin-left: 4px; }
+.jl-dot { background: var(--bg-1); border: 1px solid var(--border); color: var(--muted);
+  font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; cursor: pointer; }
+.jl-dot:hover { color: var(--text); }
+.jl-dot.on { background: var(--brand-glow); border-color: var(--brand); color: var(--text); }
+
+/* narration */
+.jl-narr { font-size: 13px; line-height: 1.5; color: var(--text-2); background: var(--bg-1);
+  border: 1px solid var(--border-soft); border-left: 3px solid var(--brand); border-radius: var(--radius-sm);
+  padding: 10px 12px; margin: 4px 0 12px; }
+.jl-narr b { color: var(--text); }
+.jl-auto { display: inline-block; background: var(--brand-glow); color: var(--text); font-weight: 800;
+  font-size: 11px; padding: 1px 7px; border-radius: 999px; margin-right: 6px; }
+
+/* sliders + meters */
+.jl-sliders { display: grid; gap: 8px; margin-bottom: 12px; }
+.jl-range-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.jl-range-lbl { font-size: 12px; font-weight: 700; color: var(--text-2); min-width: 120px; }
+.jl-range { flex: 1 1 160px; min-width: 140px; accent-color: var(--brand); height: 4px; }
+.jl-range-val { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--brand-2); min-width: 74px; text-align: right; }
+
+.jl-meters { display: grid; gap: 7px; }
+.jl-meter { display: grid; grid-template-columns: 180px 1fr auto; align-items: center; gap: 10px; }
+.jl-meter-lbl { font-size: 11.5px; font-weight: 700; color: var(--text-2); }
+.jl-meter-track { height: 9px; background: var(--bg-1); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.jl-meter-fill { display: block; height: 100%; width: 4%; background: var(--brand); border-radius: 999px; transition: width .3s ease, background .2s ease; }
+.jl-meter-fill.good { background: #37b24d; }
+.jl-meter-fill.warn { background: #f59f00; }
+.jl-meter-fill.hot { background: #e64980; }
+.jl-meter-val { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text-2); min-width: 92px; text-align: right; }
+
+@media (max-width: 560px) {
+  .jl-meter { grid-template-columns: 1fr auto; }
+  .jl-meter-track { grid-column: 1 / -1; order: 3; }
+  .jl-range-lbl { min-width: 90px; }
 }

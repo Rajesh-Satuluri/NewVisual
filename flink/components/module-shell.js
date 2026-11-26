@@ -1,3 +1,5 @@
+import { enhanceInterviewEdits } from './interview-edits.js';
+
 export function createModuleShell({ tag, title, subtitle, tabs }) {
   return `
     <div class="module-page">
@@ -68,15 +70,17 @@ export function createIQSection(questions) {
     </div>
     <div class="iq-list">
       ${questions.map((q, i) => `
-        <div class="iq-item">
+        <div class="iq-item" data-idx="${i}">
           <div class="iq-question" role="button" tabindex="0" aria-expanded="false">
             <span class="q-num">Q${String(i+1).padStart(2,'0')}</span>
-            <span style="flex:1">${q.q}</span>
+            <span class="q-text" style="flex:1">${q.q}</span>
             <span class="q-chevron">▼</span>
           </div>
           <div class="iq-answer">
-            ${q.a}
-            ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+            <div class="iq-answer-body">
+              ${q.a}
+              ${q.tip ? `<div class="tip">💡 <strong>Interview tip:</strong> ${q.tip}</div>` : ''}
+            </div>
           </div>
         </div>
       `).join('')}
@@ -85,6 +89,15 @@ export function createIQSection(questions) {
 }
 
 export function initIQ(container) {
+  // Make each module's Interview Q&A editable in place (synced via flink:iedit),
+  // mirroring the Study Hub. Keyed per-route under a distinct "mod:" namespace
+  // so module-tab edits never collide with the Study-Hub bank's own keys.
+  const mod = (location.hash || '').replace(/^#/, '').split(/[?&/]/)[0] || 'mod';
+  container.querySelectorAll('.iq-item[data-idx]').forEach((item) => {
+    if (!item.dataset.iqkey) item.dataset.iqkey = `mod:${mod}#${item.dataset.idx}`;
+  });
+  try { enhanceInterviewEdits(container); } catch (_) {}
+
   container.querySelectorAll('.iq-question').forEach(q => {
     const toggle = () => {
       const item = q.closest('.iq-item');

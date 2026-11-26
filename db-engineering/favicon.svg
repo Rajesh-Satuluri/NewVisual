@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#141B2E"/><stop offset="1" stop-color="#0A0E1A"/></linearGradient>
+ <linearGradient id="arm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#64d2ad"/><stop offset="1" stop-color="#10B981"/></linearGradient>
+ <radialGradient id="glow" cx="0.5" cy="0.38" r="0.6"><stop offset="0" stop-color="#10B981" stop-opacity="0.22"/><stop offset="1" stop-color="#10B981" stop-opacity="0"/></radialGradient>
+</defs>
+ <rect width="512" height="512" rx="96" fill="url(#bg)"/><rect width="512" height="512" rx="96" fill="url(#glow)"/>
+
+ <path d="M152 220 v118 a72 24 0 0 0 144 0 v-118" fill="url(#arm)"/>
+ <path d="M152 220 a72 24 0 0 0 144 0" fill="none" stroke="#0A0E1A" stroke-width="12"/>
+ <ellipse cx="224" cy="220" rx="72" ry="24" fill="url(#arm)"/><ellipse cx="224" cy="220" rx="72" ry="24" fill="none" stroke="#0A0E1A" stroke-width="10"/>
+ <path d="M344.0 130.0L357.0 150.6L380.8 145.2L375.4 169.0L396.0 182.0L375.4 195.0L380.8 218.8L357.0 213.4L344.0 234.0L331.0 213.4L307.2 218.8L312.6 195.0L292.0 182.0L312.6 169.0L307.2 145.2L331.0 150.6Z" fill="#fff"/><circle cx="344" cy="182" r="16" fill="#0A0E1A"/>
+</svg>

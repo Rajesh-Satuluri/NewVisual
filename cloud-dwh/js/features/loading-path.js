@@ -20,12 +20,15 @@
     { id: 'loading-recovery',    label: 'Recovery',    icon: '🧯', kind: 'quiz' },
     { id: 'lab-loading',         label: 'Decision Lab',icon: '🎯', kind: 'scenario', area: 'loading-lab' },
     { id: 'loading-cheatsheet',  label: 'Cheat-Sheet', icon: '🗂️', kind: 'visit' },
+    { id: 'loading-deepdive',    label: 'Deep Dive',   icon: '🎓', kind: 'visit' },
     { id: 'loading-flashcards',  label: 'Flashcards',  icon: '🃏', kind: 'srs', deck: 'loading' },
   ];
   const IDS = {}; PATH.forEach((s, i) => { IDS[s.id] = i; });
 
   function _visited() {
-    try { return new Set(JSON.parse(localStorage.getItem('cdwh-visited') || '[]')); }
+    // Snowflake-only strip → read the platform-namespaced visited set.
+    const key = 'cdwh-' + ((window.CDWH && window.CDWH.activePlatform) || 'snowflake') + '-visited';
+    try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
     catch (_) { return new Set(); }
   }
 
@@ -118,6 +121,8 @@
     if (!canvas) return;
     const old = canvas.querySelector('.lpath');
     if (old) old.remove();
+    // Snowflake-only strip: other platforms reuse ids like `lab-loading`.
+    if (window.CDWH.activePlatform !== 'snowflake') return;
     if (!(id in IDS)) return;
     canvas.insertBefore(build(id), canvas.firstChild);
   }

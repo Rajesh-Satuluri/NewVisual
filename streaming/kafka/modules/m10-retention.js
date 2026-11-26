@@ -357,6 +357,16 @@ function buildAmazon(container) {
         </div>
       </div>
 
+      <!-- Theory: how retention and the cleaner work -->
+      <div style="margin-bottom:28px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94A3B8;margin-bottom:14px">The theory — how retention and the log cleaner actually work</div>
+        <div style="background:#111827;border:1px solid #1E293B;border-radius:12px;padding:18px 22px;font-size:12.5px;color:#94A3B8;line-height:1.75">
+          <p style="margin:0 0 14px"><strong style="color:#FF6900">Delete</strong> retention never removes individual records — it drops <strong style="color:#E2E8F0">whole sealed segments</strong> once the newest record in them ages past <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">retention.ms</code>, or the partition grows past <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">retention.bytes</code>, whichever triggers first. The active segment is never touched. That's why a "7-day" topic usually holds a little more than 7 days: a segment lives until its <em>last</em> record expires and the whole file can be dropped in one cheap unlink.</p>
+          <p style="margin:0 0 14px"><strong style="color:#3B82F6">Compaction</strong> is a separate background process — the log cleaner. It splits the log into a clean "tail" and a dirty "head," scans the head to build a map of <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">key → latest offset</code>, then recopies only the surviving records into fresh segments and swaps them in. Crucially, <strong style="color:#E2E8F0">offsets are preserved, not renumbered</strong>: compaction leaves gaps in the offset sequence rather than shifting records, so existing consumer positions stay valid. And as with delete, the active segment is never compacted — the most recent writes are always kept in full.</p>
+          <p style="margin:0">The cleaner only wakes a partition when its dirty ratio crosses <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">min.cleanable.dirty.ratio</code> (default 0.5), so a mostly-stable topic is rarely rewritten. One subtlety drives the GDPR flow below: a tombstone (null value) must linger long enough for every consumer to <em>observe</em> the delete before it too is removed — <code style="font-size:11px;color:#CBD5E1;background:#0A0E1A;padding:2px 6px;border-radius:5px">delete.retention.ms</code> (default 24 h) is that grace window.</p>
+        </div>
+      </div>
+
       <!-- GDPR tombstone -->
       <div style="background:#10B98112;border:1.5px solid #10B98133;border-radius:12px;padding:18px 22px">
         <div style="font-size:13px;font-weight:700;color:#10B981;margin-bottom:10px">GDPR right-to-erasure on customer-profiles (compact + delete)</div>

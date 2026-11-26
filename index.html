@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Rajesh Satuluri — Interactive Learning Labs</title>
   <meta name="description" content="One home for every interactive learning lab — data engineering, databases, streaming, coding interviews, supply-chain planning and career tools. Each tool is its own site." />
   <style>
@@ -34,7 +34,9 @@
     .card:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 14px 44px rgba(0,0,0,.5)}
     .card:hover::before{opacity:.07}
     .card .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .card .icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--bg-3);flex-shrink:0}
+    .card .icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:color-mix(in srgb,var(--accent) 12%,var(--bg-3));border:1px solid color-mix(in srgb,var(--accent) 26%,transparent);flex-shrink:0;transition:background .15s ease,border-color .15s ease}
+    .card .icon svg{width:26px;height:26px;color:var(--accent);display:block}
+    .card:hover .icon{background:color-mix(in srgb,var(--accent) 20%,var(--bg-3));border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
     .card .tag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);border-radius:6px;padding:4px 9px}
     .card h2{font-size:18px;font-weight:700;letter-spacing:-.01em;margin-top:2px}
     .card .sub{font-size:12px;color:var(--accent);font-weight:600;margin-top:-6px}
@@ -64,6 +66,25 @@
     .dl-all svg{display:block}
     .dl-all .sz{font-weight:600;opacity:.85;font-size:12px}
   </style>
+  <style id="ipad-polish">
+  /* iPad / touch polish — additive, non-destructive. Safe on all devices. */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html,body{overscroll-behavior:none}
+  body{-webkit-tap-highlight-color:transparent}
+  button,a,label,summary,select,[role="button"],[role="tab"],[role="link"],.tab,.btn{touch-action:manipulation}
+  img,svg,canvas{-webkit-user-drag:none}
+  @media (hover:none) and (pointer:coarse){
+    button,summary,select,[role="button"],[role="tab"],.tab,.btn{
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none
+    }
+    input,select,textarea{font-size:max(16px,1em)!important}
+  }
+  @supports (padding:env(safe-area-inset-left)){
+    @media (display-mode:standalone){
+      body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+    }
+  }
+  </style>
 </head>
 <body>
   <div class="wrap">
@@ -87,61 +108,67 @@
     <div class="section-label">Data Engineering &amp; Streaming</div>
     <div class="grid">
       <div class="card c-cyan">
-        <div class="top"><div class="icon">🌊</div><div class="top-r"><span class="tag">Featured · Streaming</span></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6c2.5-2.5 5-2.5 7.5 0S14.5 8.5 17 6s4-1 5 0"/><path d="M2 12c2.5-2.5 5-2.5 7.5 0S14.5 14.5 17 12s4-1 5 0"/><path d="M2 18c2.5-2.5 5-2.5 7.5 0S14.5 20.5 17 18s4-1 5 0"/></svg></div><div class="top-r"><span class="tag">Featured · Streaming</span></div></div>
         <h2>Streaming Engineering Master Lab</h2><div class="sub">First principles → production</div>
         <p>Master streaming across Kafka, Flink, AWS, Azure and Databricks — interactive, scenario-driven (Uber &amp; e-commerce), with foundations, incident labs, system design and interview prep.</p>
         <a class="go" href="streaming/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-cyan">
-        <div class="top"><div class="icon">🌀</div><div class="top-r"><span class="tag">Orchestration</span><a class="dl" href="airflow-visualizer/airflow-visualizer.zip" download title="Download Apache Airflow Visualizer (.zip)" aria-label="Download Apache Airflow Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="12.5" cy="12" r="2"/><circle cx="20" cy="12" r="1.6"/><path d="M6.6 7.2l4.3 3.6M6.6 16.8l4.3-3.6M14.5 12h3.6"/></svg></div><div class="top-r"><span class="tag">Orchestration</span><a class="dl" href="airflow-visualizer/airflow-visualizer.zip" download title="Download Apache Airflow Visualizer (.zip)" aria-label="Download Apache Airflow Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Airflow Visualizer</h2>
         <p>Airflow internals — architecture, DAG parsing, scheduler, executors, task lifecycle, failure scenarios, and interview prep.</p>
         <a class="go" href="airflow-visualizer/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-blue">
-        <div class="top"><div class="icon">🔌</div><div class="top-r"><span class="tag">API Engineering</span><a class="dl" href="api-engineering-lab/api-engineering-lab.zip" download title="Download API Engineering Lab (.zip)" aria-label="Download API Engineering Lab as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v4M15 2v4"/><rect x="7" y="6" width="10" height="6" rx="2"/><path d="M12 12v4a4 4 0 0 1-4 4H6"/></svg></div><div class="top-r"><span class="tag">API Engineering</span><a class="dl" href="api-engineering-lab/api-engineering-lab.zip" download title="Download API Engineering Lab (.zip)" aria-label="Download API Engineering Lab as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>API Engineering Lab</h2>
         <p>APIs from fundamentals to senior level — HTTP lifecycle, REST design, idempotency &amp; pagination, architecture, protocols (REST/GraphQL/gRPC/webhooks), Express implementation and testing, told through the ShopSphere platform.</p>
         <a class="go" href="api-engineering-lab/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-blue">
-        <div class="top"><div class="icon">🚀</div><div class="top-r"><span class="tag">CI/CD</span><a class="dl" href="data-engineering-cicd-visualizer/data-engineering-cicd-visualizer.zip" download title="Download Data Engineering CI/CD (.zip)" aria-label="Download Data Engineering CI/CD as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6"/><path d="M20 12a8 8 0 0 1-13.7 5.6"/><path d="M18 2.6V6.4h-3.8"/><path d="M6 21.4V17.6h3.8"/></svg></div><div class="top-r"><span class="tag">CI/CD</span><a class="dl" href="data-engineering-cicd-visualizer/data-engineering-cicd-visualizer.zip" download title="Download Data Engineering CI/CD (.zip)" aria-label="Download Data Engineering CI/CD as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Data Engineering CI/CD</h2>
         <p>From <code>git push</code> to production data — Git, GitHub Actions, Terraform, Docker, Databricks, dbt and Kubernetes, told through the RetailFlow story.</p>
         <a class="go" href="data-engineering-cicd-visualizer/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-green">
-        <div class="top"><div class="icon">🔧</div><div class="top-r"><span class="tag">Transformation</span><a class="dl" href="dbt/dbt.zip" download title="Download dbt (.zip)" aria-label="Download dbt as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v5a4 4 0 0 0 4 4h8"/><path d="M4 20v-5"/><path d="M12 9l4 4-4 4"/></svg></div><div class="top-r"><span class="tag">Transformation</span><a class="dl" href="dbt/dbt.zip" download title="Download dbt (.zip)" aria-label="Download dbt as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>dbt</h2><div class="sub">Amazon Edition</div>
         <p>Models, tests, snapshots, macros, sources and the dbt DAG — from raw S3 data to production-ready dimensional models.</p>
         <a class="go" href="dbt/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-blue">
-        <div class="top"><div class="icon">🌊</div><div class="top-r"><span class="tag">Stream Processing</span><a class="dl" href="flink/flink.zip" download title="Download Apache Flink (.zip)" aria-label="Download Apache Flink as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="12" r="2"/><circle cx="20" cy="12" r="2"/><path d="M6 12h4M14 12h4"/><path d="M10 8l4 4-4 4"/></svg></div><div class="top-r"><span class="tag">Stream Processing</span><a class="dl" href="flink/flink.zip" download title="Download Apache Flink (.zip)" aria-label="Download Apache Flink as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Flink</h2><div class="sub">Uber Edition</div>
         <p>Stateful stream processing — DataStream API, checkpointing, watermarks, windowing and Uber's real-time analytics pipeline.</p>
         <a class="go" href="flink/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-orange">
-        <div class="top"><div class="icon">🪣</div><div class="top-r"><span class="tag">Streaming</span><a class="dl" href="kafka/kafka.zip" download title="Download Apache Kafka (.zip)" aria-label="Download Apache Kafka as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg></div><div class="top-r"><span class="tag">Stream Processing</span></div></div>
+        <h2>Spark Structured Streaming</h2><div class="sub">ShopStream Edition</div>
+        <p>22 modules — the unbounded table, micro-batch triggers, watermarks, windows, stateful aggregations, output modes, exactly-once checkpointing, stream joins and a Delta sink, through an e-commerce orders + clickstream pipeline.</p>
+        <a class="go" href="spark-streaming/">Open lab <span class="arrow">→</span></a>
+      </div>
+      <div class="card c-orange">
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="6" r="1.9"/><circle cx="7" cy="18" r="1.9"/><circle cx="17.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.3"/><path d="M8.5 7l2.3 3.8M8.5 17l2.3-3.8M13.3 12h2.3"/></svg></div><div class="top-r"><span class="tag">Streaming</span><a class="dl" href="kafka/kafka.zip" download title="Download Apache Kafka (.zip)" aria-label="Download Apache Kafka as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Kafka</h2><div class="sub">Amazon Edition</div>
         <p>22 modules — producers, brokers, consumers, Kafka Streams, Connect, MirrorMaker 2, partition reassignment and the full Amazon order pipeline.</p>
         <a class="go" href="kafka/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-cyan">
-        <div class="top"><div class="icon">🧊</div><div class="top-r"><span class="tag">Table Format</span><a class="dl" href="iceberg/iceberg.zip" download title="Download Apache Iceberg (.zip)" aria-label="Download Apache Iceberg as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l5 7.5H7z"/><path d="M7.4 10h9.2l-1.8 4H9.2z"/><path d="M3 18.5c2-1 3 1 5 0s3 1 5 0 3 1 6 0"/></svg></div><div class="top-r"><span class="tag">Table Format</span><a class="dl" href="iceberg/iceberg.zip" download title="Download Apache Iceberg (.zip)" aria-label="Download Apache Iceberg as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Apache Iceberg</h2><div class="sub">ShopKart Handbook</div>
         <p>Metadata hierarchy, snapshot isolation, hidden partitioning, schema evolution and time travel — the complete Iceberg story.</p>
         <a class="go" href="iceberg/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-orange">
-        <div class="top"><div class="icon">🧱</div><div class="top-r"><span class="tag">Lakehouse</span><a class="dl" href="databricks/databricks.zip" download title="Download Databricks (.zip)" aria-label="Download Databricks as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg></div><div class="top-r"><span class="tag">Lakehouse</span><a class="dl" href="databricks/databricks.zip" download title="Download Databricks (.zip)" aria-label="Download Databricks as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Databricks</h2><div class="sub">Amazon Edition</div>
         <p>Delta Lake, Unity Catalog, Photon, clusters, jobs and Structured Streaming — the Lakehouse architecture through Amazon's data platform.</p>
         <a class="go" href="databricks/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-blue">
-        <div class="top"><div class="icon">☁️</div><div class="top-r"><span class="tag">Cloud Reference</span><a class="dl" href="cloud-de-visualizer/cloud-de-visualizer.zip" download title="Download Cloud Data Engineering Visualizer (.zip)" aria-label="Download Cloud Data Engineering Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.5A3.5 3.5 0 0 1 18 18z"/><path d="M9.5 13.5l2 2 3.5-3.5"/></svg></div><div class="top-r"><span class="tag">Cloud Reference</span><a class="dl" href="cloud-de-visualizer/cloud-de-visualizer.zip" download title="Download Cloud Data Engineering Visualizer (.zip)" aria-label="Download Cloud Data Engineering Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Cloud Data Engineering Visualizer</h2><div class="sub">Azure · Databricks</div>
         <p>Azure and Databricks data services explained six ways — what, why, how, DE use case, integrations and runtime — plus 100+ topic-wise ADF interview Q&amp;A and a cross-cloud comparison matrix.</p>
         <a class="go" href="cloud-de-visualizer/">Open lab <span class="arrow">→</span></a>
@@ -151,19 +178,25 @@
     <div class="section-label">Databases &amp; Warehousing</div>
     <div class="grid">
       <div class="card c-indigo">
-        <div class="top"><div class="icon">🧪</div><div class="top-r"><span class="tag">Hands-on</span><a class="dl" href="db-lab/db-lab.zip" download title="Download DB Lab (.zip)" aria-label="Download DB Lab as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v5l-4.6 8.2A2 2 0 0 0 6.2 19h11.6a2 2 0 0 0 1.8-2.8L15 8V3"/><path d="M8 3h8"/><path d="M7.5 14.5h9"/></svg></div><div class="top-r"><span class="tag">Hands-on</span><a class="dl" href="db-lab/db-lab.zip" download title="Download DB Lab (.zip)" aria-label="Download DB Lab as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>DB Lab</h2>
         <p>An interactive database playground — experiment with schemas, queries and engine behavior in the browser.</p>
         <a class="go" href="db-lab/">Open lab <span class="arrow">→</span></a>
       </div>
+      <div class="card c-indigo">
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg></div><div class="top-r"><span class="tag">Interactive Course</span></div></div>
+        <h2>Database Internals</h2><div class="sub">Designed to scale</div>
+        <p>Database internals as animated, step-by-step diagrams — LSM-Trees, B+Trees, WAL, MVCC and more, each idea built up from one write to a distributed store, with live interactive labs.</p>
+        <a class="go" href="db-scale/">Open lab <span class="arrow">→</span></a>
+      </div>
       <div class="card c-cyan">
-        <div class="top"><div class="icon">❄️</div><div class="top-r"><span class="tag">Cloud DWH</span></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.6"/><path d="M5 6v12c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6V6"/><path d="M5 12c0 1.5 3.1 2.6 7 2.6s7-1.1 7-2.6"/></svg></div><div class="top-r"><span class="tag">Cloud DWH</span></div></div>
         <h2>Cloud Data Warehouses</h2><div class="sub">Snowflake · Redshift · Fabric</div>
         <p>One tool, a platform switcher: Snowflake, Amazon Redshift and Microsoft Fabric side by side — architecture, internals, labs, interview prep and a cross-platform comparison.</p>
         <a class="go" href="cloud-dwh/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-violet">
-        <div class="top"><div class="icon">📐</div><div class="top-r"><span class="tag">Modeling</span><a class="dl" href="data-modeling-studio-app/data-modeling-studio-app.zip" download title="Download Data Modeling Studio (.zip)" aria-label="Download Data Modeling Studio as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/><path d="M6.5 10v3.5a2 2 0 0 0 2 2H14"/></svg></div><div class="top-r"><span class="tag">Modeling</span><a class="dl" href="data-modeling-studio-app/data-modeling-studio-app.zip" download title="Download Data Modeling Studio (.zip)" aria-label="Download Data Modeling Studio as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Data Modeling Studio</h2>
         <p>Design dimensional and normalized data models interactively — entities, relationships, facts and dimensions.</p>
         <a class="go" href="data-modeling-studio-app/">Open lab <span class="arrow">→</span></a>
@@ -173,19 +206,19 @@
     <div class="section-label">Coding &amp; Interview Prep</div>
     <div class="grid">
       <div class="card c-pink">
-        <div class="top"><div class="icon">🧩</div><div class="top-r"><span class="tag">Coding Stack</span><a class="dl" href="blind75-visualizer/blind75-visualizer.zip" download title="Download Data Engineering Coding Stack (.zip)" aria-label="Download Data Engineering Coding Stack as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-4 5 4 5"/><path d="M16 7l4 5-4 5"/><path d="M13.5 6l-3 12"/></svg></div><div class="top-r"><span class="tag">Coding Stack</span><a class="dl" href="blind75-visualizer/blind75-visualizer.zip" download title="Download Data Engineering Coding Stack (.zip)" aria-label="Download Data Engineering Coding Stack as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Data Engineering Coding Stack</h2>
         <p>Python, SQL, PySpark, NumPy &amp; Pandas — each with a Learn curriculum and a 500+ problem Practice set. Runnable in the browser, spaced-repetition review, and a cross-stack readiness dashboard.</p>
         <a class="go" href="blind75-visualizer/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-green">
-        <div class="top"><div class="icon">🎯</div><div class="top-r"><span class="tag">Interview</span><a class="dl" href="interview-prep/interview-prep.zip" download title="Download Interview Prep (.zip)" aria-label="Download Interview Prep as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.2"/></svg></div><div class="top-r"><span class="tag">Interview</span><a class="dl" href="interview-prep/interview-prep.zip" download title="Download Interview Prep (.zip)" aria-label="Download Interview Prep as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Interview Prep</h2>
         <p>A structured interview-preparation hub spanning the data-engineering stack — concepts, questions and worked answers.</p>
         <a class="go" href="interview-prep/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-indigo">
-        <div class="top"><div class="icon">🧭</div><div class="top-r"><span class="tag">System Design</span></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-2h12v2"/></svg></div><div class="top-r"><span class="tag">System Design</span></div></div>
         <h2>System Design Knowledge Base</h2><div class="sub">90+ questions · interactive</div>
         <p>Real-world system-design questions with model answers, browsable by topic, difficulty and tag — plus flashcard recall and hands-on widgets: an idempotency race simulator, consistent-hash ring, cache-write visualizer, back-of-envelope estimator, retry-storm lab and CAP picker.</p>
         <a class="go" href="system-design/">Open lab <span class="arrow">→</span></a>
@@ -195,7 +228,7 @@
     <div class="section-label">Machine Learning &amp; AI</div>
     <div class="grid">
       <div class="card c-violet">
-        <div class="top"><div class="icon">🧠</div><div class="top-r"><span class="tag">Applied AI</span><a class="dl" href="appliedai/appliedai.zip" download title="Download Applied AI — Study Lab (.zip)" aria-label="Download Applied AI Study Lab as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="1.9"/><circle cx="6" cy="18" r="1.9"/><circle cx="18" cy="9" r="1.9"/><circle cx="18" cy="18" r="1.9"/><circle cx="12" cy="12" r="2.1"/><path d="M7.7 6.8l2.5 4M7.7 17.2l2.6-3.6M14 11.2l2.3-1.5M14 13l2.4 3.4"/></svg></div><div class="top-r"><span class="tag">Applied AI</span><a class="dl" href="appliedai/appliedai.zip" download title="Download Applied AI — Study Lab (.zip)" aria-label="Download Applied AI Study Lab as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Applied AI — Study Lab</h2>
         <p>Interactive Applied Machine Learning notes — animated, interview-ready. Module 1: Exploratory Data Analysis (scatter &amp; pair plots, PDF/CDF, mean/median/IQR, box &amp; violin plots, contours) built from the Applied ML course notebook. More ML modules landing soon.</p>
         <a class="go" href="appliedai/">Open lab <span class="arrow">→</span></a>
@@ -205,37 +238,37 @@
     <div class="section-label">Planning &amp; Career</div>
     <div class="grid">
       <div class="card c-orange">
-        <div class="top"><div class="icon">📦</div><div class="top-r"><span class="tag">Supply Chain</span><a class="dl" href="o9-solver-visualizer/o9-solver-visualizer.zip" download title="Download o9 Supply Chain Solver (.zip)" aria-label="Download o9 Supply Chain Solver as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 11l6-4M9 13l6 4"/></svg></div><div class="top-r"><span class="tag">Supply Chain</span><a class="dl" href="o9-solver-visualizer/o9-solver-visualizer.zip" download title="Download o9 Supply Chain Solver (.zip)" aria-label="Download o9 Supply Chain Solver as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>o9 Supply Chain Solver</h2>
         <p>The o9 Distribution Planning Solver (CATMPN) — DRP, inputs, constraints, net-requirement logic, shortage &amp; allocation, via the CAT Aftermarket Parts Network.</p>
         <a class="go" href="o9-solver-visualizer/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-cyan">
-        <div class="top"><div class="icon">🧠</div><div class="top-r"><span class="tag">o9 Platform</span></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l8.5 4.8v9.4L12 21.5 3.5 16.7V7.3z"/><path d="M12 11.8l8.5-4.5M12 11.8v9.7M12 11.8L3.5 7.3"/></svg></div><div class="top-r"><span class="tag">o9 Platform</span></div></div>
         <h2>o9 GraphCube &amp; IBPL</h2>
         <p>How the o9 Digital Brain stores planning data (the GraphCube) and how you query it with IBPL — 21 modules on dimensions, the 7 scopes, graph edges and the data model, grounded in the CAT tenant. Teaches why IBPL is <em>not</em> SQL.</p>
         <a class="go" href="o9-graphcube-ibpl/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-yellow">
-        <div class="top"><div class="icon">📊</div><div class="top-r"><span class="tag">Planning Q&amp;A</span><a class="dl" href="supply-demand-qa/supply-demand-qa.zip" download title="Download Supply &amp; Demand Planning Q&amp;A (.zip)" aria-label="Download Supply &amp; Demand Planning Q&amp;A as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><rect x="5" y="11" width="3" height="7" rx="0.6"/><rect x="10.5" y="6" width="3" height="12" rx="0.6"/><rect x="16" y="14" width="3" height="4" rx="0.6"/></svg></div><div class="top-r"><span class="tag">Planning Q&amp;A</span><a class="dl" href="supply-demand-qa/supply-demand-qa.zip" download title="Download Supply &amp; Demand Planning Q&amp;A (.zip)" aria-label="Download Supply &amp; Demand Planning Q&amp;A as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Supply &amp; Demand Planning Q&amp;A</h2>
         <p>A master interview question bank — 45 topic groups across forecasting, S&amp;OP, MRP/DRP, inventory, o9, SSIS and SQL, each with a plain-English answer and a business case.</p>
         <a class="go" href="supply-demand-qa/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-violet">
-        <div class="top"><div class="icon">📄</div><div class="top-r"><span class="tag">Tool</span><a class="dl" href="resume-builder/resume-builder.zip" download title="Download Resume Builder (.zip)" aria-label="Download Resume Builder as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="9" r="2.2"/><path d="M8.3 16.5c0-2.1 1.7-3.2 3.7-3.2s3.7 1.1 3.7 3.2"/></svg></div><div class="top-r"><span class="tag">Tool</span><a class="dl" href="resume-builder/resume-builder.zip" download title="Download Resume Builder (.zip)" aria-label="Download Resume Builder as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Resume Builder</h2>
         <p>A block-based résumé builder with a live A4 preview and download in two formats — print-quality, text-selectable PDF or editable Word .docx. Your data stays in your browser.</p>
         <a class="go" href="resume-builder/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-pink">
-        <div class="top"><div class="icon">🎓</div><div class="top-r"><span class="tag">Study Map</span><a class="dl" href="gs-visualizer/gs-visualizer.zip" download title="Download GS — SSC PYQ Map (.zip)" aria-label="Download GS — SSC PYQ Map as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8l10-4 10 4-10 4z"/><path d="M6 10.4V15c0 1.5 3 2.6 6 2.6s6-1.1 6-2.6v-4.6"/><path d="M22 8v5"/></svg></div><div class="top-r"><span class="tag">Study Map</span><a class="dl" href="gs-visualizer/gs-visualizer.zip" download title="Download GS — SSC PYQ Map (.zip)" aria-label="Download GS — SSC PYQ Map as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>GS — SSC PYQ Map</h2>
         <p>A frequency-first study map for SSC General Studies — every previous-year question from the Pinnacle 6500+ bank, ranked by how often and how recently each topic is asked.</p>
         <a class="go" href="gs-visualizer/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-orange">
-        <div class="top"><div class="icon">🏛️</div><div class="top-r"><span class="tag">Study Map</span><a class="dl" href="appsc-group2/appsc-group2.zip" download title="Download APPSC Group 2 — Syllabus Map (.zip)" aria-label="Download APPSC Group 2 — Syllabus Map as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5"/><path d="M4 9h16"/><path d="M6 9v8M10 9v8M14 9v8M18 9v8"/><path d="M3 20h18"/></svg></div><div class="top-r"><span class="tag">Study Map</span><a class="dl" href="appsc-group2/appsc-group2.zip" download title="Download APPSC Group 2 — Syllabus Map (.zip)" aria-label="Download APPSC Group 2 — Syllabus Map as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>APPSC Group 2 — Syllabus Map</h2>
         <p>A syllabus-first study map for APPSC Group 2 — the full Prelims + Mains syllabus as a weighted flow tree, the exam blueprint, and the notification history. Previous-year question coverage lands in Phase 1.</p>
         <a class="go" href="appsc-group2/">Open lab <span class="arrow">→</span></a>
@@ -245,13 +278,13 @@
     <div class="section-label">Projects</div>
     <div class="grid">
       <div class="card c-green">
-        <div class="top"><div class="icon">🎧</div><div class="top-r"><span class="tag">Project</span><a class="dl" href="spotify-azure-de-visualizer/spotify-azure-de-visualizer.zip" download title="Download Spotify Azure DE (.zip)" aria-label="Download Spotify Azure DE as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3" y="12.5" width="4" height="6.5" rx="1.6"/><rect x="17" y="12.5" width="4" height="6.5" rx="1.6"/></svg></div><div class="top-r"><span class="tag">Project</span><a class="dl" href="spotify-azure-de-visualizer/spotify-azure-de-visualizer.zip" download title="Download Spotify Azure DE (.zip)" aria-label="Download Spotify Azure DE as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>Spotify Azure DE</h2>
         <p>The Spotify Azure Data Engineering project — architecture visualizer, implementation lab, production-debugging simulator and interview coach across 9 layers.</p>
         <a class="go" href="spotify-azure-de-visualizer/">Open lab <span class="arrow">→</span></a>
       </div>
       <div class="card c-cyan">
-        <div class="top"><div class="icon">🏭</div><div class="top-r"><span class="tag">Project</span><a class="dl" href="gsp-visualizer/gsp-visualizer.zip" download title="Download GSP Visualizer (.zip)" aria-label="Download GSP Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
+        <div class="top"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20V10l5 3V10l5 3V8l5 3v8z"/><path d="M3 20h18"/><path d="M7 16.5v1.5M11 16.5v1.5M15 16.5v1.5"/></svg></div><div class="top-r"><span class="tag">Project</span><a class="dl" href="gsp-visualizer/gsp-visualizer.zip" download title="Download GSP Visualizer (.zip)" aria-label="Download GSP Visualizer as a .zip backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></a></div></div>
         <h2>GSP Data Platform</h2>
         <p class="sub">Global Supply Planning · Azure ⇄ AWS</p>
         <p>End-to-end supply-planning platform — Airflow, Databricks + Delta, Snowflake and o9. Animated architecture, component deep-dives, the hard business cases, failure recovery and interview Q&amp;A, with a live Azure/AWS toggle.</p>

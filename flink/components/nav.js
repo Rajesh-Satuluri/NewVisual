@@ -7,6 +7,7 @@ export const MODULES = [
   { id: 'm04', title: 'Job Lifecycle',           icon: '🔄', group: 'Architecture',  num: '04' },
   { id: 'm05', title: 'Parallelism',             icon: '⚙️', group: 'Architecture',  num: '05' },
   { id: 'm06', title: 'Operators',               icon: '🔧', group: 'Architecture',  num: '06' },
+  { id: 'm06b', title: 'Async I/O & ProcessFunction', icon: '🔀', group: 'Architecture', num: '06b' },
   { id: 'm07', title: 'Sources & Sinks',         icon: '🔗', group: 'Architecture',  num: '07' },
   // Group: Time & Windows
   { id: 'm08', title: 'Time Concepts',           icon: '⏱️', group: 'Time & Windows', num: '08' },
@@ -14,6 +15,7 @@ export const MODULES = [
   { id: 'm10', title: 'Windows',                 icon: '🪟', group: 'Time & Windows', num: '10' },
   // Group: State & Fault Tolerance
   { id: 'm11', title: 'State Management',        icon: '🗄️', group: 'State & Fault',  num: '11' },
+  { id: 'm11b', title: 'State Backends & RocksDB', icon: '💽', group: 'State & Fault', num: '11b' },
   { id: 'm12', title: 'Checkpointing',           icon: '✅', group: 'State & Fault',  num: '12' },
   { id: 'm13', title: 'Fault Tolerance',         icon: '🛡️', group: 'State & Fault',  num: '13' },
   { id: 'm13b', title: 'Savepoints',             icon: '💾', group: 'State & Fault',  num: '13b' },
@@ -22,8 +24,12 @@ export const MODULES = [
   { id: 'm15', title: 'Flink SQL & Table API',   icon: '📊', group: 'APIs & Connectors', num: '15' },
   { id: 'm16', title: 'Connectors',              icon: '🔌', group: 'APIs & Connectors', num: '16' },
   { id: 'm17', title: 'Flink SQL · Advanced',    icon: '🧮', group: 'APIs & Connectors', num: '17' },
+  { id: 'm17b', title: 'Complex Event Processing', icon: '🧩', group: 'APIs & Connectors', num: '17b' },
   // Group: Optimization
   { id: 'm18', title: 'Performance',             icon: '🚀', group: 'Optimization',    num: '18' },
+  // Group: Operations
+  { id: 'm18b', title: 'Monitoring & Observability', icon: '📡', group: 'Operations', num: '18b' },
+  { id: 'm18c', title: 'Deployment & Kubernetes', icon: '☸️', group: 'Operations', num: '18c' },
   { id: 'm19', title: 'Uber Pipeline',           icon: '🗺️', group: 'End-to-End',     num: '19' },
 ];
 

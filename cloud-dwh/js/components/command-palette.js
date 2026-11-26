@@ -77,14 +77,24 @@
       this._input.addEventListener('keydown', (e) => this._onKey(e));
     },
 
+    // Built-in KEYWORDS are Snowflake-specific; other platforms may expose
+    // their own via CDWH.P[platform].keywords. Falls back to label+group.
+    _keywordsFor(plat) {
+      if (plat === 'snowflake') return KEYWORDS;
+      const p = window.CDWH.P && window.CDWH.P[plat];
+      return (p && p.keywords) || {};
+    },
+
     _buildIndex() {
       const idx = [];
+      const plat = window.CDWH.activePlatform;
+      const KW = this._keywordsFor(plat);
       const groups = window.CDWH.NAV_GROUPS || [];
       groups.forEach(g => g.items.forEach(item => {
         idx.push({
           type: 'Module', module: item.id, icon: item.icon,
           title: item.label, sub: g.label,
-          hay: (item.label + ' ' + g.label + ' ' + (KEYWORDS[item.id] || []).join(' ')).toLowerCase(),
+          hay: (item.label + ' ' + g.label + ' ' + (KW[item.id] || []).join(' ')).toLowerCase(),
         });
       }));
       // Concepts — flatten every array-of-objects on the Concepts data.
@@ -93,7 +103,7 @@
         if (!Array.isArray(val)) return;
         val.forEach(c => {
           if (!c || !c.name) return;
-          const mod = this._guessModule((c.name + ' ' + (c.description || '')).toLowerCase());
+          const mod = this._guessModule((c.name + ' ' + (c.description || '')).toLowerCase(), KW);
           if (!mod) return;
           idx.push({
             type: 'Concept', module: mod, icon: c.icon || '•',
@@ -105,9 +115,9 @@
       this._index = idx;
     },
 
-    _guessModule(text) {
+    _guessModule(text, KW) {
       let best = null, bestScore = 0;
-      Object.entries(KEYWORDS).forEach(([id, kws]) => {
+      Object.entries(KW || KEYWORDS).forEach(([id, kws]) => {
         let score = 0;
         kws.forEach(k => { if (text.includes(k)) score += k.length; });
         if (score > bestScore) { bestScore = score; best = id; }
@@ -119,6 +129,9 @@
 
     open() {
       this._lastFocus = document.activeElement;
+      // Rebuild each open so the index reflects the active platform
+      // (init() runs before the first setPlatform, when NAV_GROUPS is empty).
+      this._buildIndex();
       this._overlay.classList.add('visible');
       this._input.value = '';
       this._search('');
