@@ -3,7 +3,7 @@ import { createModuleShell, initTabs } from '../components/module-shell.js';
 import { injectModStyles, esc } from './_mod-ui.js';
 
 // group, key, default, effect
-const CONFIGS = [
+export const CONFIGS = [
   // ── Source / read options ──
   ['Source', 'startingOffsets', 'latest', 'Where a NEW query begins: "latest", "earliest", or explicit JSON offsets. Ignored once a checkpoint exists (recovery resumes from the offset log).'],
   ['Source', 'maxOffsetsPerTrigger', 'none (all)', 'Caps Kafka records read per micro-batch → rate limiting / bounded batch size. The main backpressure lever for Kafka.'],

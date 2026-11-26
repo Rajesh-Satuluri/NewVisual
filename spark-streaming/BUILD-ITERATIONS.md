@@ -196,7 +196,7 @@ P1 P2 P3                                                   (polish)
 - [x] M01 ✅ [x] M02 ✅ [x] M03 ✅ [x] M04 ✅ [x] M05 ✅ (E1-driven trigger planner) [x] M06 ✅ [x] M07 ✅ [x] M08 ✅ (E1 watermark stepper) [x] M09 ✅ (E1 window builder) [x] M10 ✅ (E1 state-size lab) [x] M11 ✅ (simulated cart state machine — labeled)
 - [x] M12 ✅ (E1 three-modes live) [x] M13 ✅ (simulated dedup — labeled) [x] M14 ✅ (sink explorer) [x] M15 ✅ (E2 WAL stepper) [x] M16 ✅ (E2 crash/recover) [x] M17 ✅ (enrichment lookup) [x] M18 ✅ (E3 join engine) [x] M19 ✅ (MERGE upsert demo) [x] M20 ✅ (tuning sandbox) [x] M21 ✅ (E1 live dashboard) [x] M22 ✅ (E1+E2+E3 end-to-end pipeline — all three engines composed)
 - [x] R1 ✅ (22-node clickable dependency graph + ShopStream overlay) [x] R2 ✅ (SS vs Flink vs KStreams vs DStreams) [x] R3 ✅ (110 terms, searchable, module-linked) [x] R4 ✅ (API surface + decision rules) [x] R5 ✅ (35 config knobs, searchable)
-- [ ] B1  [ ] B2  [ ] B3  [ ] B4  [ ] B5  [ ] B6  [ ] B7  [ ] B8
+- [x] B1 ✅ (103 quiz Qs + flow) [x] B2 ✅ (31 coding problems) [x] B3 ✅ (16 decision drills) [x] B4 ✅ (13 incident labs) [x] B5 ✅ (16 tiered answers) [x] B6 ✅ (22 self-explain prompts) [x] B7 ✅ (45-min mock interview) [x] B8 ✅ (188-entry search index + viewer; V3 search surface delivered)
 - [ ] V1  [ ] V2  [ ] V3  [ ] V4  [ ] V5
 - [ ] P1  [ ] P2  [ ] P3
 

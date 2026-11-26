@@ -3,7 +3,7 @@ import { createModuleShell, initTabs } from '../components/module-shell.js';
 import { injectModStyles, esc } from './_mod-ui.js';
 
 // [term, definition, moduleId?]  — definition blends formal + plain.
-const TERMS = [
+export const TERMS = [
   ['Structured Streaming', 'Spark\'s declarative stream-processing engine that treats a live stream as an ever-growing table and runs the same DataFrame/SQL query you\'d run on batch, incrementally and forever.', 'm01'],
   ['Unbounded table', 'The core mental model: an input stream is an input table with no end, to which new rows are continuously appended; your query is an incremental view over it.', 'm02'],
   ['Result table', 'The conceptual output table Spark maintains and updates each micro-batch; what gets written to the sink depends on the output mode.', 'm02'],
