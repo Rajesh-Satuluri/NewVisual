@@ -11,6 +11,7 @@ import { MODULES, EXTRAS } from '../components/nav.js';
 import { QUIZ_BANK } from '../data/quiz-bank.js';
 import { loadAllIQ } from '../data/iq-aggregate.js';
 import { loadOverride, saveOverride, applyOverrideTo } from '../components/iq-overrides.js';
+import { cloud } from '../components/cloudsync.js';
 
 export function mount(container) {
   const done = new Set(JSON.parse(localStorage.getItem('dbt-done') || '[]'));
@@ -35,8 +36,31 @@ export function mount(container) {
     ],
   });
 
-  mountIQ(container.querySelector('#tab-iq'), IQ_SOURCES);
+  const teardown = mountIQ(container.querySelector('#tab-iq'), IQ_SOURCES);
   mountReviewDeck(container.querySelector('#tab-s'), ALLQ, realDone);
+  return teardown;
+}
+
+// Sync hint shown under the editor: when cross-device sync is linked, edits
+// follow everywhere; otherwise offer a one-click CTA to turn it on.
+function syncHint(moduleLabel) {
+  let on = false;
+  try { on = !!(cloud && cloud.enabled && cloud.enabled()); } catch (e) {}
+  if (on) {
+    return `Saved everywhere — the Study Hub, ${moduleLabel}'s own Q&amp;A tab, and all your devices (cross-device sync is on).`;
+  }
+  return `Saved on this device, and it shows in both the Study Hub and ${moduleLabel}'s Q&amp;A tab. ` +
+    'To see your edits on your phone and other devices too, ' +
+    '<button type="button" class="iqe-synccta">turn on cross-device sync</button>.';
+}
+function wireSyncCta(root) {
+  const cta = root && root.querySelector && root.querySelector('.iqe-synccta');
+  if (!cta) return;
+  cta.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    const btn = document.getElementById('cloud-sync-btn');
+    if (btn) btn.click();
+  });
 }
 
 // ─── Tab 1: aggregated Interview Q&A ────────────────────────────────────────
@@ -142,10 +166,11 @@ function mountIQ(tab, sources) {
           <button type="button" class="iqe-btn iqe-cancel">Cancel</button>
           <button type="button" class="iqe-btn iqe-reset"${ov ? '' : ' hidden'}>Reset to original</button>
         </div>
-        <div class="iqe-hint">Saved on this device — your edit shows in the Study Hub and in ${orig.icon} ${orig.moduleTitle}'s own Interview Q&amp;A tab.</div>
+        <div class="iqe-hint">${syncHint(`${orig.icon} ${orig.moduleTitle}`)}</div>
       </div>`;
     const qField = ae.querySelector('.iqe-q');
     const aField = ae.querySelector('.iqe-a');
+    wireSyncCta(ae);
     qField?.focus();
 
     ae.querySelector('.iqe-save').addEventListener('click', () => {
@@ -192,6 +217,15 @@ function mountIQ(tab, sources) {
     if (el) el.textContent = ALL.length;
     render();
   });
+
+  // Re-render when an edit lands from another device (cloud pull), but not while
+  // the user is mid-edit here (don't clobber their open editor).
+  let alive = true;
+  const onRefresh = () => {
+    if (alive && ALL.length && !list.querySelector('.iqe-editing') && !tab.querySelector('.iqe-editing')) render();
+  };
+  window.addEventListener('dbt:cloud-refresh', onRefresh);
+  return () => { alive = false; window.removeEventListener('dbt:cloud-refresh', onRefresh); };
 }
 
 // ─── Tab 2: quiz Review Deck (unchanged behaviour) ──────────────────────────
