@@ -196,61 +196,61 @@ export const CATALOG = [
         "slug": "database-files",
         "title": "Database Files",
         "icon": "📁",
-        "built": false
+        "built": true
       },
       {
         "slug": "pages",
         "title": "Pages",
         "icon": "📄",
-        "built": false
+        "built": true
       },
       {
         "slug": "records-tuples",
         "title": "Records & Tuples",
         "icon": "📦",
-        "built": false
+        "built": true
       },
       {
         "slug": "slotted-pages",
         "title": "Slotted Pages",
         "icon": "🧩",
-        "built": false
+        "built": true
       },
       {
         "slug": "buffer-pool",
         "title": "Buffer Pool",
         "icon": "🏊",
-        "built": false
+        "built": true
       },
       {
         "slug": "buffer-pool-replacement",
         "title": "Buffer Pool Replacement",
         "icon": "♻️",
-        "built": false
+        "built": true
       },
       {
         "slug": "page-cache",
         "title": "Page Cache",
         "icon": "💭",
-        "built": false
+        "built": true
       },
       {
         "slug": "disk-io",
         "title": "Disk I/O",
         "icon": "💿",
-        "built": false
+        "built": true
       },
       {
         "slug": "sequential-vs-random-io",
         "title": "Sequential vs Random I/O",
         "icon": "⏩",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-tree",
         "title": "B-Tree",
         "icon": "🌲",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 30;
+export const BUILT_COUNT = 40;
