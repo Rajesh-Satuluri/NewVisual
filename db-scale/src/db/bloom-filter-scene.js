@@ -175,9 +175,6 @@ export function renderBloomFilterScene(snap, opts = {}) {
     guides.push(e.guide);
     if (s.verdict === 'read') railIn = e.d;
   });
-  const tags = ['no false negatives', 'tunable false-positive rate', 'kilobytes of RAM'];
-  tags.forEach((t, i) => badges.push(pill(500 + 0, 452 + 0, '', {}))); // placeholder removed below
-  badges.length = badges.length - tags.length;
   badges.push(region(360, 196, 560, 220, '', { r: 22 }));
   badges.push(`<text class="iso-region__t" x="640" y="${A(430)}" text-anchor="middle">PROBE ONLY THE FILES THAT MIGHT HELP</text>`);
   [ 'no false negatives', 'tunable FP rate', 'kilobytes of RAM' ].forEach((t, i) =>

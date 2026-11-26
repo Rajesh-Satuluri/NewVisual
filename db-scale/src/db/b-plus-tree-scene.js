@@ -56,7 +56,7 @@ export function renderBPlusTreeScene(snap, opts = {}) {
       bottomTip(parent),
       V(child.cx, (bottomTip(parent).y + topCorner(child).y) / 2),
       topCorner(child),
-    ], { arrow: true, dashed: o.dashed, cls: o.cls });
+    ], { arrow: true, dashed: o.dashed });
     guides.push(e.guide);
     return e;
   }
