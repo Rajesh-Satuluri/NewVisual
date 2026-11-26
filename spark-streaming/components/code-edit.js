@@ -22,7 +22,7 @@ function loadStore() {
 function saveStore(store) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (_) {}
   // setItem is wrapped by cloudsync; calling onLocalChange too is harmless/explicit.
-  try { window.Flink && window.Flink.cloud && window.Flink.cloud.onLocalChange(); } catch (_) {}
+  try { window.Spark && window.Spark.cloud && window.Spark.cloud.onLocalChange(); } catch (_) {}
 }
 
 // Stable, dependency-free 32-bit hash → base36.
