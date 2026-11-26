@@ -76,7 +76,8 @@ export function renderPageCacheScene(snap, opts = {}) {
   });
 
   // left-side name tags are already on the cubes; add a right-hand caption rail
-  const yOf = k => cubes[k].cy;
+  const CY = {}; LAYERS.forEach(L => { CY[L.key] = L.cy; });
+  const yOf = k => CY[k];
 
   /* read rail descends on the right; write rail ascends on the left */
   const RIGHT = 720, LEFT = 360;
