@@ -52,6 +52,7 @@ export const EXTRAS = [
   { id: 'decisions',      title: 'Decision Drills', icon: '🔀', group: 'Interview', num: '' },
   { id: 'incident-bank',  title: 'Incident Labs',   icon: '🚨', group: 'Interview', num: '' },
   { id: 'tiered',         title: 'Tiered Answers',  icon: '🪜', group: 'Interview', num: '' },
+  { id: 'self-explain',   title: 'Self-Explain',    icon: '🗣️', group: 'Interview', num: '' },
   { id: 'mock-interview', title: 'Mock Interview',  icon: '🎤', group: 'Interview', num: '' },
   { id: 'review',         title: 'Review Center',   icon: '🔁', group: 'Review', num: '' },
   { id: 'study',          title: 'Study Hub',       icon: '📚', group: 'Review', num: '★' },
