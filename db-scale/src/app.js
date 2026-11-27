@@ -75,6 +75,16 @@ import { renderRaftConsensusScene } from './db/raft-consensus-scene.js';
 import { renderReadWriteQuorumScene } from './db/read-write-quorum-scene.js';
 import { renderDistributedOverviewScene } from './db/distributed-overview-scene.js';
 import { renderFailureModesScene } from './db/failure-modes-scene.js';
+import { renderNetworkCommunicationScene } from './db/network-communication-scene.js';
+import { renderPartialFailureScene } from './db/partial-failure-scene.js';
+import { renderFailureDetectionScene } from './db/failure-detection-scene.js';
+import { renderHeartbeatsScene } from './db/heartbeats-scene.js';
+import { renderLeaderElectionScene } from './db/leader-election-scene.js';
+import { renderMultiLeaderReplicationScene } from './db/multi-leader-replication-scene.js';
+import { renderSynchronousReplicationScene } from './db/synchronous-replication-scene.js';
+import { renderAsynchronousReplicationScene } from './db/asynchronous-replication-scene.js';
+import { renderQuorumScene } from './db/quorum-scene.js';
+import { renderConsistencyScene } from './db/consistency-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -147,6 +157,16 @@ import { raftConsensusLesson } from './content/raft-consensus.js';
 import { readWriteQuorumLesson } from './content/read-write-quorum.js';
 import { distributedOverviewLesson } from './content/distributed-overview.js';
 import { failureModesLesson } from './content/failure-modes.js';
+import { networkCommunicationLesson } from './content/network-communication.js';
+import { partialFailureLesson } from './content/partial-failure.js';
+import { failureDetectionLesson } from './content/failure-detection.js';
+import { heartbeatsLesson } from './content/heartbeats.js';
+import { leaderElectionLesson } from './content/leader-election.js';
+import { multiLeaderReplicationLesson } from './content/multi-leader-replication.js';
+import { synchronousReplicationLesson } from './content/synchronous-replication.js';
+import { asynchronousReplicationLesson } from './content/asynchronous-replication.js';
+import { quorumLesson } from './content/quorum.js';
+import { consistencyLesson } from './content/consistency.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -221,6 +241,16 @@ const LESSONS = {
   'read-write-quorum': readWriteQuorumLesson,
   'distributed-overview': distributedOverviewLesson,
   'failure-modes': failureModesLesson,
+  'network-communication': networkCommunicationLesson,
+  'partial-failure': partialFailureLesson,
+  'failure-detection': failureDetectionLesson,
+  'heartbeats': heartbeatsLesson,
+  'leader-election': leaderElectionLesson,
+  'multi-leader-replication': multiLeaderReplicationLesson,
+  'synchronous-replication': synchronousReplicationLesson,
+  'asynchronous-replication': asynchronousReplicationLesson,
+  'quorum': quorumLesson,
+  'consistency': consistencyLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -294,6 +324,16 @@ const SCENES = {
   'read-write-quorum': renderReadWriteQuorumScene,
   'distributed-overview': renderDistributedOverviewScene,
   'failure-modes': renderFailureModesScene,
+  'network-communication': renderNetworkCommunicationScene,
+  'partial-failure': renderPartialFailureScene,
+  'failure-detection': renderFailureDetectionScene,
+  'heartbeats': renderHeartbeatsScene,
+  'leader-election': renderLeaderElectionScene,
+  'multi-leader-replication': renderMultiLeaderReplicationScene,
+  'synchronous-replication': renderSynchronousReplicationScene,
+  'asynchronous-replication': renderAsynchronousReplicationScene,
+  'quorum': renderQuorumScene,
+  'consistency': renderConsistencyScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };

@@ -79,6 +79,11 @@ export const METRICS = {
   skew:       { label: 'Load skew', fmt: v => v + '%', good: 'low', ic: 'gauge' },
   hops:       { label: 'Hops', fmt: v => v, good: 'low', ic: 'merge' },
   keyspace:   { label: 'Keyspace moved', fmt: v => v + '%', good: 'low', ic: 'merge' },
+  messages:   { label: 'Messages', fmt: v => v, ic: 'merge' },
+  rtt:        { label: 'Round-trip', fmt: v => v + ' ms', good: 'low', ic: 'clock' },
+  suspected:  { label: 'Suspected', fmt: v => v, good: 'low', ic: 'alert' },
+  conflicts:  { label: 'Conflicts', fmt: v => v, good: 'low', ic: 'alert' },
+  staleness:  { label: 'Staleness', fmt: v => v + ' ms', good: 'low', ic: 'clock' },
 };
 
 export function renderHud(metrics, show, prev) {

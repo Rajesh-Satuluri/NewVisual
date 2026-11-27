@@ -454,61 +454,61 @@ export const CATALOG = [
         "slug": "network-communication",
         "title": "Network Communication",
         "icon": "📡",
-        "built": false
+        "built": true
       },
       {
         "slug": "partial-failure",
         "title": "Partial Failure",
         "icon": "⚠️",
-        "built": false
+        "built": true
       },
       {
         "slug": "failure-detection",
         "title": "Failure Detection",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "heartbeats",
         "title": "Heartbeats",
         "icon": "💗",
-        "built": false
+        "built": true
       },
       {
         "slug": "leader-election",
         "title": "Leader Election",
         "icon": "👑",
-        "built": false
+        "built": true
       },
       {
         "slug": "multi-leader-replication",
         "title": "Multi-Leader Replication",
         "icon": "🔀",
-        "built": false
+        "built": true
       },
       {
         "slug": "synchronous-replication",
         "title": "Synchronous Replication",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "asynchronous-replication",
         "title": "Asynchronous Replication",
         "icon": "⏳",
-        "built": false
+        "built": true
       },
       {
         "slug": "quorum",
         "title": "Quorum",
         "icon": "🧮",
-        "built": false
+        "built": true
       },
       {
         "slug": "consistency",
         "title": "Consistency",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "eventual-consistency",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 70;
+export const BUILT_COUNT = 80;
