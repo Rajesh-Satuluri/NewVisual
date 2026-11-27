@@ -105,6 +105,26 @@ import { renderDistributedRecoveryScene } from './db/distributed-recovery-scene.
 import { renderReplicationModelsScene } from './db/replication-models-scene.js';
 import { renderPartitioningStrategiesScene } from './db/partitioning-strategies-scene.js';
 import { renderTransactionsAtScaleScene } from './db/transactions-at-scale-scene.js';
+import { renderConsistencyAndConsensusScene } from './db/consistency-and-consensus-scene.js';
+import { renderBatchProcessingScene } from './db/batch-processing-scene.js';
+import { renderStreamProcessingScene } from './db/stream-processing-scene.js';
+import { renderEventLogsScene } from './db/event-logs-scene.js';
+import { renderDerivedDataScene } from './db/derived-data-scene.js';
+import { renderDataIntegrationScene } from './db/data-integration-scene.js';
+import { renderCdcScene } from './db/cdc-scene.js';
+import { renderMaterializedViewsScene } from './db/materialized-views-scene.js';
+import { renderDataflowArchitectureScene } from './db/dataflow-architecture-scene.js';
+import { renderModernDataSystemsScene } from './db/modern-data-systems-scene.js';
+import { renderOltpCdcKafkaStreamOlapScene } from './db/oltp-cdc-kafka-stream-olap-scene.js';
+import { renderFollowTheQueryScene } from './db/follow-the-query-scene.js';
+import { renderFollowTheWriteScene } from './db/follow-the-write-scene.js';
+import { renderFollowTheTransactionScene } from './db/follow-the-transaction-scene.js';
+import { renderCrashRecoveryLabScene } from './db/crash-recovery-lab-scene.js';
+import { renderBplusTreeLabScene } from './db/bplus-tree-lab-scene.js';
+import { renderLsmLabScene } from './db/lsm-lab-scene.js';
+import { renderBufferPoolLabScene } from './db/buffer-pool-lab-scene.js';
+import { renderQueryOptimizerLabScene } from './db/query-optimizer-lab-scene.js';
+import { renderConcurrencyLabScene } from './db/concurrency-lab-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -207,6 +227,26 @@ import { distributedRecoveryLesson } from './content/distributed-recovery.js';
 import { replicationModelsLesson } from './content/replication-models.js';
 import { partitioningStrategiesLesson } from './content/partitioning-strategies.js';
 import { transactionsAtScaleLesson } from './content/transactions-at-scale.js';
+import { consistencyAndConsensusLesson } from './content/consistency-and-consensus.js';
+import { batchProcessingLesson } from './content/batch-processing.js';
+import { streamProcessingLesson } from './content/stream-processing.js';
+import { eventLogsLesson } from './content/event-logs.js';
+import { derivedDataLesson } from './content/derived-data.js';
+import { dataIntegrationLesson } from './content/data-integration.js';
+import { cdcLesson } from './content/cdc.js';
+import { materializedViewsLesson } from './content/materialized-views.js';
+import { dataflowArchitectureLesson } from './content/dataflow-architecture.js';
+import { modernDataSystemsLesson } from './content/modern-data-systems.js';
+import { oltpCdcKafkaStreamOlapLesson } from './content/oltp-cdc-kafka-stream-olap.js';
+import { followTheQueryLesson } from './content/follow-the-query.js';
+import { followTheWriteLesson } from './content/follow-the-write.js';
+import { followTheTransactionLesson } from './content/follow-the-transaction.js';
+import { crashRecoveryLabLesson } from './content/crash-recovery-lab.js';
+import { bplusTreeLabLesson } from './content/bplus-tree-lab.js';
+import { lsmLabLesson } from './content/lsm-lab.js';
+import { bufferPoolLabLesson } from './content/buffer-pool-lab.js';
+import { queryOptimizerLabLesson } from './content/query-optimizer-lab.js';
+import { concurrencyLabLesson } from './content/concurrency-lab.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -311,6 +351,26 @@ const LESSONS = {
   'replication-models': replicationModelsLesson,
   'partitioning-strategies': partitioningStrategiesLesson,
   'transactions-at-scale': transactionsAtScaleLesson,
+  'consistency-and-consensus': consistencyAndConsensusLesson,
+  'batch-processing': batchProcessingLesson,
+  'stream-processing': streamProcessingLesson,
+  'event-logs': eventLogsLesson,
+  'derived-data': derivedDataLesson,
+  'data-integration': dataIntegrationLesson,
+  'cdc': cdcLesson,
+  'materialized-views': materializedViewsLesson,
+  'dataflow-architecture': dataflowArchitectureLesson,
+  'modern-data-systems': modernDataSystemsLesson,
+  'oltp-cdc-kafka-stream-olap': oltpCdcKafkaStreamOlapLesson,
+  'follow-the-query': followTheQueryLesson,
+  'follow-the-write': followTheWriteLesson,
+  'follow-the-transaction': followTheTransactionLesson,
+  'crash-recovery-lab': crashRecoveryLabLesson,
+  'bplus-tree-lab': bplusTreeLabLesson,
+  'lsm-lab': lsmLabLesson,
+  'buffer-pool-lab': bufferPoolLabLesson,
+  'query-optimizer-lab': queryOptimizerLabLesson,
+  'concurrency-lab': concurrencyLabLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -414,6 +474,26 @@ const SCENES = {
   'replication-models': renderReplicationModelsScene,
   'partitioning-strategies': renderPartitioningStrategiesScene,
   'transactions-at-scale': renderTransactionsAtScaleScene,
+  'consistency-and-consensus': renderConsistencyAndConsensusScene,
+  'batch-processing': renderBatchProcessingScene,
+  'stream-processing': renderStreamProcessingScene,
+  'event-logs': renderEventLogsScene,
+  'derived-data': renderDerivedDataScene,
+  'data-integration': renderDataIntegrationScene,
+  'cdc': renderCdcScene,
+  'materialized-views': renderMaterializedViewsScene,
+  'dataflow-architecture': renderDataflowArchitectureScene,
+  'modern-data-systems': renderModernDataSystemsScene,
+  'oltp-cdc-kafka-stream-olap': renderOltpCdcKafkaStreamOlapScene,
+  'follow-the-query': renderFollowTheQueryScene,
+  'follow-the-write': renderFollowTheWriteScene,
+  'follow-the-transaction': renderFollowTheTransactionScene,
+  'crash-recovery-lab': renderCrashRecoveryLabScene,
+  'bplus-tree-lab': renderBplusTreeLabScene,
+  'lsm-lab': renderLsmLabScene,
+  'buffer-pool-lab': renderBufferPoolLabScene,
+  'query-optimizer-lab': renderQueryOptimizerLabScene,
+  'concurrency-lab': renderConcurrencyLabScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
