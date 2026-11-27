@@ -84,6 +84,9 @@ export const METRICS = {
   suspected:  { label: 'Suspected', fmt: v => v, good: 'low', ic: 'alert' },
   conflicts:  { label: 'Conflicts', fmt: v => v, good: 'low', ic: 'alert' },
   staleness:  { label: 'Staleness', fmt: v => v + ' ms', good: 'low', ic: 'clock' },
+  repairs:    { label: 'Repairs', fmt: v => v, ic: 'check' },
+  divergence: { label: 'Divergence', fmt: v => v + '%', good: 'low', ic: 'alert' },
+  rps:        { label: 'Requests', fmt: v => v + '/s', good: 'high', ic: 'bolt' },
 };
 
 export function renderHud(metrics, show, prev) {
