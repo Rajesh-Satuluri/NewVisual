@@ -55,6 +55,16 @@ import { renderSstableScene } from './db/sstable-scene.js';
 import { renderBloomFilterScene } from './db/bloom-filter-scene.js';
 import { renderLsmCompactionScene } from './db/lsm-compaction-scene.js';
 import { renderIndexTypesScene } from './db/index-types-scene.js';
+import { renderConnectionPoolingScene } from './db/connection-pooling-scene.js';
+import { renderTransactionsScene } from './db/transactions-scene.js';
+import { renderWalScene } from './db/wal-scene.js';
+import { renderMvccScene } from './db/mvcc-scene.js';
+import { renderLockingScene } from './db/locking-scene.js';
+import { renderVacuumScene } from './db/vacuum-scene.js';
+import { renderIsolationLevelsScene } from './db/isolation-levels-scene.js';
+import { renderCrashRecoveryScene } from './db/crash-recovery-scene.js';
+import { renderCheckpointsScene } from './db/checkpoints-scene.js';
+import { renderWalInternalsScene } from './db/wal-internals-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -107,6 +117,16 @@ import { sstableLesson } from './content/sstable.js';
 import { bloomFilterLesson } from './content/bloom-filter.js';
 import { lsmCompactionLesson } from './content/lsm-compaction.js';
 import { indexTypesLesson } from './content/index-types.js';
+import { connectionPoolingLesson } from './content/connection-pooling.js';
+import { transactionsLesson } from './content/transactions.js';
+import { walLesson } from './content/wal.js';
+import { mvccLesson } from './content/mvcc.js';
+import { lockingLesson } from './content/locking.js';
+import { vacuumLesson } from './content/vacuum.js';
+import { isolationLevelsLesson } from './content/isolation-levels.js';
+import { crashRecoveryLesson } from './content/crash-recovery.js';
+import { checkpointsLesson } from './content/checkpoints.js';
+import { walInternalsLesson } from './content/wal-internals.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -161,6 +181,16 @@ const LESSONS = {
   'bloom-filter': bloomFilterLesson,
   'lsm-compaction': lsmCompactionLesson,
   'index-types': indexTypesLesson,
+  'connection-pooling': connectionPoolingLesson,
+  'transactions': transactionsLesson,
+  'wal': walLesson,
+  'mvcc': mvccLesson,
+  'locking': lockingLesson,
+  'vacuum': vacuumLesson,
+  'isolation-levels': isolationLevelsLesson,
+  'crash-recovery': crashRecoveryLesson,
+  'checkpoints': checkpointsLesson,
+  'wal-internals': walInternalsLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -214,6 +244,16 @@ const SCENES = {
   'bloom-filter': renderBloomFilterScene,
   'lsm-compaction': renderLsmCompactionScene,
   'index-types': renderIndexTypesScene,
+  'connection-pooling': renderConnectionPoolingScene,
+  'transactions': renderTransactionsScene,
+  'wal': renderWalScene,
+  'mvcc': renderMvccScene,
+  'locking': renderLockingScene,
+  'vacuum': renderVacuumScene,
+  'isolation-levels': renderIsolationLevelsScene,
+  'crash-recovery': renderCrashRecoveryScene,
+  'checkpoints': renderCheckpointsScene,
+  'wal-internals': renderWalInternalsScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
