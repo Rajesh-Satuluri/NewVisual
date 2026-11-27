@@ -85,6 +85,26 @@ import { renderSynchronousReplicationScene } from './db/synchronous-replication-
 import { renderAsynchronousReplicationScene } from './db/asynchronous-replication-scene.js';
 import { renderQuorumScene } from './db/quorum-scene.js';
 import { renderConsistencyScene } from './db/consistency-scene.js';
+import { renderEventualConsistencyScene } from './db/eventual-consistency-scene.js';
+import { renderStrongConsistencyScene } from './db/strong-consistency-scene.js';
+import { renderReadRepairScene } from './db/read-repair-scene.js';
+import { renderAntiEntropyScene } from './db/anti-entropy-scene.js';
+import { renderVerticalPartitioningScene } from './db/vertical-partitioning-scene.js';
+import { renderHashPartitioningScene } from './db/hash-partitioning-scene.js';
+import { renderRangePartitioningScene } from './db/range-partitioning-scene.js';
+import { renderVirtualNodesScene } from './db/virtual-nodes-scene.js';
+import { renderRebalancingScene } from './db/rebalancing-scene.js';
+import { renderHotPartitionsScene } from './db/hot-partitions-scene.js';
+import { renderDistributedTransactionsScene } from './db/distributed-transactions-scene.js';
+import { renderThreePhaseCommitScene } from './db/three-phase-commit-scene.js';
+import { renderConsensusScene } from './db/consensus-scene.js';
+import { renderRaftConceptsScene } from './db/raft-concepts-scene.js';
+import { renderNetworkPartitionScene } from './db/network-partition-scene.js';
+import { renderSplitBrainScene } from './db/split-brain-scene.js';
+import { renderDistributedRecoveryScene } from './db/distributed-recovery-scene.js';
+import { renderReplicationModelsScene } from './db/replication-models-scene.js';
+import { renderPartitioningStrategiesScene } from './db/partitioning-strategies-scene.js';
+import { renderTransactionsAtScaleScene } from './db/transactions-at-scale-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -167,6 +187,26 @@ import { synchronousReplicationLesson } from './content/synchronous-replication.
 import { asynchronousReplicationLesson } from './content/asynchronous-replication.js';
 import { quorumLesson } from './content/quorum.js';
 import { consistencyLesson } from './content/consistency.js';
+import { eventualConsistencyLesson } from './content/eventual-consistency.js';
+import { strongConsistencyLesson } from './content/strong-consistency.js';
+import { readRepairLesson } from './content/read-repair.js';
+import { antiEntropyLesson } from './content/anti-entropy.js';
+import { verticalPartitioningLesson } from './content/vertical-partitioning.js';
+import { hashPartitioningLesson } from './content/hash-partitioning.js';
+import { rangePartitioningLesson } from './content/range-partitioning.js';
+import { virtualNodesLesson } from './content/virtual-nodes.js';
+import { rebalancingLesson } from './content/rebalancing.js';
+import { hotPartitionsLesson } from './content/hot-partitions.js';
+import { distributedTransactionsLesson } from './content/distributed-transactions.js';
+import { threePhaseCommitLesson } from './content/three-phase-commit.js';
+import { consensusLesson } from './content/consensus.js';
+import { raftConceptsLesson } from './content/raft-concepts.js';
+import { networkPartitionLesson } from './content/network-partition.js';
+import { splitBrainLesson } from './content/split-brain.js';
+import { distributedRecoveryLesson } from './content/distributed-recovery.js';
+import { replicationModelsLesson } from './content/replication-models.js';
+import { partitioningStrategiesLesson } from './content/partitioning-strategies.js';
+import { transactionsAtScaleLesson } from './content/transactions-at-scale.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -251,6 +291,26 @@ const LESSONS = {
   'asynchronous-replication': asynchronousReplicationLesson,
   'quorum': quorumLesson,
   'consistency': consistencyLesson,
+  'eventual-consistency': eventualConsistencyLesson,
+  'strong-consistency': strongConsistencyLesson,
+  'read-repair': readRepairLesson,
+  'anti-entropy': antiEntropyLesson,
+  'vertical-partitioning': verticalPartitioningLesson,
+  'hash-partitioning': hashPartitioningLesson,
+  'range-partitioning': rangePartitioningLesson,
+  'virtual-nodes': virtualNodesLesson,
+  'rebalancing': rebalancingLesson,
+  'hot-partitions': hotPartitionsLesson,
+  'distributed-transactions': distributedTransactionsLesson,
+  'three-phase-commit': threePhaseCommitLesson,
+  'consensus': consensusLesson,
+  'raft-concepts': raftConceptsLesson,
+  'network-partition': networkPartitionLesson,
+  'split-brain': splitBrainLesson,
+  'distributed-recovery': distributedRecoveryLesson,
+  'replication-models': replicationModelsLesson,
+  'partitioning-strategies': partitioningStrategiesLesson,
+  'transactions-at-scale': transactionsAtScaleLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -334,6 +394,26 @@ const SCENES = {
   'asynchronous-replication': renderAsynchronousReplicationScene,
   'quorum': renderQuorumScene,
   'consistency': renderConsistencyScene,
+  'eventual-consistency': renderEventualConsistencyScene,
+  'strong-consistency': renderStrongConsistencyScene,
+  'read-repair': renderReadRepairScene,
+  'anti-entropy': renderAntiEntropyScene,
+  'vertical-partitioning': renderVerticalPartitioningScene,
+  'hash-partitioning': renderHashPartitioningScene,
+  'range-partitioning': renderRangePartitioningScene,
+  'virtual-nodes': renderVirtualNodesScene,
+  'rebalancing': renderRebalancingScene,
+  'hot-partitions': renderHotPartitionsScene,
+  'distributed-transactions': renderDistributedTransactionsScene,
+  'three-phase-commit': renderThreePhaseCommitScene,
+  'consensus': renderConsensusScene,
+  'raft-concepts': renderRaftConceptsScene,
+  'network-partition': renderNetworkPartitionScene,
+  'split-brain': renderSplitBrainScene,
+  'distributed-recovery': renderDistributedRecoveryScene,
+  'replication-models': renderReplicationModelsScene,
+  'partitioning-strategies': renderPartitioningStrategiesScene,
+  'transactions-at-scale': renderTransactionsAtScaleScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };
