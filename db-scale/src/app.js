@@ -665,38 +665,42 @@ function renderStepRail(L, step) {
 function renderNarrative(L, step) {
   const st = L.steps[step];
   mount(document.getElementById('rail'), h('div.rail__inner', [
-    h('div.rail__top', [
-      h('span.rail__stepno', { text: `STEP ${step + 1} / ${L.steps.length}` }),
-      h('span.rail__chaptag.chap--' + st.chapter, { text: (CHAPTER_LABEL[st.chapter] || st.chapter).toUpperCase() }),
+    h('div.rail__scroll', [
+      h('div.rail__top', [
+        h('span.rail__stepno', { text: `STEP ${step + 1} / ${L.steps.length}` }),
+        h('span.rail__chaptag.chap--' + st.chapter, { text: (CHAPTER_LABEL[st.chapter] || st.chapter).toUpperCase() }),
+      ]),
+      h('h2.rail__title', { text: st.title }),
+      h('div.rail__body', st.body.map(p => h('p', { html: p }))),
+      st.changes ? h('ul.changes', st.changes.map(c => {
+        const t = c[0] === '+' ? 'add' : c[0] === '-' ? 'del' : 'mod'; return h('li.change--' + t, { html: c });
+      })) : null,
+      st.callout ? h('div.callout.callout--' + st.callout.kind, [
+        h('span.callout__icon', { html: icon(CALLOUT_ICON[st.callout.kind] || 'check') }), h('span', { html: st.callout.text }),
+      ]) : null,
     ]),
-    h('h2.rail__title', { text: st.title }),
-    h('div.rail__body', st.body.map(p => h('p', { html: p }))),
-    st.changes ? h('ul.changes', st.changes.map(c => {
-      const t = c[0] === '+' ? 'add' : c[0] === '-' ? 'del' : 'mod'; return h('li.change--' + t, { html: c });
-    })) : null,
-    st.callout ? h('div.callout.callout--' + st.callout.kind, [
-      h('span.callout__icon', { html: icon(CALLOUT_ICON[st.callout.kind] || 'check') }), h('span', { html: st.callout.text }),
-    ]) : null,
-    h('div.nav', [
-      h('button.nav__btn', { disabled: step === 0, onClick: () => go({ lesson: L.id, step: step - 1 }) }, '← Back'),
-      (step === L.steps.length - 1
-        ? h('button.nav__btn.nav__btn--primary', { disabled: true }, 'Finish ✓')
-        : h('button.nav__btn.nav__btn--primary', { onClick: () => go({ lesson: L.id, step: step + 1 }) },
-          `Next: ${L.steps[step + 1].short} →`)),
-    ]),
-    h('div.nav-hint', [
-      h('kbd', '←'), h('kbd', '→'), h('span', 'step'),
-      h('span.nav-hint__dot', '·'), h('kbd', 'Home'), h('span', 'restart'),
-    ]),
-    h('div.youll', [
-      h('div.youll__label', 'You will learn'),
-      ...L.goals.map(g => {
-        const done = step >= g.step;
-        return h('button.youll__item' + (done ? '.is-done' : ''), { onClick: () => go({ lesson: L.id, step: g.step }) }, [
-          h('span.youll__box' + (done ? '.is-checked' : ''), done ? { html: icon('check') } : {}),
-          h('span', { html: g.text }),
-        ]);
-      }),
+    h('div.rail__foot', [
+      h('div.nav', [
+        h('button.nav__btn', { disabled: step === 0, onClick: () => go({ lesson: L.id, step: step - 1 }) }, '← Back'),
+        (step === L.steps.length - 1
+          ? h('button.nav__btn.nav__btn--primary', { disabled: true }, 'Finish ✓')
+          : h('button.nav__btn.nav__btn--primary', { onClick: () => go({ lesson: L.id, step: step + 1 }) },
+            `Next: ${L.steps[step + 1].short} →`)),
+      ]),
+      h('div.nav-hint', [
+        h('kbd', '←'), h('kbd', '→'), h('span', 'step'),
+        h('span.nav-hint__dot', '·'), h('kbd', 'Home'), h('span', 'restart'),
+      ]),
+      h('div.youll', [
+        h('div.youll__label', 'You will learn'),
+        ...L.goals.map(g => {
+          const done = step >= g.step;
+          return h('button.youll__item' + (done ? '.is-done' : ''), { onClick: () => go({ lesson: L.id, step: g.step }) }, [
+            h('span.youll__box' + (done ? '.is-checked' : ''), done ? { html: icon('check') } : {}),
+            h('span', { html: g.text }),
+          ]);
+        }),
+      ]),
     ]),
   ]));
 }
