@@ -52,6 +52,20 @@ export const METRICS = {
   blocks:     { label: 'Blocks', fmt: v => v, ic: 'file' },
   fpr:        { label: 'False positives', fmt: v => v + '%', good: 'low', ic: 'alert' },
   bits:       { label: 'Bits / key', fmt: v => v, ic: 'listOrdered' },
+  // ── transactions & concurrency ──
+  txns:       { label: 'Transactions', fmt: v => v, ic: 'merge' },
+  commits:    { label: 'Commits', fmt: v => v, good: 'high', ic: 'check' },
+  aborts:     { label: 'Aborts', fmt: v => v, good: 'low', ic: 'trash' },
+  conns:      { label: 'Connections', fmt: v => v, ic: 'server' },
+  waiting:    { label: 'Waiting', fmt: v => v, good: 'low', ic: 'clock' },
+  locks:      { label: 'Locks held', fmt: v => v, ic: 'key' },
+  deadlocks:  { label: 'Deadlocks', fmt: v => v, good: 'low', ic: 'alert' },
+  versions:   { label: 'Row versions', fmt: v => v, ic: 'layers' },
+  deadTuples: { label: 'Dead tuples', fmt: v => v, good: 'low', ic: 'trash' },
+  lsn:        { label: 'Log position', fmt: v => v.toLocaleString(), ic: 'listOrdered' },
+  anomalies:  { label: 'Anomalies', fmt: v => v, good: 'low', ic: 'alert' },
+  recoveryT:  { label: 'Recovery time', fmt: v => v + ' s', good: 'low', ic: 'clock' },
+  ckpts:      { label: 'Checkpoints', fmt: v => v, ic: 'target' },
 };
 
 export function renderHud(metrics, show, prev) {

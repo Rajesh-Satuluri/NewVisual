@@ -322,7 +322,7 @@ export const CATALOG = [
         "slug": "connection-pooling",
         "title": "Connection Pooling",
         "icon": "🔌",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -334,55 +334,55 @@ export const CATALOG = [
         "slug": "transactions",
         "title": "ACID Transactions",
         "icon": "⚛️",
-        "built": false
+        "built": true
       },
       {
         "slug": "wal",
         "title": "Write-Ahead Log (WAL)",
         "icon": "📝",
-        "built": false
+        "built": true
       },
       {
         "slug": "mvcc",
         "title": "MVCC",
         "icon": "📸",
-        "built": false
+        "built": true
       },
       {
         "slug": "locking",
         "title": "Locking & Deadlocks",
         "icon": "🔐",
-        "built": false
+        "built": true
       },
       {
         "slug": "vacuum",
         "title": "VACUUM",
         "icon": "🧹",
-        "built": false
+        "built": true
       },
       {
         "slug": "isolation-levels",
         "title": "Isolation Levels",
         "icon": "📊",
-        "built": false
+        "built": true
       },
       {
         "slug": "crash-recovery",
         "title": "Crash Recovery",
         "icon": "💥",
-        "built": false
+        "built": true
       },
       {
         "slug": "checkpoints",
         "title": "Checkpoints",
         "icon": "📍",
-        "built": false
+        "built": true
       },
       {
         "slug": "wal-internals",
         "title": "WAL Internals",
         "icon": "🔬",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 50;
+export const BUILT_COUNT = 60;
