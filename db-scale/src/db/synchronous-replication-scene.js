@@ -116,7 +116,6 @@ export function renderSynchronousReplicationScene(snap, opts = {}) {
     badges.push(pill((LX + RPX) / 2, 150, '② replicate', { icon: 'merge', cls: 'pill--sst' }));
     badges.push(pill((LX + RPX) / 2, 352, '③ acks', { icon: 'check', cls: 'pill--sst' }));
     badges.push(pill(LX, 420, '④ then OK → client', { icon: 'check', cls: 'pill--sst' }));
-    cap(VW / 2, 500, 'the client hears "committed" only after the replicas ack');
     badges.push(cap(VW / 2, 500, 'the client hears "committed" only after the replicas ack'));
     flows.push({ id: 'out', kind: 'write', speed: 150, size: 6 }, { id: 'in', kind: 'read', speed: 150, size: 5 });
     return assemble({ grid, halos, shadows, solids, overlays, badges, guides, railIn, railOut, flows, note: snap.note });
