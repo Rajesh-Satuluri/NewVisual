@@ -640,67 +640,67 @@ export const CATALOG = [
         "slug": "consistency-and-consensus",
         "title": "Consistency & Consensus",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "batch-processing",
         "title": "Batch Processing",
         "icon": "🏭",
-        "built": false
+        "built": true
       },
       {
         "slug": "stream-processing",
         "title": "Stream Processing",
         "icon": "🌊",
-        "built": false
+        "built": true
       },
       {
         "slug": "event-logs",
         "title": "Event Logs",
         "icon": "📜",
-        "built": false
+        "built": true
       },
       {
         "slug": "derived-data",
         "title": "Derived Data",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "data-integration",
         "title": "Data Integration",
         "icon": "🔗",
-        "built": false
+        "built": true
       },
       {
         "slug": "cdc",
         "title": "CDC",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "materialized-views",
         "title": "Materialized Views",
         "icon": "👁️",
-        "built": false
+        "built": true
       },
       {
         "slug": "dataflow-architecture",
         "title": "Dataflow Architecture",
         "icon": "🌊",
-        "built": false
+        "built": true
       },
       {
         "slug": "modern-data-systems",
         "title": "Modern Data Systems",
         "icon": "🚀",
-        "built": false
+        "built": true
       },
       {
         "slug": "oltp-cdc-kafka-stream-olap",
         "title": "OLTP→CDC→Kafka→OLAP",
         "icon": "🔗",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -712,55 +712,55 @@ export const CATALOG = [
         "slug": "follow-the-query",
         "title": "Follow the Query",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "follow-the-write",
         "title": "Follow the Write",
         "icon": "✍️",
-        "built": false
+        "built": true
       },
       {
         "slug": "follow-the-transaction",
         "title": "Follow the Transaction",
         "icon": "💳",
-        "built": false
+        "built": true
       },
       {
         "slug": "crash-recovery-lab",
         "title": "Crash Recovery Lab",
         "icon": "💥",
-        "built": false
+        "built": true
       },
       {
         "slug": "bplus-tree-lab",
         "title": "B+ Tree Lab",
         "icon": "🌳",
-        "built": false
+        "built": true
       },
       {
         "slug": "lsm-lab",
         "title": "LSM Lab",
         "icon": "📚",
-        "built": false
+        "built": true
       },
       {
         "slug": "buffer-pool-lab",
         "title": "Buffer Pool Lab",
         "icon": "🏊",
-        "built": false
+        "built": true
       },
       {
         "slug": "query-optimizer-lab",
         "title": "Query Optimizer Lab",
         "icon": "🎯",
-        "built": false
+        "built": true
       },
       {
         "slug": "concurrency-lab",
         "title": "Concurrency Lab",
         "icon": "⚡",
-        "built": false
+        "built": true
       },
       {
         "slug": "replication-lab",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 100;
+export const BUILT_COUNT = 120;
