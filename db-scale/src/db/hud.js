@@ -66,6 +66,19 @@ export const METRICS = {
   anomalies:  { label: 'Anomalies', fmt: v => v, good: 'low', ic: 'alert' },
   recoveryT:  { label: 'Recovery time', fmt: v => v + ' s', good: 'low', ic: 'clock' },
   ckpts:      { label: 'Checkpoints', fmt: v => v, ic: 'target' },
+  // ── distributed systems ──
+  nodes2:     { label: 'Nodes', fmt: v => v, ic: 'server' },
+  replicas:   { label: 'Replicas', fmt: v => v, ic: 'layers' },
+  rf:         { label: 'Replication factor', fmt: v => v + '×', ic: 'merge' },
+  lag:        { label: 'Replica lag', fmt: v => v + ' ms', good: 'low', ic: 'clock' },
+  availability:{ label: 'Availability', fmt: v => v + '%', good: 'high', ic: 'check' },
+  partitions: { label: 'Partitions', fmt: v => v, ic: 'grid' },
+  shards:     { label: 'Shards', fmt: v => v, ic: 'grid' },
+  votes:      { label: 'Votes', fmt: v => v, ic: 'check' },
+  term:       { label: 'Term', fmt: v => v, ic: 'target' },
+  skew:       { label: 'Load skew', fmt: v => v + '%', good: 'low', ic: 'gauge' },
+  hops:       { label: 'Hops', fmt: v => v, good: 'low', ic: 'merge' },
+  keyspace:   { label: 'Keyspace moved', fmt: v => v + '%', good: 'low', ic: 'merge' },
 };
 
 export function renderHud(metrics, show, prev) {
