@@ -108,8 +108,8 @@ export function renderConsistentHashingScene(snap, opts = {}) {
     const E = nodeAt(245, 'E', 'amber', { halo: true });      // new node between C(200) and D(290)
     // keys in (200, 245] now move to E; everything else is untouched
     KEYS.forEach(d => keyAt(d, d > 200 && d <= 245 ? 'rose' : 'slate', { halo: d > 200 && d <= 245 }));
-    badges.push(pill(ringPt(245).x + 150, ringPt(245).y - 30, 'NEW node E', { icon: 'bolt', cls: 'pill--sst' }));
-    badges.push(cap(C.x, C.y + 18, 'only keys between E and C move — ~20%'));
+    badges.push(pill(ringPt(245, 1.52, 1.64).x, ringPt(245, 1.52, 1.64).y, 'NEW node E', { icon: 'bolt', cls: 'pill--sst' }));
+    badges.push(cap(C.x, C.y + 46, 'only keys between E and C move — ~20%'));
     badges.push(pill(C.x, 496, 'the other 80% never budge', { icon: 'check', cls: 'pill--sst' }));
     flows.push({ id: 'in', kind: 'read', speed: 90, size: 5 });
     return assemble({ grid, halos, shadows, solids, overlays, badges, guides, railIn, railOut, flows, note: snap.note });

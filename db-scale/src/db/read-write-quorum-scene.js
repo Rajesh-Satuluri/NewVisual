@@ -122,8 +122,8 @@ export function renderReadWriteQuorumScene(snap, opts = {}) {
     shadows.push(reader.shadow); solids.push(reader.g);
     writeTo(['R1'], true);
     readFrom(['R3'], true);
-    badges.push(pill(writer.x + 150, 150, 'write v5 → R1', { icon: 'bolt', cls: 'pill--sst' }));
-    badges.push(pill(reader.x - 150, 150, 'read v4 ← R3', { icon: 'search', cls: 'pill--sst' }));
+    badges.push(pill(300, 150, 'write v5 → R1', { icon: 'bolt', cls: 'pill--sst' }));
+    badges.push(pill(750, 150, 'read v4 ← R3', { icon: 'search', cls: 'pill--sst' }));
     badges.push(region(690, 420, 300, 120, '', { r: 20 }));
     badges.push(`<text class="iso-region__t" x="840" y="468" text-anchor="middle">STALE READ</text>`);
     badges.push(cap(840, 500, 'write and read missed each other'));
