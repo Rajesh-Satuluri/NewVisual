@@ -514,103 +514,103 @@ export const CATALOG = [
         "slug": "eventual-consistency",
         "title": "Eventual Consistency",
         "icon": "🌊",
-        "built": false
+        "built": true
       },
       {
         "slug": "strong-consistency",
         "title": "Strong Consistency",
         "icon": "💪",
-        "built": false
+        "built": true
       },
       {
         "slug": "read-repair",
         "title": "Read Repair",
         "icon": "🔧",
-        "built": false
+        "built": true
       },
       {
         "slug": "anti-entropy",
         "title": "Anti-Entropy",
         "icon": "🦠",
-        "built": false
+        "built": true
       },
       {
         "slug": "vertical-partitioning",
         "title": "Vertical Partitioning",
         "icon": "📚",
-        "built": false
+        "built": true
       },
       {
         "slug": "hash-partitioning",
         "title": "Hash Partitioning",
         "icon": "🔢",
-        "built": false
+        "built": true
       },
       {
         "slug": "range-partitioning",
         "title": "Range Partitioning",
         "icon": "📏",
-        "built": false
+        "built": true
       },
       {
         "slug": "virtual-nodes",
         "title": "Virtual Nodes",
         "icon": "🟣",
-        "built": false
+        "built": true
       },
       {
         "slug": "rebalancing",
         "title": "Rebalancing",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "hot-partitions",
         "title": "Hot Partitions",
         "icon": "🔥",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-transactions",
         "title": "Distributed Transactions",
         "icon": "🧾",
-        "built": false
+        "built": true
       },
       {
         "slug": "three-phase-commit",
         "title": "Three-Phase Commit",
         "icon": "3️⃣",
-        "built": false
+        "built": true
       },
       {
         "slug": "consensus",
         "title": "Consensus",
         "icon": "🏛️",
-        "built": false
+        "built": true
       },
       {
         "slug": "raft-concepts",
         "title": "Raft Concepts",
         "icon": "🐟",
-        "built": false
+        "built": true
       },
       {
         "slug": "network-partition",
         "title": "Network Partition",
         "icon": "🌩️",
-        "built": false
+        "built": true
       },
       {
         "slug": "split-brain",
         "title": "Split-Brain",
         "icon": "🧠",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-recovery",
         "title": "Distributed Recovery",
         "icon": "🔄",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -622,19 +622,19 @@ export const CATALOG = [
         "slug": "replication-models",
         "title": "Replication Models",
         "icon": "📖",
-        "built": false
+        "built": true
       },
       {
         "slug": "partitioning-strategies",
         "title": "Partitioning Strategies",
         "icon": "🗺️",
-        "built": false
+        "built": true
       },
       {
         "slug": "transactions-at-scale",
         "title": "Transactions at Scale",
         "icon": "💳",
-        "built": false
+        "built": true
       },
       {
         "slug": "consistency-and-consensus",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 80;
+export const BUILT_COUNT = 100;
