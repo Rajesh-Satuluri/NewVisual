@@ -125,6 +125,19 @@ import { renderLsmLabScene } from './db/lsm-lab-scene.js';
 import { renderBufferPoolLabScene } from './db/buffer-pool-lab-scene.js';
 import { renderQueryOptimizerLabScene } from './db/query-optimizer-lab-scene.js';
 import { renderConcurrencyLabScene } from './db/concurrency-lab-scene.js';
+import { renderReplicationLabScene } from './db/replication-lab-scene.js';
+import { renderPartitioningLabScene } from './db/partitioning-lab-scene.js';
+import { renderConsensusLabScene } from './db/consensus-lab-scene.js';
+import { renderDistributedFailureLabScene } from './db/distributed-failure-lab-scene.js';
+import { renderEndToEndDbSimulatorScene } from './db/end-to-end-db-simulator-scene.js';
+import { renderConceptMapScene } from './db/concept-map-scene.js';
+import { renderDbInternalsRoadmapScene } from './db/db-internals-roadmap-scene.js';
+import { renderBookConceptMappingScene } from './db/book-concept-mapping-scene.js';
+import { renderCheatSheetScene } from './db/cheat-sheet-scene.js';
+import { renderInterviewCenterScene } from './db/interview-center-scene.js';
+import { renderMockInterviewScene } from './db/mock-interview-scene.js';
+import { renderQuizScene } from './db/quiz-scene.js';
+import { renderGlossaryScene } from './db/glossary-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -247,6 +260,19 @@ import { lsmLabLesson } from './content/lsm-lab.js';
 import { bufferPoolLabLesson } from './content/buffer-pool-lab.js';
 import { queryOptimizerLabLesson } from './content/query-optimizer-lab.js';
 import { concurrencyLabLesson } from './content/concurrency-lab.js';
+import { replicationLabLesson } from './content/replication-lab.js';
+import { partitioningLabLesson } from './content/partitioning-lab.js';
+import { consensusLabLesson } from './content/consensus-lab.js';
+import { distributedFailureLabLesson } from './content/distributed-failure-lab.js';
+import { endToEndDbSimulatorLesson } from './content/end-to-end-db-simulator.js';
+import { conceptMapLesson } from './content/concept-map.js';
+import { dbInternalsRoadmapLesson } from './content/db-internals-roadmap.js';
+import { bookConceptMappingLesson } from './content/book-concept-mapping.js';
+import { cheatSheetLesson } from './content/cheat-sheet.js';
+import { interviewCenterLesson } from './content/interview-center.js';
+import { mockInterviewLesson } from './content/mock-interview.js';
+import { quizLesson } from './content/quiz.js';
+import { glossaryLesson } from './content/glossary.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -371,6 +397,19 @@ const LESSONS = {
   'buffer-pool-lab': bufferPoolLabLesson,
   'query-optimizer-lab': queryOptimizerLabLesson,
   'concurrency-lab': concurrencyLabLesson,
+  'replication-lab': replicationLabLesson,
+  'partitioning-lab': partitioningLabLesson,
+  'consensus-lab': consensusLabLesson,
+  'distributed-failure-lab': distributedFailureLabLesson,
+  'end-to-end-db-simulator': endToEndDbSimulatorLesson,
+  'concept-map': conceptMapLesson,
+  'db-internals-roadmap': dbInternalsRoadmapLesson,
+  'book-concept-mapping': bookConceptMappingLesson,
+  'cheat-sheet': cheatSheetLesson,
+  'interview-center': interviewCenterLesson,
+  'mock-interview': mockInterviewLesson,
+  'quiz': quizLesson,
+  'glossary': glossaryLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -494,6 +533,19 @@ const SCENES = {
   'buffer-pool-lab': renderBufferPoolLabScene,
   'query-optimizer-lab': renderQueryOptimizerLabScene,
   'concurrency-lab': renderConcurrencyLabScene,
+  'replication-lab': renderReplicationLabScene,
+  'partitioning-lab': renderPartitioningLabScene,
+  'consensus-lab': renderConsensusLabScene,
+  'distributed-failure-lab': renderDistributedFailureLabScene,
+  'end-to-end-db-simulator': renderEndToEndDbSimulatorScene,
+  'concept-map': renderConceptMapScene,
+  'db-internals-roadmap': renderDbInternalsRoadmapScene,
+  'book-concept-mapping': renderBookConceptMappingScene,
+  'cheat-sheet': renderCheatSheetScene,
+  'interview-center': renderInterviewCenterScene,
+  'mock-interview': renderMockInterviewScene,
+  'quiz': renderQuizScene,
+  'glossary': renderGlossaryScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };

@@ -766,31 +766,31 @@ export const CATALOG = [
         "slug": "replication-lab",
         "title": "Replication Lab",
         "icon": "🔁",
-        "built": false
+        "built": true
       },
       {
         "slug": "partitioning-lab",
         "title": "Partitioning Lab",
         "icon": "🗺️",
-        "built": false
+        "built": true
       },
       {
         "slug": "consensus-lab",
         "title": "Consensus Lab",
         "icon": "🗳️",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-failure-lab",
         "title": "Distributed Failure Lab",
         "icon": "🌩️",
-        "built": false
+        "built": true
       },
       {
         "slug": "end-to-end-db-simulator",
         "title": "End-to-End DB Simulator",
         "icon": "🖥️",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -802,52 +802,52 @@ export const CATALOG = [
         "slug": "concept-map",
         "title": "Concept Map",
         "icon": "🗺️",
-        "built": false
+        "built": true
       },
       {
         "slug": "db-internals-roadmap",
         "title": "DB Internals Roadmap",
         "icon": "🛣️",
-        "built": false
+        "built": true
       },
       {
         "slug": "book-concept-mapping",
         "title": "Book Concept Mapping",
         "icon": "📚",
-        "built": false
+        "built": true
       },
       {
         "slug": "cheat-sheet",
         "title": "Cheat Sheet",
         "icon": "📝",
-        "built": false
+        "built": true
       },
       {
         "slug": "interview-center",
         "title": "Interview Center",
         "icon": "💼",
-        "built": false
+        "built": true
       },
       {
         "slug": "mock-interview",
         "title": "Mock Interview",
         "icon": "🎤",
-        "built": false
+        "built": true
       },
       {
         "slug": "quiz",
         "title": "Quiz",
         "icon": "🧪",
-        "built": false
+        "built": true
       },
       {
         "slug": "glossary",
         "title": "Glossary",
         "icon": "📖",
-        "built": false
+        "built": true
       }
     ]
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 120;
+export const BUILT_COUNT = 133;
