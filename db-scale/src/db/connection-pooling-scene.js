@@ -168,15 +168,7 @@ export function renderConnectionPoolingScene(snap, opts = {}) {
 
   else if (view === 'recap') {
     const tags = ['reused, not reopened', 'bounded concurrency', 'DB protected', 'steady low latency'];
-    tags.forEach((t, i) => badges.push(pill(POOL_X, POOL_Y + POOL_H + 26 + i * 0, t, { icon: 'check', w: 210 })));
-    // place recap tags in a tidy vertical stack to the right of the DB base instead
-    badges.length && 0;
-  }
-
-  if (view === 'recap') {
-    // override: clean tag stack under the pool
-    const tags = ['reused, not reopened', 'bounded concurrency', 'DB protected', 'steady latency'];
-    // remove the duplicate tags pushed above by rebuilding is overkill; they were placed at same y.
+    tags.forEach((t, i) => badges.push(pill(POOL_X, POOL_Y + POOL_H + 28 + i * 40, t, { icon: 'check', w: 230 })));
   }
 
   return assemble({ grid, halos, shadows, solids, overlays, badges, guides, railIn, railOut, flows, note: snap.note });
