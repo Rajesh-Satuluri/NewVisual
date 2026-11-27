@@ -87,6 +87,11 @@ export const METRICS = {
   repairs:    { label: 'Repairs', fmt: v => v, ic: 'check' },
   divergence: { label: 'Divergence', fmt: v => v + '%', good: 'low', ic: 'alert' },
   rps:        { label: 'Requests', fmt: v => v + '/s', good: 'high', ic: 'bolt' },
+  // ── data-intensive / streaming ──
+  events:     { label: 'Events', fmt: v => v, ic: 'listOrdered' },
+  offset:     { label: 'Log offset', fmt: v => v.toLocaleString(), ic: 'listOrdered' },
+  freshness:  { label: 'Freshness', fmt: v => v + ' ms', good: 'low', ic: 'clock' },
+  backlog:    { label: 'Backlog', fmt: v => v, good: 'low', ic: 'layers' },
 };
 
 export function renderHud(metrics, show, prev) {
