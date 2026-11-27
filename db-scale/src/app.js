@@ -65,6 +65,16 @@ import { renderIsolationLevelsScene } from './db/isolation-levels-scene.js';
 import { renderCrashRecoveryScene } from './db/crash-recovery-scene.js';
 import { renderCheckpointsScene } from './db/checkpoints-scene.js';
 import { renderWalInternalsScene } from './db/wal-internals-scene.js';
+import { renderReplicationScene } from './db/replication-scene.js';
+import { renderPartitioningScene } from './db/partitioning-scene.js';
+import { renderCapTheoremScene } from './db/cap-theorem-scene.js';
+import { renderTwoPhaseCommitScene } from './db/two-phase-commit-scene.js';
+import { renderConsistentHashingScene } from './db/consistent-hashing-scene.js';
+import { renderDatabaseShardingScene } from './db/database-sharding-scene.js';
+import { renderRaftConsensusScene } from './db/raft-consensus-scene.js';
+import { renderReadWriteQuorumScene } from './db/read-write-quorum-scene.js';
+import { renderDistributedOverviewScene } from './db/distributed-overview-scene.js';
+import { renderFailureModesScene } from './db/failure-modes-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { lsmLesson } from './content/lsm.js';
@@ -127,6 +137,16 @@ import { isolationLevelsLesson } from './content/isolation-levels.js';
 import { crashRecoveryLesson } from './content/crash-recovery.js';
 import { checkpointsLesson } from './content/checkpoints.js';
 import { walInternalsLesson } from './content/wal-internals.js';
+import { replicationLesson } from './content/replication.js';
+import { partitioningLesson } from './content/partitioning.js';
+import { capTheoremLesson } from './content/cap-theorem.js';
+import { twoPhaseCommitLesson } from './content/two-phase-commit.js';
+import { consistentHashingLesson } from './content/consistent-hashing.js';
+import { databaseShardingLesson } from './content/database-sharding.js';
+import { raftConsensusLesson } from './content/raft-consensus.js';
+import { readWriteQuorumLesson } from './content/read-write-quorum.js';
+import { distributedOverviewLesson } from './content/distributed-overview.js';
+import { failureModesLesson } from './content/failure-modes.js';
 import { createLsm } from './kernels/lsm.mjs';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
@@ -191,6 +211,16 @@ const LESSONS = {
   'crash-recovery': crashRecoveryLesson,
   'checkpoints': checkpointsLesson,
   'wal-internals': walInternalsLesson,
+  'replication': replicationLesson,
+  'partitioning': partitioningLesson,
+  'cap-theorem': capTheoremLesson,
+  'two-phase-commit': twoPhaseCommitLesson,
+  'consistent-hashing': consistentHashingLesson,
+  'database-sharding': databaseShardingLesson,
+  'raft-consensus': raftConsensusLesson,
+  'read-write-quorum': readWriteQuorumLesson,
+  'distributed-overview': distributedOverviewLesson,
+  'failure-modes': failureModesLesson,
 };
 // per-lesson scene renderer (all share the iso3d visual vocabulary)
 const SCENES = {
@@ -254,6 +284,16 @@ const SCENES = {
   'crash-recovery': renderCrashRecoveryScene,
   'checkpoints': renderCheckpointsScene,
   'wal-internals': renderWalInternalsScene,
+  'replication': renderReplicationScene,
+  'partitioning': renderPartitioningScene,
+  'cap-theorem': renderCapTheoremScene,
+  'two-phase-commit': renderTwoPhaseCommitScene,
+  'consistent-hashing': renderConsistentHashingScene,
+  'database-sharding': renderDatabaseShardingScene,
+  'raft-consensus': renderRaftConsensusScene,
+  'read-write-quorum': renderReadWriteQuorumScene,
+  'distributed-overview': renderDistributedOverviewScene,
+  'failure-modes': renderFailureModesScene,
 };
 const TABS = ['Learn', 'Practice', 'Design Lab', 'Cheatsheets'];
 const TAB_ICON = { 'Learn': 'book', 'Practice': 'target', 'Design Lab': 'sliders', 'Cheatsheets': 'grid' };

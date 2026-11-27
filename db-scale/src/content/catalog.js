@@ -394,61 +394,61 @@ export const CATALOG = [
         "slug": "replication",
         "title": "Replication",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "partitioning",
         "title": "Partitioning",
         "icon": "🧩",
-        "built": false
+        "built": true
       },
       {
         "slug": "cap-theorem",
         "title": "CAP Theorem",
         "icon": "🎯",
-        "built": false
+        "built": true
       },
       {
         "slug": "two-phase-commit",
         "title": "Two-Phase Commit",
         "icon": "🤝",
-        "built": false
+        "built": true
       },
       {
         "slug": "consistent-hashing",
         "title": "Consistent Hashing",
         "icon": "⭕",
-        "built": false
+        "built": true
       },
       {
         "slug": "database-sharding",
         "title": "Database Sharding",
         "icon": "🗄️",
-        "built": false
+        "built": true
       },
       {
         "slug": "raft-consensus",
         "title": "Raft Consensus",
         "icon": "🗳️",
-        "built": false
+        "built": true
       },
       {
         "slug": "read-write-quorum",
         "title": "Read/Write Quorum",
         "icon": "🔢",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-overview",
         "title": "Distributed DB",
         "icon": "🌐",
-        "built": false
+        "built": true
       },
       {
         "slug": "failure-modes",
         "title": "Nodes",
         "icon": "🖥️",
-        "built": false
+        "built": true
       },
       {
         "slug": "network-communication",
@@ -850,4 +850,4 @@ export const CATALOG = [
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 60;
+export const BUILT_COUNT = 70;
