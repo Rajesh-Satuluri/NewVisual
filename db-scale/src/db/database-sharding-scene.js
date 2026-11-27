@@ -83,7 +83,6 @@ export function renderDatabaseShardingScene(snap, opts = {}) {
     badges.push(`<text class="iso-region__t" x="${VW / 2}" y="238" text-anchor="middle">FOUR INDEPENDENT DATABASES</text>`);
     badges.push(pill(VW / 2, 470, 'rows split by shard key  ·  user_id', { icon: 'key', cls: 'pill--sst' }));
     badges.push(cap(VW / 2, 508, 'each shard = a full database holding 1/4 of the rows'));
-    flows.push();
     return assemble({ grid, halos, shadows, solids, overlays, badges, guides, railIn, railOut, flows, note: snap.note });
   }
 
