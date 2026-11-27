@@ -130,7 +130,7 @@ export function renderCrashRecoveryScene(snap, opts = {}) {
     guides.push(e.guide); railOut = e.d;
     badges.push(pill(760, 150, '← walk backward', { icon: 'trash', cls: 'pill--sst' }));
     badges.push(`<text class="sst-cap" x="${HEAP_CX}" y="${A(HEAP_CY + 74)}" text-anchor="middle">2 unfinished txns reversed — winners untouched</text>`);
-    badges.push(pill(WAL_CX, WAL_CY + 70, 'each undo logged as a CLR', { icon: 'listOrdered', cls: 'pill--sst' }));
+    badges.push(pill(WAL_CX, wal.base[1] + 30, 'each undo logged as a CLR', { icon: 'listOrdered', cls: 'pill--sst' }));
     return assemble({ grid, halos, shadows, solids, overlays, badges, guides, railIn: null, railOut,
       flows: [{ id: 'out', kind: 'write', speed: 140, size: 6 }], note: snap.note });
   }

@@ -153,17 +153,18 @@ export function renderWalInternalsScene(snap, opts = {}) {
       { x: 540, mat: 'lilac', state: 'archived', sub: 'shipped' },
       { x: 720, mat: 'amber', state: 'ACTIVE', sub: 'appends', halo: true },
     ];
-    segs.forEach(s => {
+    const segCubes = segs.map(s => {
       const c = isoCube(s.x, 250, 74, 70, s.mat, { icon: 'file', label: '16 MB', sub: s.sub, iconSize: 18, halo: !!s.halo });
       shadows.push(c.shadow); if (s.halo) halos.push(c.halo); solids.push(c.g);
       badges.push(pill(s.x, 150, s.state, { cls: 'pill--sst' }));
+      return c;
     });
     // append into the active segment
-    const ap = edge([V(900, 180), V(820, 220), V(segs[3].top[0] + 20, segs[3].top[1])], { arrow: true });
+    const ap = edge([V(900, 180), V(820, 220), V(segCubes[3].top[0] + 20, segCubes[3].top[1])], { arrow: true });
     guides.push(ap.guide); railOut = ap.d;
     badges.push(pill(912, 160, 'new records', { icon: 'flush', cls: 'pill--sst' }));
     // archive hand-off + recycle loop
-    const ar = edge([V(segs[3].verts.W.x, 360), V(540, 400), V(360, 360)], { arrow: true, dashed: true });
+    const ar = edge([V(segCubes[3].verts.W.x, 360), V(540, 400), V(360, 360)], { arrow: true, dashed: true });
     guides.push(ar.guide);
     badges.push(cap(540, 418, 'filled → archived'));
     const rc = edge([V(360, 372), V(270, 420), V(180, 372)], { arrow: true, dashed: true });
