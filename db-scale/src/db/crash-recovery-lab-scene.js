@@ -45,10 +45,10 @@ export function renderCrashRecoveryLabScene(snap, opts = {}) {
     return c;
   };
 
-  // a flat log record tile
+  // a flat log record (a short cube so label/sub/icon still render)
   const rec = (i, label, mat, o = {}) => {
     const x = logX(i);
-    const c = isoTile(x, LOGY, o.rx || 40, mat, { label, sub: o.sub || '', icon: o.icon || '', iconSize: 14, ghost: !!o.ghost, halo: !!o.halo });
+    const c = isoCube(x, LOGY, o.rx || 40, 20, mat, { label, sub: o.sub || '', icon: o.icon || 'listOrdered', iconSize: 13, ghost: !!o.ghost, halo: !!o.halo });
     shadows.push(c.shadow); if (o.halo) halos.push(c.halo); solids.push(c.g);
     return x;
   };
