@@ -62,10 +62,10 @@ export function mount(container) {
     resultsEl.innerHTML = `
       <div class="study-count">${rows.length} question${rows.length > 1 ? 's' : ''}</div>
       <div class="iq-list">
-        ${rows.map((x) => `
+        ${rows.map((x, i) => `
           <div class="iq-item" data-iqkey="${x.moduleId}#${x.idx}" data-mid="${x.moduleId}">
             <div class="iq-question" role="button" tabindex="0" aria-expanded="false">
-              <span class="q-num">${x.moduleNum}</span>
+              <span class="q-num">${i + 1}</span>
               <span class="q-text" style="flex:1">${x.q}</span>
               <span class="q-chevron">▼</span>
             </div>
