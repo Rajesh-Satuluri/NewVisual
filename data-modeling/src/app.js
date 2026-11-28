@@ -47,6 +47,19 @@ import { renderRolePlayingDimensionsScene } from './db/role-playing-dimensions-s
 import { renderBusMatrixScene } from './db/bus-matrix-scene.js';
 import { renderAggregateTablesScene } from './db/aggregate-tables-scene.js';
 import { renderFactlessFactsScene } from './db/factless-facts-scene.js';
+import { renderDocumentModelingScene } from './db/document-modeling-scene.js';
+import { renderSingleTableDesignScene } from './db/single-table-design-scene.js';
+import { renderQueryFirstDesignScene } from './db/query-first-design-scene.js';
+import { renderEmbeddingVsReferencingScene } from './db/embedding-vs-referencing-scene.js';
+import { renderKeyValueModelingScene } from './db/key-value-modeling-scene.js';
+import { renderWideColumnModelingScene } from './db/wide-column-modeling-scene.js';
+import { renderPartitionClusteringKeysScene } from './db/partition-clustering-keys-scene.js';
+import { renderSecondaryIndexesNosqlScene } from './db/secondary-indexes-nosql-scene.js';
+import { renderMaterializedAggregatesScene } from './db/materialized-aggregates-scene.js';
+import { renderWriteVsReadOptimizationScene } from './db/write-vs-read-optimization-scene.js';
+import { renderPolyglotPersistenceScene } from './db/polyglot-persistence-scene.js';
+import { renderHotKeyHandlingScene } from './db/hot-key-handling-scene.js';
+import { renderTimeSeriesModelingScene } from './db/time-series-modeling-scene.js';
 import { renderStarSchemaScene } from './db/star-schema-scene.js';
 import { renderNormalizationLabScene } from './db/normalization-lab-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
@@ -92,6 +105,19 @@ import { rolePlayingDimensionsLesson } from './content/role-playing-dimensions.j
 import { busMatrixLesson } from './content/bus-matrix.js';
 import { aggregateTablesLesson } from './content/aggregate-tables.js';
 import { factlessFactsLesson } from './content/factless-facts.js';
+import { documentModelingLesson } from './content/document-modeling.js';
+import { singleTableDesignLesson } from './content/single-table-design.js';
+import { queryFirstDesignLesson } from './content/query-first-design.js';
+import { embeddingVsReferencingLesson } from './content/embedding-vs-referencing.js';
+import { keyValueModelingLesson } from './content/key-value-modeling.js';
+import { wideColumnModelingLesson } from './content/wide-column-modeling.js';
+import { partitionClusteringKeysLesson } from './content/partition-clustering-keys.js';
+import { secondaryIndexesNosqlLesson } from './content/secondary-indexes-nosql.js';
+import { materializedAggregatesLesson } from './content/materialized-aggregates.js';
+import { writeVsReadOptimizationLesson } from './content/write-vs-read-optimization.js';
+import { polyglotPersistenceLesson } from './content/polyglot-persistence.js';
+import { hotKeyHandlingLesson } from './content/hot-key-handling.js';
+import { timeSeriesModelingLesson } from './content/time-series-modeling.js';
 import { starSchemaLesson } from './content/star-schema.js';
 import { normalizationLabLesson } from './content/normalization-lab.js';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
@@ -138,6 +164,19 @@ const LESSONS = {
   'bus-matrix': busMatrixLesson,
   'aggregate-tables': aggregateTablesLesson,
   'factless-facts': factlessFactsLesson,
+  'document-modeling': documentModelingLesson,
+  'single-table-design': singleTableDesignLesson,
+  'query-first-design': queryFirstDesignLesson,
+  'embedding-vs-referencing': embeddingVsReferencingLesson,
+  'key-value-modeling': keyValueModelingLesson,
+  'wide-column-modeling': wideColumnModelingLesson,
+  'partition-clustering-keys': partitionClusteringKeysLesson,
+  'secondary-indexes-nosql': secondaryIndexesNosqlLesson,
+  'materialized-aggregates': materializedAggregatesLesson,
+  'write-vs-read-optimization': writeVsReadOptimizationLesson,
+  'polyglot-persistence': polyglotPersistenceLesson,
+  'hot-key-handling': hotKeyHandlingLesson,
+  'time-series-modeling': timeSeriesModelingLesson,
   'star-schema': starSchemaLesson,
   'normalization-lab': normalizationLabLesson,
 };
@@ -184,6 +223,19 @@ const SCENES = {
   'bus-matrix': renderBusMatrixScene,
   'aggregate-tables': renderAggregateTablesScene,
   'factless-facts': renderFactlessFactsScene,
+  'document-modeling': renderDocumentModelingScene,
+  'single-table-design': renderSingleTableDesignScene,
+  'query-first-design': renderQueryFirstDesignScene,
+  'embedding-vs-referencing': renderEmbeddingVsReferencingScene,
+  'key-value-modeling': renderKeyValueModelingScene,
+  'wide-column-modeling': renderWideColumnModelingScene,
+  'partition-clustering-keys': renderPartitionClusteringKeysScene,
+  'secondary-indexes-nosql': renderSecondaryIndexesNosqlScene,
+  'materialized-aggregates': renderMaterializedAggregatesScene,
+  'write-vs-read-optimization': renderWriteVsReadOptimizationScene,
+  'polyglot-persistence': renderPolyglotPersistenceScene,
+  'hot-key-handling': renderHotKeyHandlingScene,
+  'time-series-modeling': renderTimeSeriesModelingScene,
   'star-schema': renderStarSchemaScene,
   'normalization-lab': renderNormalizationLabScene,
 };

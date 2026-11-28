@@ -280,79 +280,79 @@ export const CATALOG = [
         "slug": "query-first-design",
         "title": "Query-First Design",
         "icon": "❓",
-        "built": false
+        "built": true
       },
       {
         "slug": "document-modeling",
         "title": "Document Modeling",
         "icon": "📄",
-        "built": false
+        "built": true
       },
       {
         "slug": "embedding-vs-referencing",
         "title": "Embedding vs Referencing",
         "icon": "🪆",
-        "built": false
+        "built": true
       },
       {
         "slug": "key-value-modeling",
         "title": "Key-Value Modeling",
         "icon": "🗝️",
-        "built": false
+        "built": true
       },
       {
         "slug": "wide-column-modeling",
         "title": "Wide-Column Modeling",
         "icon": "🏛️",
-        "built": false
+        "built": true
       },
       {
         "slug": "partition-clustering-keys",
         "title": "Partition & Clustering Keys",
         "icon": "🧱",
-        "built": false
+        "built": true
       },
       {
         "slug": "single-table-design",
         "title": "Single-Table Design",
         "icon": "🍱",
-        "built": false
+        "built": true
       },
       {
         "slug": "secondary-indexes-nosql",
         "title": "Secondary Indexes (GSI/LSI)",
         "icon": "🗂️",
-        "built": false
+        "built": true
       },
       {
         "slug": "materialized-aggregates",
         "title": "Materialized Aggregates",
         "icon": "🧊",
-        "built": false
+        "built": true
       },
       {
         "slug": "write-vs-read-optimization",
         "title": "Write vs Read Optimization",
         "icon": "✍️",
-        "built": false
+        "built": true
       },
       {
         "slug": "polyglot-persistence",
         "title": "Polyglot Persistence",
         "icon": "🗣️",
-        "built": false
+        "built": true
       },
       {
         "slug": "hot-key-handling",
         "title": "Hot Keys & Write Sharding",
         "icon": "🔥",
-        "built": false
+        "built": true
       },
       {
         "slug": "time-series-modeling",
         "title": "Time-Series Modeling",
         "icon": "⏱️",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -611,4 +611,4 @@ export const CATALOG = [
 ];
 
 export const TOTAL = 93;
-export const BUILT_COUNT = 43;
+export const BUILT_COUNT = 56;
