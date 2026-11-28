@@ -69,7 +69,7 @@ function compileError(fromId, toId, access) {
   Only models with access: public can be referenced across projects.`;
 }
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is dbt Mesh, and what problem does it solve?',
     a: `dbt Mesh is the pattern of splitting one giant dbt project into <strong>multiple projects</strong> — typically one per team or domain — that still share models through governed interfaces. As a monolith grows past a few hundred models, every team waits on one CI run, one release, one <code>dbt_project.yml</code>, and ownership blurs. Mesh lets each team own, test, and deploy its <strong>own</strong> project on its own cadence, while a downstream project consumes an upstream one via a <strong>cross-project <code>ref</code></strong> — <code>ref('platform', 'fct_orders')</code> — but only for models the upstream team deliberately exposed as <code>access: public</code>.`,
@@ -111,7 +111,7 @@ export function mount(container) {
 
   buildMesh(container);
   buildMech(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm35');
 }
 
 function nodeSvg(id, access) {

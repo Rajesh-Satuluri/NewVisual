@@ -71,7 +71,7 @@ const RUNTIMES = [
   ['Where it does NOT run', 'Not on your laptop and not inside dbt itself. If your warehouse has no Python runtime (e.g. plain Postgres/Redshift), Python models are not available.'],
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is a dbt Python model, and where does the Python actually run?',
     a: `Instead of a <code>.sql</code> file with a <code>SELECT</code>, a Python model is a <code>.py</code> file with a
@@ -129,7 +129,7 @@ export function mount(container) {
 
   buildDecide(container);
   buildAnatomy(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm38');
 }
 
 function buildDecide(container) {

@@ -86,7 +86,7 @@ where r.refund_amount > o.order_total`,
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is the difference between a data test and a unit test in dbt?',
     a: `<strong>Data tests</strong> (generic + singular) run against <em>real, materialized data</em> and assert properties of it — "no nulls in order_id", "no refund exceeds its order". They catch bad <em>data</em>.
@@ -135,7 +135,7 @@ export function mount(container) {
 
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm22');
 }
 
 function buildLab(container) {

@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'A hiring manager says "dbt is just SQL macros." How do you correct this in 60 seconds?',
     a: `<strong>dbt is a transformation framework. Here's what that actually means:</strong>
@@ -64,7 +64,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm09');
   return cleanup;
 }
 

@@ -49,7 +49,7 @@ const FLAGS = [
   ['--fail-fast', 'Stop the run on the first failure instead of continuing.'],
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is the difference between dbt run, dbt test, and dbt build?',
     a: `<ul>
@@ -95,7 +95,7 @@ export function mount(container) {
   buildLab(container);
   buildTerminal(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm32');
 }
 
 // ── Terminal simulator ───────────────────────────────────────────────────────

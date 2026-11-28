@@ -107,7 +107,7 @@ function download(filename, text, type = 'text/plain') {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-const IQ = [
+export const IQ = [
   { q: 'Why does a staging model live in its own layer instead of just querying the source directly?',
     a: 'Staging is the one place each raw source is renamed, retyped and lightly cleaned, exactly once. Everything downstream refs the staging model, so a column rename in the source is fixed in a single file. It also gives every source a stable, tested interface (<code>stg_orders.order_id</code>) that marts can trust.',
     tip: 'Rule of thumb: staging = 1:1 with a source, views, no joins. Marts = business entities, tables, joins allowed.' },
@@ -204,7 +204,7 @@ duckdb jaffle.duckdb "select * from analytics_marts.fct_orders"</div></div></div
   });
 
   // ── IQ tab ───────────────────────────────────────────────────────────────
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'project-explorer');
 
   injectCodeEnhancements(container);
 }

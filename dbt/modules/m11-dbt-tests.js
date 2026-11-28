@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'What are the four generic dbt tests, and when would you apply each one?',
     a: `<strong>not_null</strong>
@@ -97,7 +97,7 @@ export function mount(container) {
   const cleanup = buildVisual(container);
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm11');
   return cleanup;
 }
 

@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'A healthcare company wants to know which dashboards would break if they rename a column in their patient staging model. How do you answer this question in dbt?',
     a: `<strong>Immediate answer using dbt's DAG:</strong>
@@ -92,7 +92,7 @@ export function mount(container) {
   const cleanup = buildVisual(container);
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm15');
   return cleanup;
 }
 

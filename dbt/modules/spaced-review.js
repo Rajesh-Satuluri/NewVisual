@@ -88,7 +88,7 @@ function stats(state) {
   return { seen, dueNow, mature, total: BANK.length, fresh: BANK.length - seen };
 }
 
-const IQ = [
+export const IQ = [
   { q: 'What problem does spaced repetition actually solve for interview prep?',
     a: 'Massed cramming decays fast — the forgetting curve is steep. Spaced repetition schedules each fact for review just as you are about to forget it, which flattens the curve for a fraction of the total study time. For a 293-question bank you cannot re-read everything daily; SM-2 surfaces only what is <em>due</em>, so effort tracks weakness.',
     tip: 'Grade honestly. Marking a card "Easy" when you fumbled just buries it for weeks.' },
@@ -116,7 +116,7 @@ export function mount(container) {
 
   const reviewTab = container.querySelector('#tab-review');
   const progressTab = container.querySelector('#tab-progress');
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'spaced-review');
 
   let queue = buildQueue(state);
   let pos = 0;

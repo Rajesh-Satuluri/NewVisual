@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'A new engineer joins your data team. They open the dbt project and can understand it within one day. What does that project look like?',
     a: `<strong>Project structure:</strong>
@@ -56,7 +56,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm05');
   return cleanup;
 }
 

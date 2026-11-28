@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'A tax calculation rule changes. Describe the blast radius in a system where that logic is duplicated 15 times across different SQL files.',
     a: `<strong>Immediate blast radius:</strong>
@@ -55,7 +55,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm03');
   return cleanup;
 }
 

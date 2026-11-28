@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'Explain ETL architecture and the specific bottlenecks that made it unsuitable for modern analytics teams.',
     a: `<strong>ETL (Extract, Transform, Load):</strong>
@@ -61,7 +61,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm07');
   return cleanup;
 }
 

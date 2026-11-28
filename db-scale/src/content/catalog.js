@@ -196,91 +196,91 @@ export const CATALOG = [
         "slug": "database-files",
         "title": "Database Files",
         "icon": "📁",
-        "built": false
+        "built": true
       },
       {
         "slug": "pages",
         "title": "Pages",
         "icon": "📄",
-        "built": false
+        "built": true
       },
       {
         "slug": "records-tuples",
         "title": "Records & Tuples",
         "icon": "📦",
-        "built": false
+        "built": true
       },
       {
         "slug": "slotted-pages",
         "title": "Slotted Pages",
         "icon": "🧩",
-        "built": false
+        "built": true
       },
       {
         "slug": "buffer-pool",
         "title": "Buffer Pool",
         "icon": "🏊",
-        "built": false
+        "built": true
       },
       {
         "slug": "buffer-pool-replacement",
         "title": "Buffer Pool Replacement",
         "icon": "♻️",
-        "built": false
+        "built": true
       },
       {
         "slug": "page-cache",
         "title": "Page Cache",
         "icon": "💭",
-        "built": false
+        "built": true
       },
       {
         "slug": "disk-io",
         "title": "Disk I/O",
         "icon": "💿",
-        "built": false
+        "built": true
       },
       {
         "slug": "sequential-vs-random-io",
         "title": "Sequential vs Random I/O",
         "icon": "⏩",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-tree",
         "title": "B-Tree",
         "icon": "🌲",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree",
         "title": "B+ Tree",
         "icon": "🌳",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-search",
         "title": "B+ Tree Search",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-insert",
         "title": "B+ Tree Insert",
         "icon": "➕",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-delete",
         "title": "B+ Tree Delete",
         "icon": "➖",
-        "built": false
+        "built": true
       },
       {
         "slug": "b-plus-tree-root-split",
         "title": "B+ Tree Split",
         "icon": "✂️",
-        "built": false
+        "built": true
       },
       {
         "slug": "lsm-tree",
@@ -292,37 +292,37 @@ export const CATALOG = [
         "slug": "memtable-wal",
         "title": "MemTable & WAL",
         "icon": "🧠",
-        "built": false
+        "built": true
       },
       {
         "slug": "sstable",
         "title": "SSTable",
         "icon": "🗄️",
-        "built": false
+        "built": true
       },
       {
         "slug": "bloom-filter",
         "title": "Bloom Filter",
         "icon": "🌸",
-        "built": false
+        "built": true
       },
       {
         "slug": "lsm-compaction",
         "title": "LSM Compaction",
         "icon": "🗜️",
-        "built": false
+        "built": true
       },
       {
         "slug": "index-types",
         "title": "Index Types",
         "icon": "🗂️",
-        "built": false
+        "built": true
       },
       {
         "slug": "connection-pooling",
         "title": "Connection Pooling",
         "icon": "🔌",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -334,55 +334,55 @@ export const CATALOG = [
         "slug": "transactions",
         "title": "ACID Transactions",
         "icon": "⚛️",
-        "built": false
+        "built": true
       },
       {
         "slug": "wal",
         "title": "Write-Ahead Log (WAL)",
         "icon": "📝",
-        "built": false
+        "built": true
       },
       {
         "slug": "mvcc",
         "title": "MVCC",
         "icon": "📸",
-        "built": false
+        "built": true
       },
       {
         "slug": "locking",
         "title": "Locking & Deadlocks",
         "icon": "🔐",
-        "built": false
+        "built": true
       },
       {
         "slug": "vacuum",
         "title": "VACUUM",
         "icon": "🧹",
-        "built": false
+        "built": true
       },
       {
         "slug": "isolation-levels",
         "title": "Isolation Levels",
         "icon": "📊",
-        "built": false
+        "built": true
       },
       {
         "slug": "crash-recovery",
         "title": "Crash Recovery",
         "icon": "💥",
-        "built": false
+        "built": true
       },
       {
         "slug": "checkpoints",
         "title": "Checkpoints",
         "icon": "📍",
-        "built": false
+        "built": true
       },
       {
         "slug": "wal-internals",
         "title": "WAL Internals",
         "icon": "🔬",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -394,223 +394,223 @@ export const CATALOG = [
         "slug": "replication",
         "title": "Replication",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "partitioning",
         "title": "Partitioning",
         "icon": "🧩",
-        "built": false
+        "built": true
       },
       {
         "slug": "cap-theorem",
         "title": "CAP Theorem",
         "icon": "🎯",
-        "built": false
+        "built": true
       },
       {
         "slug": "two-phase-commit",
         "title": "Two-Phase Commit",
         "icon": "🤝",
-        "built": false
+        "built": true
       },
       {
         "slug": "consistent-hashing",
         "title": "Consistent Hashing",
         "icon": "⭕",
-        "built": false
+        "built": true
       },
       {
         "slug": "database-sharding",
         "title": "Database Sharding",
         "icon": "🗄️",
-        "built": false
+        "built": true
       },
       {
         "slug": "raft-consensus",
         "title": "Raft Consensus",
         "icon": "🗳️",
-        "built": false
+        "built": true
       },
       {
         "slug": "read-write-quorum",
         "title": "Read/Write Quorum",
         "icon": "🔢",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-overview",
         "title": "Distributed DB",
         "icon": "🌐",
-        "built": false
+        "built": true
       },
       {
         "slug": "failure-modes",
         "title": "Nodes",
         "icon": "🖥️",
-        "built": false
+        "built": true
       },
       {
         "slug": "network-communication",
         "title": "Network Communication",
         "icon": "📡",
-        "built": false
+        "built": true
       },
       {
         "slug": "partial-failure",
         "title": "Partial Failure",
         "icon": "⚠️",
-        "built": false
+        "built": true
       },
       {
         "slug": "failure-detection",
         "title": "Failure Detection",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "heartbeats",
         "title": "Heartbeats",
         "icon": "💗",
-        "built": false
+        "built": true
       },
       {
         "slug": "leader-election",
         "title": "Leader Election",
         "icon": "👑",
-        "built": false
+        "built": true
       },
       {
         "slug": "multi-leader-replication",
         "title": "Multi-Leader Replication",
         "icon": "🔀",
-        "built": false
+        "built": true
       },
       {
         "slug": "synchronous-replication",
         "title": "Synchronous Replication",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "asynchronous-replication",
         "title": "Asynchronous Replication",
         "icon": "⏳",
-        "built": false
+        "built": true
       },
       {
         "slug": "quorum",
         "title": "Quorum",
         "icon": "🧮",
-        "built": false
+        "built": true
       },
       {
         "slug": "consistency",
         "title": "Consistency",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "eventual-consistency",
         "title": "Eventual Consistency",
         "icon": "🌊",
-        "built": false
+        "built": true
       },
       {
         "slug": "strong-consistency",
         "title": "Strong Consistency",
         "icon": "💪",
-        "built": false
+        "built": true
       },
       {
         "slug": "read-repair",
         "title": "Read Repair",
         "icon": "🔧",
-        "built": false
+        "built": true
       },
       {
         "slug": "anti-entropy",
         "title": "Anti-Entropy",
         "icon": "🦠",
-        "built": false
+        "built": true
       },
       {
         "slug": "vertical-partitioning",
         "title": "Vertical Partitioning",
         "icon": "📚",
-        "built": false
+        "built": true
       },
       {
         "slug": "hash-partitioning",
         "title": "Hash Partitioning",
         "icon": "🔢",
-        "built": false
+        "built": true
       },
       {
         "slug": "range-partitioning",
         "title": "Range Partitioning",
         "icon": "📏",
-        "built": false
+        "built": true
       },
       {
         "slug": "virtual-nodes",
         "title": "Virtual Nodes",
         "icon": "🟣",
-        "built": false
+        "built": true
       },
       {
         "slug": "rebalancing",
         "title": "Rebalancing",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "hot-partitions",
         "title": "Hot Partitions",
         "icon": "🔥",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-transactions",
         "title": "Distributed Transactions",
         "icon": "🧾",
-        "built": false
+        "built": true
       },
       {
         "slug": "three-phase-commit",
         "title": "Three-Phase Commit",
         "icon": "3️⃣",
-        "built": false
+        "built": true
       },
       {
         "slug": "consensus",
         "title": "Consensus",
         "icon": "🏛️",
-        "built": false
+        "built": true
       },
       {
         "slug": "raft-concepts",
         "title": "Raft Concepts",
         "icon": "🐟",
-        "built": false
+        "built": true
       },
       {
         "slug": "network-partition",
         "title": "Network Partition",
         "icon": "🌩️",
-        "built": false
+        "built": true
       },
       {
         "slug": "split-brain",
         "title": "Split-Brain",
         "icon": "🧠",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-recovery",
         "title": "Distributed Recovery",
         "icon": "🔄",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -622,85 +622,85 @@ export const CATALOG = [
         "slug": "replication-models",
         "title": "Replication Models",
         "icon": "📖",
-        "built": false
+        "built": true
       },
       {
         "slug": "partitioning-strategies",
         "title": "Partitioning Strategies",
         "icon": "🗺️",
-        "built": false
+        "built": true
       },
       {
         "slug": "transactions-at-scale",
         "title": "Transactions at Scale",
         "icon": "💳",
-        "built": false
+        "built": true
       },
       {
         "slug": "consistency-and-consensus",
         "title": "Consistency & Consensus",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "batch-processing",
         "title": "Batch Processing",
         "icon": "🏭",
-        "built": false
+        "built": true
       },
       {
         "slug": "stream-processing",
         "title": "Stream Processing",
         "icon": "🌊",
-        "built": false
+        "built": true
       },
       {
         "slug": "event-logs",
         "title": "Event Logs",
         "icon": "📜",
-        "built": false
+        "built": true
       },
       {
         "slug": "derived-data",
         "title": "Derived Data",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "data-integration",
         "title": "Data Integration",
         "icon": "🔗",
-        "built": false
+        "built": true
       },
       {
         "slug": "cdc",
         "title": "CDC",
         "icon": "🔄",
-        "built": false
+        "built": true
       },
       {
         "slug": "materialized-views",
         "title": "Materialized Views",
         "icon": "👁️",
-        "built": false
+        "built": true
       },
       {
         "slug": "dataflow-architecture",
         "title": "Dataflow Architecture",
         "icon": "🌊",
-        "built": false
+        "built": true
       },
       {
         "slug": "modern-data-systems",
         "title": "Modern Data Systems",
         "icon": "🚀",
-        "built": false
+        "built": true
       },
       {
         "slug": "oltp-cdc-kafka-stream-olap",
         "title": "OLTP→CDC→Kafka→OLAP",
         "icon": "🔗",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -712,85 +712,85 @@ export const CATALOG = [
         "slug": "follow-the-query",
         "title": "Follow the Query",
         "icon": "🔍",
-        "built": false
+        "built": true
       },
       {
         "slug": "follow-the-write",
         "title": "Follow the Write",
         "icon": "✍️",
-        "built": false
+        "built": true
       },
       {
         "slug": "follow-the-transaction",
         "title": "Follow the Transaction",
         "icon": "💳",
-        "built": false
+        "built": true
       },
       {
         "slug": "crash-recovery-lab",
         "title": "Crash Recovery Lab",
         "icon": "💥",
-        "built": false
+        "built": true
       },
       {
         "slug": "bplus-tree-lab",
         "title": "B+ Tree Lab",
         "icon": "🌳",
-        "built": false
+        "built": true
       },
       {
         "slug": "lsm-lab",
         "title": "LSM Lab",
         "icon": "📚",
-        "built": false
+        "built": true
       },
       {
         "slug": "buffer-pool-lab",
         "title": "Buffer Pool Lab",
         "icon": "🏊",
-        "built": false
+        "built": true
       },
       {
         "slug": "query-optimizer-lab",
         "title": "Query Optimizer Lab",
         "icon": "🎯",
-        "built": false
+        "built": true
       },
       {
         "slug": "concurrency-lab",
         "title": "Concurrency Lab",
         "icon": "⚡",
-        "built": false
+        "built": true
       },
       {
         "slug": "replication-lab",
         "title": "Replication Lab",
         "icon": "🔁",
-        "built": false
+        "built": true
       },
       {
         "slug": "partitioning-lab",
         "title": "Partitioning Lab",
         "icon": "🗺️",
-        "built": false
+        "built": true
       },
       {
         "slug": "consensus-lab",
         "title": "Consensus Lab",
         "icon": "🗳️",
-        "built": false
+        "built": true
       },
       {
         "slug": "distributed-failure-lab",
         "title": "Distributed Failure Lab",
         "icon": "🌩️",
-        "built": false
+        "built": true
       },
       {
         "slug": "end-to-end-db-simulator",
         "title": "End-to-End DB Simulator",
         "icon": "🖥️",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -802,52 +802,52 @@ export const CATALOG = [
         "slug": "concept-map",
         "title": "Concept Map",
         "icon": "🗺️",
-        "built": false
+        "built": true
       },
       {
         "slug": "db-internals-roadmap",
         "title": "DB Internals Roadmap",
         "icon": "🛣️",
-        "built": false
+        "built": true
       },
       {
         "slug": "book-concept-mapping",
         "title": "Book Concept Mapping",
         "icon": "📚",
-        "built": false
+        "built": true
       },
       {
         "slug": "cheat-sheet",
         "title": "Cheat Sheet",
         "icon": "📝",
-        "built": false
+        "built": true
       },
       {
         "slug": "interview-center",
         "title": "Interview Center",
         "icon": "💼",
-        "built": false
+        "built": true
       },
       {
         "slug": "mock-interview",
         "title": "Mock Interview",
         "icon": "🎤",
-        "built": false
+        "built": true
       },
       {
         "slug": "quiz",
         "title": "Quiz",
         "icon": "🧪",
-        "built": false
+        "built": true
       },
       {
         "slug": "glossary",
         "title": "Glossary",
         "icon": "📖",
-        "built": false
+        "built": true
       }
     ]
   }
 ];
 export const TOTAL = 133;
-export const BUILT_COUNT = 30;
+export const BUILT_COUNT = 133;

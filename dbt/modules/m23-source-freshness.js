@@ -42,7 +42,7 @@ const CONDITIONS = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is source freshness, and why run it before your transformation build?',
     a: `<code>dbt source freshness</code> checks how recently each source table was loaded, using a <code>loaded_at_field</code> (or warehouse metadata) against <code>warn_after</code> / <code>error_after</code> thresholds.
@@ -81,7 +81,7 @@ export function mount(container) {
 
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm23');
 }
 
 function buildLab(container) {

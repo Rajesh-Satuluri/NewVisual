@@ -19,7 +19,7 @@ const WHEN = [
   ['Reach for dbt', 'Multiple people write SQL, numbers must agree across teams, you need tests + lineage + docs, and you want transformations reviewed in Git like real code.'],
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'Explain the difference between ETL and ELT, and why the industry shifted.',
     a: `<strong>ETL</strong> = Extract → <strong>Transform</strong> (on a separate server) → Load. Transformation happened <em>before</em> data hit the warehouse because storage and compute were expensive and coupled.
@@ -72,5 +72,5 @@ export function mount(container) {
         </div>`).join('')}
     </div>`;
 
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'comparison');
 }

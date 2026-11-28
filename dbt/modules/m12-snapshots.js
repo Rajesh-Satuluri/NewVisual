@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'What is an SCD Type 2, and in what scenarios is it actually necessary?',
     a: `<strong>SCD Type 2 (Slowly Changing Dimension Type 2)</strong> is a pattern where instead of overwriting a changed record, you keep the old row and add a new one — preserving full history via <code>valid_from</code>/<code>valid_to</code> dates.
@@ -103,7 +103,7 @@ export function mount(container) {
   const cleanup = buildVisual(container);
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm12');
   return cleanup;
 }
 

@@ -1,6 +1,6 @@
 import { createModuleShell, createIQSection } from '../components/module-shell.js';
 
-const IQ = [
+export const IQ = [
   {
     q: 'A column in a source table gets renamed from `order_total` to `total_amount`. How do you find every downstream report that breaks, and how do you prevent this class of failure?',
     a: `<strong>Finding the blast radius (reactive):</strong>
@@ -58,7 +58,7 @@ export function mount(container) {
 
   const cleanup = buildVisual(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm04');
   return cleanup;
 }
 

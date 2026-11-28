@@ -74,7 +74,7 @@ const SCEN = [
   },
 ];
 
-const IQ = [
+export const IQ = [
   {
     q: 'A model takes 40 minutes and keeps timing out. Walk me through optimizing it.',
     a: `Diagnose before changing anything:
@@ -125,7 +125,7 @@ export function mount(container) {
 
   buildLab(container);
   buildDetail(container);
-  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ);
+  container.querySelector('#tab-iq').innerHTML = createIQSection(IQ, 'm26');
 }
 
 function buildLab(container) {
