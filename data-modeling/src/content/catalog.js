@@ -130,43 +130,43 @@ export const CATALOG = [
         "slug": "bcnf",
         "title": "Boyce–Codd Normal Form",
         "icon": "🅱️",
-        "built": false
+        "built": true
       },
       {
         "slug": "higher-normal-forms",
         "title": "4NF & 5NF",
         "icon": "🔢",
-        "built": false
+        "built": true
       },
       {
         "slug": "denormalization",
         "title": "Denormalization Tradeoffs",
         "icon": "⚖️",
-        "built": false
+        "built": true
       },
       {
         "slug": "surrogate-natural-keys",
         "title": "Surrogate vs Natural Keys",
         "icon": "🆔",
-        "built": false
+        "built": true
       },
       {
         "slug": "referential-integrity",
         "title": "Referential Integrity",
         "icon": "🔒",
-        "built": false
+        "built": true
       },
       {
         "slug": "indexing-the-model",
         "title": "Indexing the Model",
         "icon": "🗂️",
-        "built": false
+        "built": true
       },
       {
         "slug": "constraints-triggers",
         "title": "Constraints & Triggers",
         "icon": "🧯",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -611,4 +611,4 @@ export const CATALOG = [
 ];
 
 export const TOTAL = 93;
-export const BUILT_COUNT = 21;
+export const BUILT_COUNT = 28;
