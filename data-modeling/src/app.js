@@ -18,6 +18,13 @@ import { renderNullSemanticsScene } from './db/null-semantics-scene.js';
 import { renderBusinessRulesScene } from './db/business-rules-scene.js';
 import { renderWeakStrongEntitiesScene } from './db/weak-strong-entities-scene.js';
 import { renderModelSmellsScene } from './db/model-smells-scene.js';
+import { renderErToRelationalScene } from './db/er-to-relational-scene.js';
+import { renderAssociativeEntitiesScene } from './db/associative-entities-scene.js';
+import { renderSupertypeSubtypeScene } from './db/supertype-subtype-scene.js';
+import { renderFunctionalDependenciesScene } from './db/functional-dependencies-scene.js';
+import { renderFirstNormalFormScene } from './db/first-normal-form-scene.js';
+import { renderSecondNormalFormScene } from './db/second-normal-form-scene.js';
+import { renderThirdNormalFormScene } from './db/third-normal-form-scene.js';
 import { renderStarSchemaScene } from './db/star-schema-scene.js';
 import { renderNormalizationLabScene } from './db/normalization-lab-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
@@ -34,6 +41,13 @@ import { nullSemanticsLesson } from './content/null-semantics.js';
 import { businessRulesLesson } from './content/business-rules.js';
 import { weakStrongEntitiesLesson } from './content/weak-strong-entities.js';
 import { modelSmellsLesson } from './content/model-smells.js';
+import { erToRelationalLesson } from './content/er-to-relational.js';
+import { associativeEntitiesLesson } from './content/associative-entities.js';
+import { supertypeSubtypeLesson } from './content/supertype-subtype.js';
+import { functionalDependenciesLesson } from './content/functional-dependencies.js';
+import { firstNormalFormLesson } from './content/first-normal-form.js';
+import { secondNormalFormLesson } from './content/second-normal-form.js';
+import { thirdNormalFormLesson } from './content/third-normal-form.js';
 import { starSchemaLesson } from './content/star-schema.js';
 import { normalizationLabLesson } from './content/normalization-lab.js';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
@@ -51,6 +65,13 @@ const LESSONS = {
   'business-rules': businessRulesLesson,
   'weak-strong-entities': weakStrongEntitiesLesson,
   'model-smells': modelSmellsLesson,
+  'er-to-relational': erToRelationalLesson,
+  'associative-entities': associativeEntitiesLesson,
+  'supertype-subtype': supertypeSubtypeLesson,
+  'functional-dependencies': functionalDependenciesLesson,
+  'first-normal-form': firstNormalFormLesson,
+  'second-normal-form': secondNormalFormLesson,
+  'third-normal-form': thirdNormalFormLesson,
   'star-schema': starSchemaLesson,
   'normalization-lab': normalizationLabLesson,
 };
@@ -68,6 +89,13 @@ const SCENES = {
   'business-rules': renderBusinessRulesScene,
   'weak-strong-entities': renderWeakStrongEntitiesScene,
   'model-smells': renderModelSmellsScene,
+  'er-to-relational': renderErToRelationalScene,
+  'associative-entities': renderAssociativeEntitiesScene,
+  'supertype-subtype': renderSupertypeSubtypeScene,
+  'functional-dependencies': renderFunctionalDependenciesScene,
+  'first-normal-form': renderFirstNormalFormScene,
+  'second-normal-form': renderSecondNormalFormScene,
+  'third-normal-form': renderThirdNormalFormScene,
   'star-schema': renderStarSchemaScene,
   'normalization-lab': renderNormalizationLabScene,
 };

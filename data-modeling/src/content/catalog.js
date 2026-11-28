@@ -88,43 +88,43 @@ export const CATALOG = [
         "slug": "er-to-relational",
         "title": "ER → Relational Mapping",
         "icon": "🔁",
-        "built": false
+        "built": true
       },
       {
         "slug": "associative-entities",
         "title": "Associative Entities",
         "icon": "🧷",
-        "built": false
+        "built": true
       },
       {
         "slug": "supertype-subtype",
         "title": "Supertype / Subtype",
         "icon": "🧬",
-        "built": false
+        "built": true
       },
       {
         "slug": "functional-dependencies",
         "title": "Functional Dependencies",
         "icon": "➡️",
-        "built": false
+        "built": true
       },
       {
         "slug": "first-normal-form",
         "title": "First Normal Form (1NF)",
         "icon": "1️⃣",
-        "built": false
+        "built": true
       },
       {
         "slug": "second-normal-form",
         "title": "Second Normal Form (2NF)",
         "icon": "2️⃣",
-        "built": false
+        "built": true
       },
       {
         "slug": "third-normal-form",
         "title": "Third Normal Form (3NF)",
         "icon": "3️⃣",
-        "built": false
+        "built": true
       },
       {
         "slug": "bcnf",
@@ -611,4 +611,4 @@ export const CATALOG = [
 ];
 
 export const TOTAL = 93;
-export const BUILT_COUNT = 14;
+export const BUILT_COUNT = 21;
