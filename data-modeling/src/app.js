@@ -32,6 +32,21 @@ import { renderSurrogateNaturalKeysScene } from './db/surrogate-natural-keys-sce
 import { renderReferentialIntegrityScene } from './db/referential-integrity-scene.js';
 import { renderIndexingTheModelScene } from './db/indexing-the-model-scene.js';
 import { renderConstraintsTriggersScene } from './db/constraints-triggers-scene.js';
+import { renderOltpVsOlapScene } from './db/oltp-vs-olap-scene.js';
+import { renderSnowflakeSchemaScene } from './db/snowflake-schema-scene.js';
+import { renderFactTablesScene } from './db/fact-tables-scene.js';
+import { renderFactTableTypesScene } from './db/fact-table-types-scene.js';
+import { renderDimensionTablesScene } from './db/dimension-tables-scene.js';
+import { renderGrainScene } from './db/grain-scene.js';
+import { renderConformedDimensionsScene } from './db/conformed-dimensions-scene.js';
+import { renderScdOverviewScene } from './db/scd-overview-scene.js';
+import { renderScdTypesScene } from './db/scd-types-scene.js';
+import { renderDegenerateJunkDimensionsScene } from './db/degenerate-junk-dimensions-scene.js';
+import { renderBridgeTablesScene } from './db/bridge-tables-scene.js';
+import { renderRolePlayingDimensionsScene } from './db/role-playing-dimensions-scene.js';
+import { renderBusMatrixScene } from './db/bus-matrix-scene.js';
+import { renderAggregateTablesScene } from './db/aggregate-tables-scene.js';
+import { renderFactlessFactsScene } from './db/factless-facts-scene.js';
 import { renderStarSchemaScene } from './db/star-schema-scene.js';
 import { renderNormalizationLabScene } from './db/normalization-lab-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
@@ -62,6 +77,21 @@ import { surrogateNaturalKeysLesson } from './content/surrogate-natural-keys.js'
 import { referentialIntegrityLesson } from './content/referential-integrity.js';
 import { indexingTheModelLesson } from './content/indexing-the-model.js';
 import { constraintsTriggersLesson } from './content/constraints-triggers.js';
+import { oltpVsOlapLesson } from './content/oltp-vs-olap.js';
+import { snowflakeSchemaLesson } from './content/snowflake-schema.js';
+import { factTablesLesson } from './content/fact-tables.js';
+import { factTableTypesLesson } from './content/fact-table-types.js';
+import { dimensionTablesLesson } from './content/dimension-tables.js';
+import { grainLesson } from './content/grain.js';
+import { conformedDimensionsLesson } from './content/conformed-dimensions.js';
+import { scdOverviewLesson } from './content/scd-overview.js';
+import { scdTypesLesson } from './content/scd-types.js';
+import { degenerateJunkDimensionsLesson } from './content/degenerate-junk-dimensions.js';
+import { bridgeTablesLesson } from './content/bridge-tables.js';
+import { rolePlayingDimensionsLesson } from './content/role-playing-dimensions.js';
+import { busMatrixLesson } from './content/bus-matrix.js';
+import { aggregateTablesLesson } from './content/aggregate-tables.js';
+import { factlessFactsLesson } from './content/factless-facts.js';
 import { starSchemaLesson } from './content/star-schema.js';
 import { normalizationLabLesson } from './content/normalization-lab.js';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
@@ -93,6 +123,21 @@ const LESSONS = {
   'referential-integrity': referentialIntegrityLesson,
   'indexing-the-model': indexingTheModelLesson,
   'constraints-triggers': constraintsTriggersLesson,
+  'oltp-vs-olap': oltpVsOlapLesson,
+  'snowflake-schema': snowflakeSchemaLesson,
+  'fact-tables': factTablesLesson,
+  'fact-table-types': factTableTypesLesson,
+  'dimension-tables': dimensionTablesLesson,
+  'grain': grainLesson,
+  'conformed-dimensions': conformedDimensionsLesson,
+  'scd-overview': scdOverviewLesson,
+  'scd-types': scdTypesLesson,
+  'degenerate-junk-dimensions': degenerateJunkDimensionsLesson,
+  'bridge-tables': bridgeTablesLesson,
+  'role-playing-dimensions': rolePlayingDimensionsLesson,
+  'bus-matrix': busMatrixLesson,
+  'aggregate-tables': aggregateTablesLesson,
+  'factless-facts': factlessFactsLesson,
   'star-schema': starSchemaLesson,
   'normalization-lab': normalizationLabLesson,
 };
@@ -124,6 +169,21 @@ const SCENES = {
   'referential-integrity': renderReferentialIntegrityScene,
   'indexing-the-model': renderIndexingTheModelScene,
   'constraints-triggers': renderConstraintsTriggersScene,
+  'oltp-vs-olap': renderOltpVsOlapScene,
+  'snowflake-schema': renderSnowflakeSchemaScene,
+  'fact-tables': renderFactTablesScene,
+  'fact-table-types': renderFactTableTypesScene,
+  'dimension-tables': renderDimensionTablesScene,
+  'grain': renderGrainScene,
+  'conformed-dimensions': renderConformedDimensionsScene,
+  'scd-overview': renderScdOverviewScene,
+  'scd-types': renderScdTypesScene,
+  'degenerate-junk-dimensions': renderDegenerateJunkDimensionsScene,
+  'bridge-tables': renderBridgeTablesScene,
+  'role-playing-dimensions': renderRolePlayingDimensionsScene,
+  'bus-matrix': renderBusMatrixScene,
+  'aggregate-tables': renderAggregateTablesScene,
+  'factless-facts': renderFactlessFactsScene,
   'star-schema': renderStarSchemaScene,
   'normalization-lab': renderNormalizationLabScene,
 };
