@@ -67,7 +67,13 @@ function boot() {
 /* ── Top bar ── */
 function renderTopbar() {
   return h('header.topbar', [
-    h('div.topbar__brand', [h('span.brand__dot'), h('b', 'Data Modeling'), h('span.brand__thin', 'to scale')]),
+    h('div.topbar__brand', [
+      h('span.brand__dot'),
+      h('div.courseswitch', { 'aria-label': 'Course' }, [
+        h('a.courseswitch__opt', { href: '../db-scale/', title: 'Switch to the Database Internals course' }, [h('span.courseswitch__ic', { html: icon('database') }), h('span', 'Database Internals')]),
+        h('span.courseswitch__opt.is-active', { 'aria-current': 'page' }, [h('span.courseswitch__ic', { html: icon('layers') }), h('span', 'Data Modeling')]),
+      ]),
+    ]),
     h('nav.tabs', TABS.map((t, i) => h('button.tab' + (i === 0 ? '.is-active' : ''), { title: i ? 'Coming soon' : '' }, [
       h('span.tab__ic', { html: icon(TAB_ICON[t]) }),
       h('span', { text: t }),
