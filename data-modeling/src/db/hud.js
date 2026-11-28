@@ -107,6 +107,13 @@ export const METRICS = {
   scdVersions:   { label: 'Dim versions', fmt: v => v, ic: 'layers' },
   duplication:   { label: 'Duplicated cells', fmt: v => v, good: 'low', ic: 'alert' },
   scanRows:      { label: 'Rows scanned', fmt: v => v.toLocaleString(), good: 'low', ic: 'search' },
+  // ── NoSQL & access-pattern modeling ──
+  items:         { label: 'Items', fmt: v => typeof v === 'number' ? v.toLocaleString() : v, ic: 'listOrdered' },
+  itemsRead:     { label: 'Items / read', fmt: v => v, good: 'low', ic: 'search' },
+  collections:   { label: 'Item collections', fmt: v => v, ic: 'folder' },
+  copies:        { label: 'Copies / write', fmt: v => v, good: 'low', ic: 'merge' },
+  requests:      { label: 'Round-trips', fmt: v => v, good: 'low', ic: 'bolt' },
+  nesting:       { label: 'Nesting depth', fmt: v => v, ic: 'layers' },
 };
 
 export function renderHud(metrics, show, prev) {
