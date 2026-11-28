@@ -11,6 +11,13 @@ button { font-family: inherit; }
 .topbar__brand { display: flex; align-items: center; gap: 7px; font-size: 15px; }
 .brand__dot { width: 12px; height: 12px; border-radius: 3px; background: var(--accent); }
 .brand__thin { color: var(--ink-2); font-weight: 500; }
+.courseswitch { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.courseswitch__opt { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 13px; font-weight: 600; line-height: 1; color: var(--ink-2); text-decoration: none; white-space: nowrap; cursor: pointer; transition: background .15s, color .15s; }
+.courseswitch__opt .ic { width: 14px; height: 14px; display: block; }
+.courseswitch__ic { display: inline-flex; color: currentColor; }
+.courseswitch__opt:not(.is-active):hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.courseswitch__opt.is-active { background: var(--accent); color: var(--accent-ink); cursor: default; }
+@media (max-width: 900px) { .courseswitch__opt span:not(.courseswitch__ic) { display: none; } .courseswitch__opt { padding: 7px; } }
 .tabs { display: flex; gap: 4px; }
 .tab { display: inline-flex; align-items: center; gap: 7px; border: 0; background: none; color: var(--ink-2);
   font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 20px; cursor: pointer; }
