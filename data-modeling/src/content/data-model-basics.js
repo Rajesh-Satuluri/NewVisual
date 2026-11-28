@@ -12,7 +12,7 @@ export const dataModelBasicsLesson = {
   minutes: 8,
   level: 'beginner',
   metrics: ['entities', 'attributes', 'relations', 'fks'],
-  legend: ['read', 'write'],
+  legend: [],
   goals: [
     { text: 'A data model is a map of the entities a system stores', step: 0 },
     { text: 'Entities are described by typed attributes', step: 1 },
