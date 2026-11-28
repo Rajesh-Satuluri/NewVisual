@@ -178,7 +178,7 @@ export const CATALOG = [
         "slug": "oltp-vs-olap",
         "title": "OLTP vs OLAP",
         "icon": "🔀",
-        "built": false
+        "built": true
       },
       {
         "slug": "star-schema",
@@ -190,85 +190,85 @@ export const CATALOG = [
         "slug": "snowflake-schema",
         "title": "Snowflake Schema",
         "icon": "❄️",
-        "built": false
+        "built": true
       },
       {
         "slug": "fact-tables",
         "title": "Fact Tables",
         "icon": "📊",
-        "built": false
+        "built": true
       },
       {
         "slug": "fact-table-types",
         "title": "Transaction · Periodic · Accumulating",
         "icon": "📈",
-        "built": false
+        "built": true
       },
       {
         "slug": "dimension-tables",
         "title": "Dimension Tables",
         "icon": "📁",
-        "built": false
+        "built": true
       },
       {
         "slug": "grain",
         "title": "Declaring the Grain",
         "icon": "🌾",
-        "built": false
+        "built": true
       },
       {
         "slug": "conformed-dimensions",
         "title": "Conformed Dimensions",
         "icon": "🧭",
-        "built": false
+        "built": true
       },
       {
         "slug": "scd-overview",
         "title": "Slowly-Changing Dimensions",
         "icon": "🕰️",
-        "built": false
+        "built": true
       },
       {
         "slug": "scd-types",
         "title": "SCD Types 0–6",
         "icon": "🔢",
-        "built": false
+        "built": true
       },
       {
         "slug": "degenerate-junk-dimensions",
         "title": "Degenerate & Junk Dimensions",
         "icon": "🎛️",
-        "built": false
+        "built": true
       },
       {
         "slug": "bridge-tables",
         "title": "Bridge Tables",
         "icon": "🌉",
-        "built": false
+        "built": true
       },
       {
         "slug": "role-playing-dimensions",
         "title": "Role-Playing Dimensions",
         "icon": "🎭",
-        "built": false
+        "built": true
       },
       {
         "slug": "bus-matrix",
         "title": "Kimball Bus Matrix",
         "icon": "🚌",
-        "built": false
+        "built": true
       },
       {
         "slug": "aggregate-tables",
         "title": "Aggregate Tables",
         "icon": "🧮",
-        "built": false
+        "built": true
       },
       {
         "slug": "factless-facts",
         "title": "Factless Fact Tables",
         "icon": "🫧",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -611,4 +611,4 @@ export const CATALOG = [
 ];
 
 export const TOTAL = 93;
-export const BUILT_COUNT = 28;
+export const BUILT_COUNT = 43;
