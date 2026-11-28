@@ -25,6 +25,13 @@ import { renderFunctionalDependenciesScene } from './db/functional-dependencies-
 import { renderFirstNormalFormScene } from './db/first-normal-form-scene.js';
 import { renderSecondNormalFormScene } from './db/second-normal-form-scene.js';
 import { renderThirdNormalFormScene } from './db/third-normal-form-scene.js';
+import { renderBcnfScene } from './db/bcnf-scene.js';
+import { renderHigherNormalFormsScene } from './db/higher-normal-forms-scene.js';
+import { renderDenormalizationScene } from './db/denormalization-scene.js';
+import { renderSurrogateNaturalKeysScene } from './db/surrogate-natural-keys-scene.js';
+import { renderReferentialIntegrityScene } from './db/referential-integrity-scene.js';
+import { renderIndexingTheModelScene } from './db/indexing-the-model-scene.js';
+import { renderConstraintsTriggersScene } from './db/constraints-triggers-scene.js';
 import { renderStarSchemaScene } from './db/star-schema-scene.js';
 import { renderNormalizationLabScene } from './db/normalization-lab-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
@@ -48,6 +55,13 @@ import { functionalDependenciesLesson } from './content/functional-dependencies.
 import { firstNormalFormLesson } from './content/first-normal-form.js';
 import { secondNormalFormLesson } from './content/second-normal-form.js';
 import { thirdNormalFormLesson } from './content/third-normal-form.js';
+import { bcnfLesson } from './content/bcnf.js';
+import { higherNormalFormsLesson } from './content/higher-normal-forms.js';
+import { denormalizationLesson } from './content/denormalization.js';
+import { surrogateNaturalKeysLesson } from './content/surrogate-natural-keys.js';
+import { referentialIntegrityLesson } from './content/referential-integrity.js';
+import { indexingTheModelLesson } from './content/indexing-the-model.js';
+import { constraintsTriggersLesson } from './content/constraints-triggers.js';
 import { starSchemaLesson } from './content/star-schema.js';
 import { normalizationLabLesson } from './content/normalization-lab.js';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
@@ -72,6 +86,13 @@ const LESSONS = {
   'first-normal-form': firstNormalFormLesson,
   'second-normal-form': secondNormalFormLesson,
   'third-normal-form': thirdNormalFormLesson,
+  'bcnf': bcnfLesson,
+  'higher-normal-forms': higherNormalFormsLesson,
+  'denormalization': denormalizationLesson,
+  'surrogate-natural-keys': surrogateNaturalKeysLesson,
+  'referential-integrity': referentialIntegrityLesson,
+  'indexing-the-model': indexingTheModelLesson,
+  'constraints-triggers': constraintsTriggersLesson,
   'star-schema': starSchemaLesson,
   'normalization-lab': normalizationLabLesson,
 };
@@ -96,6 +117,13 @@ const SCENES = {
   'first-normal-form': renderFirstNormalFormScene,
   'second-normal-form': renderSecondNormalFormScene,
   'third-normal-form': renderThirdNormalFormScene,
+  'bcnf': renderBcnfScene,
+  'higher-normal-forms': renderHigherNormalFormsScene,
+  'denormalization': renderDenormalizationScene,
+  'surrogate-natural-keys': renderSurrogateNaturalKeysScene,
+  'referential-integrity': renderReferentialIntegrityScene,
+  'indexing-the-model': renderIndexingTheModelScene,
+  'constraints-triggers': renderConstraintsTriggersScene,
   'star-schema': renderStarSchemaScene,
   'normalization-lab': renderNormalizationLabScene,
 };
