@@ -16,67 +16,67 @@ export const CATALOG = [
         "slug": "conceptual-logical-physical",
         "title": "Conceptual · Logical · Physical",
         "icon": "🧱",
-        "built": false
+        "built": true
       },
       {
         "slug": "entities-attributes",
         "title": "Entities & Attributes",
         "icon": "🧩",
-        "built": false
+        "built": true
       },
       {
         "slug": "relationships-cardinality",
         "title": "Relationships & Cardinality",
         "icon": "🔗",
-        "built": false
+        "built": true
       },
       {
         "slug": "keys-identifiers",
         "title": "Keys & Identifiers",
         "icon": "🔑",
-        "built": false
+        "built": true
       },
       {
         "slug": "three-schema-architecture",
         "title": "Three-Schema Architecture",
         "icon": "🏛️",
-        "built": false
+        "built": true
       },
       {
         "slug": "modeling-notations",
         "title": "Modeling Notations",
         "icon": "✒️",
-        "built": false
+        "built": true
       },
       {
         "slug": "data-types-domains",
         "title": "Data Types & Domains",
         "icon": "🔤",
-        "built": false
+        "built": true
       },
       {
         "slug": "null-semantics",
         "title": "Null Semantics",
         "icon": "⬜",
-        "built": false
+        "built": true
       },
       {
         "slug": "business-rules",
         "title": "Business Rules & Constraints",
         "icon": "📜",
-        "built": false
+        "built": true
       },
       {
         "slug": "weak-strong-entities",
         "title": "Weak & Strong Entities",
         "icon": "🫥",
-        "built": false
+        "built": true
       },
       {
         "slug": "model-smells",
         "title": "Model Smells & Quality",
         "icon": "🧪",
-        "built": false
+        "built": true
       }
     ]
   },
@@ -611,4 +611,4 @@ export const CATALOG = [
 ];
 
 export const TOTAL = 93;
-export const BUILT_COUNT = 3;
+export const BUILT_COUNT = 14;

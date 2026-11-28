@@ -7,23 +7,67 @@ import { createStore } from './engine/store.js';
 import { onRoute, go } from './engine/router.js';
 import { createFlowSystem } from './engine/flows.js';
 import { renderDataModelBasicsScene } from './db/data-model-basics-scene.js';
+import { renderConceptualLogicalPhysicalScene } from './db/conceptual-logical-physical-scene.js';
+import { renderEntitiesAttributesScene } from './db/entities-attributes-scene.js';
+import { renderRelationshipsCardinalityScene } from './db/relationships-cardinality-scene.js';
+import { renderKeysIdentifiersScene } from './db/keys-identifiers-scene.js';
+import { renderThreeSchemaArchitectureScene } from './db/three-schema-architecture-scene.js';
+import { renderModelingNotationsScene } from './db/modeling-notations-scene.js';
+import { renderDataTypesDomainsScene } from './db/data-types-domains-scene.js';
+import { renderNullSemanticsScene } from './db/null-semantics-scene.js';
+import { renderBusinessRulesScene } from './db/business-rules-scene.js';
+import { renderWeakStrongEntitiesScene } from './db/weak-strong-entities-scene.js';
+import { renderModelSmellsScene } from './db/model-smells-scene.js';
 import { renderStarSchemaScene } from './db/star-schema-scene.js';
 import { renderNormalizationLabScene } from './db/normalization-lab-scene.js';
 import { renderHud, renderLegend } from './db/hud.js';
 import { icon } from './engine/icons.js';
 import { dataModelBasicsLesson } from './content/data-model-basics.js';
+import { conceptualLogicalPhysicalLesson } from './content/conceptual-logical-physical.js';
+import { entitiesAttributesLesson } from './content/entities-attributes.js';
+import { relationshipsCardinalityLesson } from './content/relationships-cardinality.js';
+import { keysIdentifiersLesson } from './content/keys-identifiers.js';
+import { threeSchemaArchitectureLesson } from './content/three-schema-architecture.js';
+import { modelingNotationsLesson } from './content/modeling-notations.js';
+import { dataTypesDomainsLesson } from './content/data-types-domains.js';
+import { nullSemanticsLesson } from './content/null-semantics.js';
+import { businessRulesLesson } from './content/business-rules.js';
+import { weakStrongEntitiesLesson } from './content/weak-strong-entities.js';
+import { modelSmellsLesson } from './content/model-smells.js';
 import { starSchemaLesson } from './content/star-schema.js';
 import { normalizationLabLesson } from './content/normalization-lab.js';
 import { CATALOG, TOTAL, BUILT_COUNT } from './content/catalog.js';
 
 const LESSONS = {
   'data-model-basics': dataModelBasicsLesson,
+  'conceptual-logical-physical': conceptualLogicalPhysicalLesson,
+  'entities-attributes': entitiesAttributesLesson,
+  'relationships-cardinality': relationshipsCardinalityLesson,
+  'keys-identifiers': keysIdentifiersLesson,
+  'three-schema-architecture': threeSchemaArchitectureLesson,
+  'modeling-notations': modelingNotationsLesson,
+  'data-types-domains': dataTypesDomainsLesson,
+  'null-semantics': nullSemanticsLesson,
+  'business-rules': businessRulesLesson,
+  'weak-strong-entities': weakStrongEntitiesLesson,
+  'model-smells': modelSmellsLesson,
   'star-schema': starSchemaLesson,
   'normalization-lab': normalizationLabLesson,
 };
-// per-lesson scene renderer (all share the iso3d visual vocabulary)
+// per-lesson scene renderer (Foundations lessons share the schema2d canvas)
 const SCENES = {
   'data-model-basics': renderDataModelBasicsScene,
+  'conceptual-logical-physical': renderConceptualLogicalPhysicalScene,
+  'entities-attributes': renderEntitiesAttributesScene,
+  'relationships-cardinality': renderRelationshipsCardinalityScene,
+  'keys-identifiers': renderKeysIdentifiersScene,
+  'three-schema-architecture': renderThreeSchemaArchitectureScene,
+  'modeling-notations': renderModelingNotationsScene,
+  'data-types-domains': renderDataTypesDomainsScene,
+  'null-semantics': renderNullSemanticsScene,
+  'business-rules': renderBusinessRulesScene,
+  'weak-strong-entities': renderWeakStrongEntitiesScene,
+  'model-smells': renderModelSmellsScene,
   'star-schema': renderStarSchemaScene,
   'normalization-lab': renderNormalizationLabScene,
 };
